@@ -1,0 +1,52 @@
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+dist/
+build/
+*.egg-info/
+
+# Node / Vue
+node_modules/
+.vite/
+coverage/
+dist-ssr/
+*.local
+
+# Runtime storage and model artifacts
+chroma_db/
+*.sqlite
+*.sqlite3
+*.db
+models/
+checkpoints/
+*.bin
+*.safetensors
+
+# Project data (keep documentation/placeholders)
+data/raw/*
+data/processed/*
+data/generated/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!data/generated/.gitkeep
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
