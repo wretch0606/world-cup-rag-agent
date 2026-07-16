@@ -526,14 +526,17 @@ def _build_where_filter(filters: dict) -> Optional[dict]:
 
     处理数据中的中英文混合阶段名（如 semi-finals ↔ 半决赛）。
     """
-    # 阶段名中英文对照表
+    # 阶段名对照表（向后兼容旧版英文阶段名）
+    # 新版数据（v1.0）阶段已全部中文化，此映射仅用于处理遗留的英文查询词
     STAGE_ALIASES = {
         "半决赛": ["半决赛", "semi-finals"],
         "1/4决赛": ["1/4决赛", "quarter-finals"],
-        "1/8决赛": ["1/8决赛"],
-        "小组赛": ["小组赛"],
-        "决赛": ["决赛", "final round"],
+        "1/8决赛": ["1/8决赛", "round of 16"],
+        "小组赛": ["小组赛", "group stage"],
+        "决赛": ["决赛", "final"],
         "三四名决赛": ["三四名决赛", "third-place match"],
+        "决赛轮": ["决赛轮", "final round"],
+        "第二轮小组赛": ["第二轮小组赛", "second group stage"],
     }
 
     where_parts = []
@@ -939,6 +942,64 @@ def get_match_detail(match_id: str) -> Optional[dict]:
     return None
 
 
+def get_goal_details(match_id: str) -> list[dict]:
+    """从 worldcup.db 的 goals 表查询一场比赛的全部进球记录。
+
+    返回（按进球时间排序）:
+        [
+            {
+                "player": "Kylian Mbappe",        # 球员全名
+                "team_name": "France",             # 进球方
+                "minute_label": "65'",             # 进球时间
+                "match_period": "second half",     # 比赛阶段
+                "penalty": 0,                      # 是否点球
+                "own_goal": 0,                     # 是否乌龙
+            },
+            ...
+        ]
+    """
+    import sqlite3
+    db_path = _get_match_db_path()
+    if not db_path:
+        return []
+
+    try:
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT given_name, family_name, team_name, minute_label,
+                   match_period, penalty, own_goal
+            FROM goals
+            WHERE match_id = ?
+            ORDER BY minute_regulation
+        """, (match_id,))
+        rows = cur.fetchall()
+        conn.close()
+
+        goals = []
+        for row in rows:
+            r = dict(row)
+            # 组装球员全名（西方习惯：given_name + family_name）
+            first = (r.get("given_name") or "").strip()
+            last = (r.get("family_name") or "").strip()
+            full = f"{first} {last}".strip()
+
+            goals.append({
+                "player": full,
+                "team_name": r.get("team_name", ""),
+                "minute_label": r.get("minute_label", ""),
+                "match_period": r.get("match_period", ""),
+                "penalty": r.get("penalty", 0),
+                "own_goal": r.get("own_goal", 0),
+            })
+
+        return goals
+    except Exception as e:
+        logger.warning(f"查询进球详情失败 ({match_id}): {e}")
+        return []
+
+
 def enrich_result(item: dict) -> dict:
     """增强单条查询结果：添加球队中文名 + match 完整详情。"""
     enriched = dict(item)
@@ -955,6 +1016,12 @@ def enrich_result(item: dict) -> dict:
         detail = get_match_detail(match_id)
         if detail:
             enriched["match_detail"] = detail
+
+    # 3. 从 SQLite 获取进球详情
+    if match_id:
+        goals = get_goal_details(match_id)
+        if goals:
+            enriched["goals"] = goals
 
     return enriched
 
@@ -991,6 +1058,22 @@ def format_result(item: dict, verbose: bool = False) -> str:
             base += f"\n  日期: {date}"
         if venue:
             base += f"\n  场馆: {venue}"
+
+        # 进球详情
+        goals = item.get("goals", [])
+        if goals:
+            goal_lines = []
+            for g in goals[:8]:  # 最多显示 8 球
+                tag = ""
+                if g.get("penalty"):
+                    tag = " (点球)"
+                if g.get("own_goal"):
+                    tag = " (乌龙)"
+                goal_lines.append(f"    {g['minute_label']} {g['player']} [{g['team_name']}]{tag}")
+            if len(goals) > 8:
+                goal_lines.append(f"    ... 还有 {len(goals) - 8} 球")
+            base += "\n  进球:\n" + "\n".join(goal_lines)
+
         doc = item.get("document", "")
         if doc:
             base += f"\n  摘要: {doc[:150]}"

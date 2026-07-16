@@ -1,6 +1,6 @@
 # Chroma 向量数据库模块 — 接口文档（成员 D → 成员 B）
 
-> **版本**：v1.0  
+> **版本**：v1.1（更新：新增进球查询 + 阶段名全中文化）  
 > **维护者**：成员 D  
 > **模块路径**：`backend/services/chroma_service.py`
 
@@ -172,7 +172,7 @@ for item in results:
         "match_id": "M-2014-61",
         "tournament_year": 2014,
         "match_date": "2014-07-08",
-        "stage": "semi-finals",
+        "stage": "半决赛",              # 🆕 现已全部中文化
         "venue": "Estadio Mineirao",
         "home_team": "巴西",           # 已转为中文名
         "away_team": "德国",
@@ -180,22 +180,56 @@ for item in results:
         "winner": "德国",
         "result_type": "regulation",
     },
+    "goals": [                         # 🆕 进球详情
+        {
+            "player": "Thomas Muller",
+            "team_name": "Germany",
+            "minute_label": "11'",
+            "match_period": "first half",
+            "penalty": 0,
+            "own_goal": 0,
+        },
+        # ... 共 8 球
+    ],
 }
 ```
 
 ---
 
-### 3.5 `format_result(item: dict, verbose: bool = False) → str`
+### 3.5 `get_goal_details(match_id: str) → list[dict]` 🆕
+
+查询一场比赛的全部进球记录（数据来源：worldcup.db 的 `goals` 表，共 2720 条）。
+
+**返回值**：
+```python
+[
+    {
+        "player": "Kylian Mbappe",       # 球员全名
+        "team_name": "France",            # 进球方
+        "minute_label": "65'",            # 进球时间
+        "match_period": "second half",    # 半场/加时
+        "penalty": 0,                     # 是否点球 (0/1)
+        "own_goal": 0,                    # 是否乌龙 (0/1)
+    },
+    ...
+]
+```
+
+### 3.6 `format_result(item: dict, verbose: bool = False) → str`
 
 将增强后的结果格式化为人类可读字符串，适合前端展示或调试日志。
 
 **示例输出**：
 ```
-[2014] semi-finals | 巴西 vs 德国 | 比分 1:7 | sim=0.4528 | regulation
+[2014] 半决赛 | 巴西 vs 德国 | 比分 1:7 | sim=0.4528 | regulation
 
 # verbose=True 时额外输出:
   日期: 2014-07-08
   场馆: Estadio Mineirao
+  进球:
+    11' Thomas Muller [Germany]
+    23' Miroslav Klose [Germany]
+    ...
   摘要: 2014年世界杯半决赛，巴西队在Estadio Mineirao...
 ```
 
