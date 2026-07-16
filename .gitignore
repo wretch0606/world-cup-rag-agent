@@ -28,9 +28,10 @@ dist-ssr/
 
 # Runtime storage and model artifacts
 chroma_db/
+chroma_data/
+backend/data/chroma_db/
 *.sqlite
 *.sqlite3
-*.db
 models/
 checkpoints/
 *.bin
@@ -44,9 +45,11 @@ data/generated/*
 !data/processed/.gitkeep
 !data/generated/.gitkeep
 
+# 作业文档（非代码）
+*.docx
+
 # IDE / OS
 .idea/
 .vscode/
 .DS_Store
 Thumbs.db
-
