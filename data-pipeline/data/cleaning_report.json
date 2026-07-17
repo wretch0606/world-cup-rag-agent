@@ -1,0 +1,5669 @@
+{
+  "summary": {
+    "total_records": 964,
+    "valid": 964,
+    "fixed": 943,
+    "rejected": 0
+  },
+  "warnings": [
+    {
+      "match_id": "M-1930-01",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1930-02",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1930-03",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1930-04",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1930-05",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1930-06",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1930-07",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1930-08",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1930-09",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1930-10",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1930-11",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1930-12",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1930-13",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1930-14",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1930-15",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1930-16",
+      "field": "stage",
+      "value": "semi-finals",
+      "action": "normalized:semi-finals→semi_final"
+    },
+    {
+      "match_id": "M-1930-17",
+      "field": "stage",
+      "value": "semi-finals",
+      "action": "normalized:semi-finals→semi_final"
+    },
+    {
+      "match_id": "M-1934-01",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-1934-02",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-1934-03",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-1934-04",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-1934-05",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-1934-06",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-1934-07",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-1934-08",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-1934-09",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-1934-10",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-1934-11",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-1934-12",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-1934-13",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-1934-14",
+      "field": "stage",
+      "value": "semi-finals",
+      "action": "normalized:semi-finals→semi_final"
+    },
+    {
+      "match_id": "M-1934-15",
+      "field": "stage",
+      "value": "semi-finals",
+      "action": "normalized:semi-finals→semi_final"
+    },
+    {
+      "match_id": "M-1934-16",
+      "field": "stage",
+      "value": "third-place match",
+      "action": "normalized:third-place match→third_place"
+    },
+    {
+      "match_id": "M-1938-01",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-1938-02",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-1938-03",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-1938-04",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-1938-05",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-1938-06",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-1938-07",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-1938-08",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-1938-09",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-1938-10",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-1938-11",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-1938-12",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-1938-13",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-1938-14",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-1938-15",
+      "field": "stage",
+      "value": "semi-finals",
+      "action": "normalized:semi-finals→semi_final"
+    },
+    {
+      "match_id": "M-1938-16",
+      "field": "stage",
+      "value": "semi-finals",
+      "action": "normalized:semi-finals→semi_final"
+    },
+    {
+      "match_id": "M-1938-17",
+      "field": "stage",
+      "value": "third-place match",
+      "action": "normalized:third-place match→third_place"
+    },
+    {
+      "match_id": "M-1950-01",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1950-02",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1950-03",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1950-04",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1950-05",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1950-06",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1950-07",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1950-08",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1950-09",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1950-10",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1950-11",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1950-12",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1950-13",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1950-14",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1950-15",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1950-16",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1950-17",
+      "field": "stage",
+      "value": "final round",
+      "action": "normalized:final round→final_round"
+    },
+    {
+      "match_id": "M-1950-18",
+      "field": "stage",
+      "value": "final round",
+      "action": "normalized:final round→final_round"
+    },
+    {
+      "match_id": "M-1950-19",
+      "field": "stage",
+      "value": "final round",
+      "action": "normalized:final round→final_round"
+    },
+    {
+      "match_id": "M-1950-20",
+      "field": "stage",
+      "value": "final round",
+      "action": "normalized:final round→final_round"
+    },
+    {
+      "match_id": "M-1950-21",
+      "field": "stage",
+      "value": "final round",
+      "action": "normalized:final round→final_round"
+    },
+    {
+      "match_id": "M-1950-22",
+      "field": "stage",
+      "value": "final round",
+      "action": "normalized:final round→final_round"
+    },
+    {
+      "match_id": "M-1954-01",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1954-02",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1954-03",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1954-04",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1954-05",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1954-06",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1954-07",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1954-08",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1954-09",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1954-10",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1954-11",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1954-12",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1954-13",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1954-14",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1954-15",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1954-16",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1954-17",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1954-18",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1954-19",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-1954-20",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-1954-21",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-1954-22",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-1954-23",
+      "field": "stage",
+      "value": "semi-finals",
+      "action": "normalized:semi-finals→semi_final"
+    },
+    {
+      "match_id": "M-1954-24",
+      "field": "stage",
+      "value": "semi-finals",
+      "action": "normalized:semi-finals→semi_final"
+    },
+    {
+      "match_id": "M-1954-25",
+      "field": "stage",
+      "value": "third-place match",
+      "action": "normalized:third-place match→third_place"
+    },
+    {
+      "match_id": "M-1958-01",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1958-02",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1958-03",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1958-04",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1958-05",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1958-06",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1958-07",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1958-08",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1958-09",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1958-10",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1958-11",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1958-12",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1958-13",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1958-14",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1958-15",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1958-16",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1958-17",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1958-18",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1958-19",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1958-20",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1958-21",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1958-22",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1958-23",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1958-24",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1958-25",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1958-26",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1958-27",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1958-28",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-1958-29",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-1958-30",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-1958-31",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-1958-32",
+      "field": "stage",
+      "value": "semi-finals",
+      "action": "normalized:semi-finals→semi_final"
+    },
+    {
+      "match_id": "M-1958-33",
+      "field": "stage",
+      "value": "semi-finals",
+      "action": "normalized:semi-finals→semi_final"
+    },
+    {
+      "match_id": "M-1958-34",
+      "field": "stage",
+      "value": "third-place match",
+      "action": "normalized:third-place match→third_place"
+    },
+    {
+      "match_id": "M-1962-01",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1962-02",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1962-03",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1962-04",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1962-05",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1962-06",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1962-07",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1962-08",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1962-09",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1962-10",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1962-11",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1962-12",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1962-13",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1962-14",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1962-15",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1962-16",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1962-17",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1962-18",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1962-19",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1962-20",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1962-21",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1962-22",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1962-23",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1962-24",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1962-25",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-1962-26",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-1962-27",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-1962-28",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-1962-29",
+      "field": "stage",
+      "value": "semi-finals",
+      "action": "normalized:semi-finals→semi_final"
+    },
+    {
+      "match_id": "M-1962-30",
+      "field": "stage",
+      "value": "semi-finals",
+      "action": "normalized:semi-finals→semi_final"
+    },
+    {
+      "match_id": "M-1962-31",
+      "field": "stage",
+      "value": "third-place match",
+      "action": "normalized:third-place match→third_place"
+    },
+    {
+      "match_id": "M-1966-01",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1966-02",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1966-03",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1966-04",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1966-05",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1966-06",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1966-07",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1966-08",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1966-09",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1966-10",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1966-11",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1966-12",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1966-13",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1966-14",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1966-15",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1966-16",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1966-17",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1966-18",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1966-19",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1966-20",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1966-21",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1966-22",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1966-23",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1966-24",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1966-25",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-1966-26",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-1966-27",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-1966-28",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-1966-29",
+      "field": "stage",
+      "value": "semi-finals",
+      "action": "normalized:semi-finals→semi_final"
+    },
+    {
+      "match_id": "M-1966-30",
+      "field": "stage",
+      "value": "semi-finals",
+      "action": "normalized:semi-finals→semi_final"
+    },
+    {
+      "match_id": "M-1966-31",
+      "field": "stage",
+      "value": "third-place match",
+      "action": "normalized:third-place match→third_place"
+    },
+    {
+      "match_id": "M-1970-01",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1970-02",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1970-03",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1970-04",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1970-05",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1970-06",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1970-07",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1970-08",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1970-09",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1970-10",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1970-11",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1970-12",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1970-13",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1970-14",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1970-15",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1970-16",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1970-17",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1970-18",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1970-19",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1970-20",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1970-21",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1970-22",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1970-23",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1970-24",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1970-25",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-1970-26",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-1970-27",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-1970-28",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-1970-29",
+      "field": "stage",
+      "value": "semi-finals",
+      "action": "normalized:semi-finals→semi_final"
+    },
+    {
+      "match_id": "M-1970-30",
+      "field": "stage",
+      "value": "semi-finals",
+      "action": "normalized:semi-finals→semi_final"
+    },
+    {
+      "match_id": "M-1970-31",
+      "field": "stage",
+      "value": "third-place match",
+      "action": "normalized:third-place match→third_place"
+    },
+    {
+      "match_id": "M-1974-01",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1974-02",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1974-03",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1974-04",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1974-05",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1974-06",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1974-07",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1974-08",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1974-09",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1974-10",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1974-11",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1974-12",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1974-13",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1974-14",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1974-15",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1974-16",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1974-17",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1974-18",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1974-19",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1974-20",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1974-21",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1974-22",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1974-23",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1974-24",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1974-25",
+      "field": "stage",
+      "value": "second group stage",
+      "action": "normalized:second group stage→second_group"
+    },
+    {
+      "match_id": "M-1974-26",
+      "field": "stage",
+      "value": "second group stage",
+      "action": "normalized:second group stage→second_group"
+    },
+    {
+      "match_id": "M-1974-27",
+      "field": "stage",
+      "value": "second group stage",
+      "action": "normalized:second group stage→second_group"
+    },
+    {
+      "match_id": "M-1974-28",
+      "field": "stage",
+      "value": "second group stage",
+      "action": "normalized:second group stage→second_group"
+    },
+    {
+      "match_id": "M-1974-29",
+      "field": "stage",
+      "value": "second group stage",
+      "action": "normalized:second group stage→second_group"
+    },
+    {
+      "match_id": "M-1974-30",
+      "field": "stage",
+      "value": "second group stage",
+      "action": "normalized:second group stage→second_group"
+    },
+    {
+      "match_id": "M-1974-31",
+      "field": "stage",
+      "value": "second group stage",
+      "action": "normalized:second group stage→second_group"
+    },
+    {
+      "match_id": "M-1974-32",
+      "field": "stage",
+      "value": "second group stage",
+      "action": "normalized:second group stage→second_group"
+    },
+    {
+      "match_id": "M-1974-33",
+      "field": "stage",
+      "value": "second group stage",
+      "action": "normalized:second group stage→second_group"
+    },
+    {
+      "match_id": "M-1974-34",
+      "field": "stage",
+      "value": "second group stage",
+      "action": "normalized:second group stage→second_group"
+    },
+    {
+      "match_id": "M-1974-35",
+      "field": "stage",
+      "value": "second group stage",
+      "action": "normalized:second group stage→second_group"
+    },
+    {
+      "match_id": "M-1974-36",
+      "field": "stage",
+      "value": "second group stage",
+      "action": "normalized:second group stage→second_group"
+    },
+    {
+      "match_id": "M-1974-37",
+      "field": "stage",
+      "value": "third-place match",
+      "action": "normalized:third-place match→third_place"
+    },
+    {
+      "match_id": "M-1978-01",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1978-02",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1978-03",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1978-04",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1978-05",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1978-06",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1978-07",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1978-08",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1978-09",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1978-10",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1978-11",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1978-12",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1978-13",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1978-14",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1978-15",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1978-16",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1978-17",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1978-18",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1978-19",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1978-20",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1978-21",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1978-22",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1978-23",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1978-24",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1978-25",
+      "field": "stage",
+      "value": "second group stage",
+      "action": "normalized:second group stage→second_group"
+    },
+    {
+      "match_id": "M-1978-26",
+      "field": "stage",
+      "value": "second group stage",
+      "action": "normalized:second group stage→second_group"
+    },
+    {
+      "match_id": "M-1978-27",
+      "field": "stage",
+      "value": "second group stage",
+      "action": "normalized:second group stage→second_group"
+    },
+    {
+      "match_id": "M-1978-28",
+      "field": "stage",
+      "value": "second group stage",
+      "action": "normalized:second group stage→second_group"
+    },
+    {
+      "match_id": "M-1978-29",
+      "field": "stage",
+      "value": "second group stage",
+      "action": "normalized:second group stage→second_group"
+    },
+    {
+      "match_id": "M-1978-30",
+      "field": "stage",
+      "value": "second group stage",
+      "action": "normalized:second group stage→second_group"
+    },
+    {
+      "match_id": "M-1978-31",
+      "field": "stage",
+      "value": "second group stage",
+      "action": "normalized:second group stage→second_group"
+    },
+    {
+      "match_id": "M-1978-32",
+      "field": "stage",
+      "value": "second group stage",
+      "action": "normalized:second group stage→second_group"
+    },
+    {
+      "match_id": "M-1978-33",
+      "field": "stage",
+      "value": "second group stage",
+      "action": "normalized:second group stage→second_group"
+    },
+    {
+      "match_id": "M-1978-34",
+      "field": "stage",
+      "value": "second group stage",
+      "action": "normalized:second group stage→second_group"
+    },
+    {
+      "match_id": "M-1978-35",
+      "field": "stage",
+      "value": "second group stage",
+      "action": "normalized:second group stage→second_group"
+    },
+    {
+      "match_id": "M-1978-36",
+      "field": "stage",
+      "value": "second group stage",
+      "action": "normalized:second group stage→second_group"
+    },
+    {
+      "match_id": "M-1978-37",
+      "field": "stage",
+      "value": "third-place match",
+      "action": "normalized:third-place match→third_place"
+    },
+    {
+      "match_id": "M-1982-01",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1982-02",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1982-03",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1982-04",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1982-05",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1982-06",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1982-07",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1982-08",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1982-09",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1982-10",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1982-11",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1982-12",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1982-13",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1982-14",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1982-15",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1982-16",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1982-17",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1982-18",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1982-19",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1982-20",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1982-21",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1982-22",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1982-23",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1982-24",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1982-25",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1982-26",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1982-27",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1982-28",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1982-29",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1982-30",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1982-31",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1982-32",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1982-33",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1982-34",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1982-35",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1982-36",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1982-37",
+      "field": "stage",
+      "value": "second group stage",
+      "action": "normalized:second group stage→second_group"
+    },
+    {
+      "match_id": "M-1982-38",
+      "field": "stage",
+      "value": "second group stage",
+      "action": "normalized:second group stage→second_group"
+    },
+    {
+      "match_id": "M-1982-39",
+      "field": "stage",
+      "value": "second group stage",
+      "action": "normalized:second group stage→second_group"
+    },
+    {
+      "match_id": "M-1982-40",
+      "field": "stage",
+      "value": "second group stage",
+      "action": "normalized:second group stage→second_group"
+    },
+    {
+      "match_id": "M-1982-41",
+      "field": "stage",
+      "value": "second group stage",
+      "action": "normalized:second group stage→second_group"
+    },
+    {
+      "match_id": "M-1982-42",
+      "field": "stage",
+      "value": "second group stage",
+      "action": "normalized:second group stage→second_group"
+    },
+    {
+      "match_id": "M-1982-43",
+      "field": "stage",
+      "value": "second group stage",
+      "action": "normalized:second group stage→second_group"
+    },
+    {
+      "match_id": "M-1982-44",
+      "field": "stage",
+      "value": "second group stage",
+      "action": "normalized:second group stage→second_group"
+    },
+    {
+      "match_id": "M-1982-45",
+      "field": "stage",
+      "value": "second group stage",
+      "action": "normalized:second group stage→second_group"
+    },
+    {
+      "match_id": "M-1982-46",
+      "field": "stage",
+      "value": "second group stage",
+      "action": "normalized:second group stage→second_group"
+    },
+    {
+      "match_id": "M-1982-47",
+      "field": "stage",
+      "value": "second group stage",
+      "action": "normalized:second group stage→second_group"
+    },
+    {
+      "match_id": "M-1982-48",
+      "field": "stage",
+      "value": "second group stage",
+      "action": "normalized:second group stage→second_group"
+    },
+    {
+      "match_id": "M-1982-49",
+      "field": "stage",
+      "value": "semi-finals",
+      "action": "normalized:semi-finals→semi_final"
+    },
+    {
+      "match_id": "M-1982-50",
+      "field": "stage",
+      "value": "semi-finals",
+      "action": "normalized:semi-finals→semi_final"
+    },
+    {
+      "match_id": "M-1982-51",
+      "field": "stage",
+      "value": "third-place match",
+      "action": "normalized:third-place match→third_place"
+    },
+    {
+      "match_id": "M-1986-01",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1986-02",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1986-03",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1986-04",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1986-05",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1986-06",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1986-07",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1986-08",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1986-09",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1986-10",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1986-11",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1986-12",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1986-13",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1986-14",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1986-15",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1986-16",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1986-17",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1986-18",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1986-19",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1986-20",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1986-21",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1986-22",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1986-23",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1986-24",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1986-25",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1986-26",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1986-27",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1986-28",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1986-29",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1986-30",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1986-31",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1986-32",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1986-33",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1986-34",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1986-35",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1986-36",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1986-37",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-1986-38",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-1986-39",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-1986-40",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-1986-41",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-1986-42",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-1986-43",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-1986-44",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-1986-45",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-1986-46",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-1986-47",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-1986-48",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-1986-49",
+      "field": "stage",
+      "value": "semi-finals",
+      "action": "normalized:semi-finals→semi_final"
+    },
+    {
+      "match_id": "M-1986-50",
+      "field": "stage",
+      "value": "semi-finals",
+      "action": "normalized:semi-finals→semi_final"
+    },
+    {
+      "match_id": "M-1986-51",
+      "field": "stage",
+      "value": "third-place match",
+      "action": "normalized:third-place match→third_place"
+    },
+    {
+      "match_id": "M-1990-01",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1990-02",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1990-03",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1990-04",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1990-05",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1990-06",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1990-07",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1990-08",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1990-09",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1990-10",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1990-11",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1990-12",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1990-13",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1990-14",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1990-15",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1990-16",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1990-17",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1990-18",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1990-19",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1990-20",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1990-21",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1990-22",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1990-23",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1990-24",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1990-25",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1990-26",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1990-27",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1990-28",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1990-29",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1990-30",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1990-31",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1990-32",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1990-33",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1990-34",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1990-35",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1990-36",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1990-37",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-1990-38",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-1990-39",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-1990-40",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-1990-41",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-1990-42",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-1990-43",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-1990-44",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-1990-45",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-1990-46",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-1990-47",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-1990-48",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-1990-49",
+      "field": "stage",
+      "value": "semi-finals",
+      "action": "normalized:semi-finals→semi_final"
+    },
+    {
+      "match_id": "M-1990-50",
+      "field": "stage",
+      "value": "semi-finals",
+      "action": "normalized:semi-finals→semi_final"
+    },
+    {
+      "match_id": "M-1990-51",
+      "field": "stage",
+      "value": "third-place match",
+      "action": "normalized:third-place match→third_place"
+    },
+    {
+      "match_id": "M-1994-01",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1994-02",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1994-03",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1994-04",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1994-05",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1994-06",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1994-07",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1994-08",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1994-09",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1994-10",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1994-11",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1994-12",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1994-13",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1994-14",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1994-15",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1994-16",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1994-17",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1994-18",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1994-19",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1994-20",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1994-21",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1994-22",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1994-23",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1994-24",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1994-25",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1994-26",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1994-27",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1994-28",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1994-29",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1994-30",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1994-31",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1994-32",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1994-33",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1994-34",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1994-35",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1994-36",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1994-37",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-1994-38",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-1994-39",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-1994-40",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-1994-41",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-1994-42",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-1994-43",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-1994-44",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-1994-45",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-1994-46",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-1994-47",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-1994-48",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-1994-49",
+      "field": "stage",
+      "value": "semi-finals",
+      "action": "normalized:semi-finals→semi_final"
+    },
+    {
+      "match_id": "M-1994-50",
+      "field": "stage",
+      "value": "semi-finals",
+      "action": "normalized:semi-finals→semi_final"
+    },
+    {
+      "match_id": "M-1994-51",
+      "field": "stage",
+      "value": "third-place match",
+      "action": "normalized:third-place match→third_place"
+    },
+    {
+      "match_id": "M-1998-01",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1998-02",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1998-03",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1998-04",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1998-05",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1998-06",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1998-07",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1998-08",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1998-09",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1998-10",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1998-11",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1998-12",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1998-13",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1998-14",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1998-15",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1998-16",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1998-17",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1998-18",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1998-19",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1998-20",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1998-21",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1998-22",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1998-23",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1998-24",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1998-25",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1998-26",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1998-27",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1998-28",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1998-29",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1998-30",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1998-31",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1998-32",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1998-33",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1998-34",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1998-35",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1998-36",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1998-37",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1998-38",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1998-39",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1998-40",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1998-41",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1998-42",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1998-43",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1998-44",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1998-45",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1998-46",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1998-47",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1998-48",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-1998-49",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-1998-50",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-1998-51",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-1998-52",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-1998-53",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-1998-54",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-1998-55",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-1998-56",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-1998-57",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-1998-58",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-1998-59",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-1998-60",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-1998-61",
+      "field": "stage",
+      "value": "semi-finals",
+      "action": "normalized:semi-finals→semi_final"
+    },
+    {
+      "match_id": "M-1998-62",
+      "field": "stage",
+      "value": "semi-finals",
+      "action": "normalized:semi-finals→semi_final"
+    },
+    {
+      "match_id": "M-1998-63",
+      "field": "stage",
+      "value": "third-place match",
+      "action": "normalized:third-place match→third_place"
+    },
+    {
+      "match_id": "M-2002-01",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2002-02",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2002-03",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2002-04",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2002-05",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2002-06",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2002-07",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2002-08",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2002-09",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2002-10",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2002-11",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2002-12",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2002-13",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2002-14",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2002-15",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2002-16",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2002-17",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2002-18",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2002-19",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2002-20",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2002-21",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2002-22",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2002-23",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2002-24",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2002-25",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2002-26",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2002-27",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2002-28",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2002-29",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2002-30",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2002-31",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2002-32",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2002-33",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2002-34",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2002-35",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2002-36",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2002-37",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2002-38",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2002-39",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2002-40",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2002-41",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2002-42",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2002-43",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2002-44",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2002-45",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2002-46",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2002-47",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2002-48",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2002-49",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-2002-50",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-2002-51",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-2002-52",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-2002-53",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-2002-54",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-2002-55",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-2002-56",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-2002-57",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-2002-58",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-2002-59",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-2002-60",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-2002-61",
+      "field": "stage",
+      "value": "semi-finals",
+      "action": "normalized:semi-finals→semi_final"
+    },
+    {
+      "match_id": "M-2002-62",
+      "field": "stage",
+      "value": "semi-finals",
+      "action": "normalized:semi-finals→semi_final"
+    },
+    {
+      "match_id": "M-2002-63",
+      "field": "stage",
+      "value": "third-place match",
+      "action": "normalized:third-place match→third_place"
+    },
+    {
+      "match_id": "M-2006-01",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2006-02",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2006-03",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2006-04",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2006-05",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2006-06",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2006-07",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2006-08",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2006-09",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2006-10",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2006-11",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2006-12",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2006-13",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2006-14",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2006-15",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2006-16",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2006-17",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2006-18",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2006-19",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2006-20",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2006-21",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2006-22",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2006-23",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2006-24",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2006-25",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2006-26",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2006-27",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2006-28",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2006-29",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2006-30",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2006-31",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2006-32",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2006-33",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2006-34",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2006-35",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2006-36",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2006-37",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2006-38",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2006-39",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2006-40",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2006-41",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2006-42",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2006-43",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2006-44",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2006-45",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2006-46",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2006-47",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2006-48",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2006-49",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-2006-50",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-2006-51",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-2006-52",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-2006-53",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-2006-54",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-2006-55",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-2006-56",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-2006-57",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-2006-58",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-2006-59",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-2006-60",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-2006-61",
+      "field": "stage",
+      "value": "semi-finals",
+      "action": "normalized:semi-finals→semi_final"
+    },
+    {
+      "match_id": "M-2006-62",
+      "field": "stage",
+      "value": "semi-finals",
+      "action": "normalized:semi-finals→semi_final"
+    },
+    {
+      "match_id": "M-2006-63",
+      "field": "stage",
+      "value": "third-place match",
+      "action": "normalized:third-place match→third_place"
+    },
+    {
+      "match_id": "M-2010-01",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2010-02",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2010-03",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2010-04",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2010-05",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2010-06",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2010-07",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2010-08",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2010-09",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2010-10",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2010-11",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2010-12",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2010-13",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2010-14",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2010-15",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2010-16",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2010-17",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2010-18",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2010-19",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2010-20",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2010-21",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2010-22",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2010-23",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2010-24",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2010-25",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2010-26",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2010-27",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2010-28",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2010-29",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2010-30",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2010-31",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2010-32",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2010-33",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2010-34",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2010-35",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2010-36",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2010-37",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2010-38",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2010-39",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2010-40",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2010-41",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2010-42",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2010-43",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2010-44",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2010-45",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2010-46",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2010-47",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2010-48",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2010-49",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-2010-50",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-2010-51",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-2010-52",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-2010-53",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-2010-54",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-2010-55",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-2010-56",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-2010-57",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-2010-58",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-2010-59",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-2010-60",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-2010-61",
+      "field": "stage",
+      "value": "semi-finals",
+      "action": "normalized:semi-finals→semi_final"
+    },
+    {
+      "match_id": "M-2010-62",
+      "field": "stage",
+      "value": "semi-finals",
+      "action": "normalized:semi-finals→semi_final"
+    },
+    {
+      "match_id": "M-2010-63",
+      "field": "stage",
+      "value": "third-place match",
+      "action": "normalized:third-place match→third_place"
+    },
+    {
+      "match_id": "M-2014-01",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2014-02",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2014-03",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2014-04",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2014-05",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2014-06",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2014-07",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2014-08",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2014-09",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2014-10",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2014-11",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2014-12",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2014-13",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2014-14",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2014-15",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2014-16",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2014-17",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2014-18",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2014-19",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2014-20",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2014-21",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2014-22",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2014-23",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2014-24",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2014-25",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2014-26",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2014-27",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2014-28",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2014-29",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2014-30",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2014-31",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2014-32",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2014-33",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2014-34",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2014-35",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2014-36",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2014-37",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2014-38",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2014-39",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2014-40",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2014-41",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2014-42",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2014-43",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2014-44",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2014-45",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2014-46",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2014-47",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2014-48",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2014-49",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-2014-50",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-2014-51",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-2014-52",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-2014-53",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-2014-54",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-2014-55",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-2014-56",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-2014-57",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-2014-58",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-2014-59",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-2014-60",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-2014-61",
+      "field": "stage",
+      "value": "semi-finals",
+      "action": "normalized:semi-finals→semi_final"
+    },
+    {
+      "match_id": "M-2014-62",
+      "field": "stage",
+      "value": "semi-finals",
+      "action": "normalized:semi-finals→semi_final"
+    },
+    {
+      "match_id": "M-2014-63",
+      "field": "stage",
+      "value": "third-place match",
+      "action": "normalized:third-place match→third_place"
+    },
+    {
+      "match_id": "M-2018-01",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2018-02",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2018-03",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2018-04",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2018-05",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2018-06",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2018-07",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2018-08",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2018-09",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2018-10",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2018-11",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2018-12",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2018-13",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2018-14",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2018-15",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2018-16",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2018-17",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2018-18",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2018-19",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2018-20",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2018-21",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2018-22",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2018-23",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2018-24",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2018-25",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2018-26",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2018-27",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2018-28",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2018-29",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2018-30",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2018-31",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2018-32",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2018-33",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2018-34",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2018-35",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2018-36",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2018-37",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2018-38",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2018-39",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2018-40",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2018-41",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2018-42",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2018-43",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2018-44",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2018-45",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2018-46",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2018-47",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2018-48",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2018-49",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-2018-50",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-2018-51",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-2018-52",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-2018-53",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-2018-54",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-2018-55",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-2018-56",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-2018-57",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-2018-58",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-2018-59",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-2018-60",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-2018-61",
+      "field": "stage",
+      "value": "semi-finals",
+      "action": "normalized:semi-finals→semi_final"
+    },
+    {
+      "match_id": "M-2018-62",
+      "field": "stage",
+      "value": "semi-finals",
+      "action": "normalized:semi-finals→semi_final"
+    },
+    {
+      "match_id": "M-2018-63",
+      "field": "stage",
+      "value": "third-place match",
+      "action": "normalized:third-place match→third_place"
+    },
+    {
+      "match_id": "M-2022-01",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2022-02",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2022-03",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2022-04",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2022-05",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2022-06",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2022-07",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2022-08",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2022-09",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2022-10",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2022-11",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2022-12",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2022-13",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2022-14",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2022-15",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2022-16",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2022-17",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2022-18",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2022-19",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2022-20",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2022-21",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2022-22",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2022-23",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2022-24",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2022-25",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2022-26",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2022-27",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2022-28",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2022-29",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2022-30",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2022-31",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2022-32",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2022-33",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2022-34",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2022-35",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2022-36",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2022-37",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2022-38",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2022-39",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2022-40",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2022-41",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2022-42",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2022-43",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2022-44",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2022-45",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2022-46",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2022-47",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2022-48",
+      "field": "stage",
+      "value": "group stage",
+      "action": "normalized:group stage→group"
+    },
+    {
+      "match_id": "M-2022-49",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-2022-50",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-2022-51",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-2022-52",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-2022-53",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-2022-54",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-2022-55",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-2022-56",
+      "field": "stage",
+      "value": "round of 16",
+      "action": "normalized:round of 16→round_of_16"
+    },
+    {
+      "match_id": "M-2022-57",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-2022-58",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-2022-59",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-2022-60",
+      "field": "stage",
+      "value": "quarter-finals",
+      "action": "normalized:quarter-finals→quarter_final"
+    },
+    {
+      "match_id": "M-2022-61",
+      "field": "stage",
+      "value": "semi-finals",
+      "action": "normalized:semi-finals→semi_final"
+    },
+    {
+      "match_id": "M-2022-62",
+      "field": "stage",
+      "value": "semi-finals",
+      "action": "normalized:semi-finals→semi_final"
+    },
+    {
+      "match_id": "M-2022-63",
+      "field": "stage",
+      "value": "third-place match",
+      "action": "normalized:third-place match→third_place"
+    }
+  ],
+  "errors": []
+}
