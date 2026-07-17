@@ -1,0 +1,1284 @@
+"""
+世界杯知识库 — Chroma 向量数据库服务模块
+=====================================
+负责：BGE Embedding、双 Collection 管理、chunk 写入、
+      语义检索（含 metadata 过滤）、query rewrite、reranker 重排序
+
+被调用方：B（LangGraph Agent）
+数据来源：C（数据处理模块）提供的结构化世界杯数据
+
+Collection 设计（见开发文档 5.3 节）：
+  - world_cup_match_facts：每场比赛的标准化事实文本（精确检索）
+  - world_cup_reports：比赛报告、球队回顾等长文本（语义检索/总结）
+
+Embedding 模式（通过 EMBEDDING_MODE 环境变量切换）：
+  - "default"（默认）：Chroma 内置 all-MiniLM-L6-v2，无需下载，离线可用
+  - "bge"：BAAI/bge-small-zh-v1.5，中文效果好，需网络下载（~24MB）
+  切换方法：set EMBEDDING_MODE=bge   （Windows cmd）
+          $env:EMBEDDING_MODE="bge"  （PowerShell）
+"""
+
+import os
+import re
+import logging
+from typing import Optional
+
+import chromadb
+from chromadb import Documents, EmbeddingFunction, Embeddings
+
+# ---------------------------------------------------------------------------
+# 配置常量
+# ---------------------------------------------------------------------------
+
+CHROMA_DATA_DIR = os.environ.get("CHROMA_DATA_DIR", "./backend/data/chroma_db")
+
+# 两个 Collection（见文档 5.3 节）
+COLLECTION_FACTS = "world_cup_match_facts"    # 比赛事实（精确检索）
+COLLECTION_REPORTS = "world_cup_reports"       # 比赛报告/长文本（语义检索）
+
+# Embedding 模式选择
+#   "default" = Chroma 内置 ONNX 模型（all-MiniLM-L6-v2，离线可用）
+#   "bge"     = BAAI/bge-small-zh-v1.5（中文效果好，需网络下载）
+EMBEDDING_MODE = os.environ.get("EMBEDDING_MODE", "default")
+COLLECTION_REPORTS = "world_cup_reports"       # 比赛报告/长文本（语义检索）
+
+# Embedding 模式选择
+#   "default" = Chroma 内置 ONNX 模型（all-MiniLM-L6-v2，离线可用）
+#   "bge"     = BAAI/bge-small-zh-v1.5（中文效果好，需网络下载）
+EMBEDDING_MODE = os.environ.get("EMBEDDING_MODE", "default")
+
+# BGE 中文 Embedding 模型（仅在 mode="bge" 时使用）
+# 优先使用 ModelScope 本地缓存，其次尝试 HuggingFace
+_BGE_MODELSCOPE_PATH = os.path.expanduser(
+    "~/.cache/modelscope/models/BAAI--bge-small-zh-v1.5/snapshots/master"
+)
+EMBEDDING_MODEL_NAME = _BGE_MODELSCOPE_PATH if os.path.isdir(_BGE_MODELSCOPE_PATH) \
+    else "BAAI/bge-small-zh-v1.5"
+
+# Reranker 模型（对召回结果精排，仅在 mode="bge" 时可用）
+RERANKER_MODEL_NAME = "BAAI/bge-reranker-v2-m3"
+
+# ---------------------------------------------------------------------------
+# 日志
+# ---------------------------------------------------------------------------
+
+logger = logging.getLogger("chroma_service")
+logger.setLevel(logging.INFO)
+if not logger.handlers:
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
+    logger.addHandler(handler)
+
+# ===================================================================
+#                   BGE Embedding 函数
+# ===================================================================
+
+
+class BGEEmbeddingFunction(EmbeddingFunction):
+    """使用 BGE 模型的自定义 Embedding 函数。
+
+    BGE 模型特点：
+    - 中文语义理解远超默认的 all-MiniLM-L6-v2
+    - 输入前建议加 "为这个句子生成表示以用于检索相关文章：" 前缀（BGE 官方推荐）
+    - 输出需要 normalize（L2 归一化），确保余弦相似度计算准确
+    """
+
+    def __init__(self, model_name: str = EMBEDDING_MODEL_NAME):
+        self._model = None  # 延迟加载
+        self.model_name = model_name
+        # BGE 模型推荐的 query 前缀（增强检索效果）
+        self.query_prefix = "为这个句子生成表示以用于检索相关文章："
+
+    def _load_model(self):
+        if self._model is None:
+            from sentence_transformers import SentenceTransformer
+            logger.info(f"正在加载 BGE 模型: {self.model_name}")
+            self._model = SentenceTransformer(self.model_name)
+            logger.info(f"BGE 模型加载完成，向量维度: {self._model.get_sentence_embedding_dimension()}")
+        return self._model
+
+    def __call__(self, input: Documents) -> Embeddings:
+        """Chroma 会调用此方法，传入文本列表，返回向量列表。"""
+        model = self._load_model()
+        # BGE 推荐：对所有文本（包括文档和查询）使用相同的 encode 方式
+        # 注意：这里不加 query_prefix，因为这是对文档侧做 embedding
+        embeddings = model.encode(
+            input,
+            normalize_embeddings=True,  # L2 归一化
+            show_progress_bar=False,
+        )
+        return embeddings.tolist()
+
+    def encode_query(self, query: str) -> list[float]:
+        """对查询文本做 embedding（带 query prefix）。
+
+        与文档 embedding 分开处理，确保查询向量和文档向量在语义空间对齐。
+        """
+        model = self._load_model()
+        # BGE 官方推荐：查询侧加 instruction prefix
+        embedding = model.encode(
+            self.query_prefix + query,
+            normalize_embeddings=True,
+            show_progress_bar=False,
+        )
+        return embedding.tolist()
+
+
+# 模块级单例
+_ef: Optional[BGEEmbeddingFunction] = None
+
+
+def get_embedding_function():
+    """获取 Embedding 函数。
+
+    - "default" 模式：返回 None，Chroma 使用内置的 all-MiniLM-L6-v2（ONNX，离线可用）
+    - "bge" 模式：返回 BGEEmbeddingFunction 实例（中文效果好，需网络下载一次）
+    """
+    global _ef
+    if EMBEDDING_MODE == "bge":
+        if _ef is None:
+            logger.info(f"Embedding 模式: BGE ({EMBEDDING_MODEL_NAME})")
+            _ef = BGEEmbeddingFunction()
+        return _ef
+    else:
+        # 使用 Chroma 内置模型（默认）
+        if _ef is None:
+            logger.info("Embedding 模式: Chroma 内置 (all-MiniLM-L6-v2, ONNX)")
+            _ef = None  # None 表示让 Chroma 自己处理
+        return None
+
+# ===================================================================
+#                   Reranker（精排）
+# ===================================================================
+
+
+class Reranker:
+    """使用 BGE Reranker 对召回结果精细排序。
+
+    Reranker 原理（与 Embedding 不同）：
+    - Embedding：将问题和文档分别编码为向量，计算余弦相似度（速度快，精度较低）
+    - Reranker：将「问题+文档」拼接后一起输入模型做交叉编码（Cross-Encoder），
+      直接输出相关性分数（速度慢，精度高）
+
+    使用策略：
+    - 第一步：用 Embedding + Chroma 做粗筛（Top-20）
+    - 第二步：用 Reranker 对 Top-20 精排（Top-5）
+
+    注意：Reranker 需要下载模型（~1GB），仅在 EMBEDDING_MODE="bge" 且网络可用时生效。
+    """
+
+    def __init__(self, model_name: str = RERANKER_MODEL_NAME):
+        self._model = None
+        self._available = True  # 网络不可用时自动降级
+        self.model_name = model_name
+
+    def _load_model(self):
+        if self._model is None and self._available:
+            try:
+                from sentence_transformers import CrossEncoder
+                logger.info(f"正在加载 Reranker 模型: {self.model_name}")
+                self._model = CrossEncoder(self.model_name)
+                logger.info("Reranker 模型加载完成")
+            except Exception as e:
+                logger.warning(f"Reranker 模型加载失败（将跳过多轮精排）: {e}")
+                self._available = False
+                self._model = None
+        return self._model
+
+    @property
+    def is_available(self) -> bool:
+        """Reranker 是否可用。"""
+        return self._available and EMBEDDING_MODE == "bge"
+
+    def rerank(
+        self,
+        query: str,
+        documents: list[str],
+        top_k: int = 5,
+    ) -> list[tuple[int, float]]:
+        """对文档列表重排序。
+
+        如果 Reranker 不可用（网络问题/未启用 BGE），返回空列表，
+        调用方应 fallback 到原始的 Chroma 排序。
+
+        返回:
+            [(原始索引, 相关性分数), ...]  按分数降序排列
+        """
+        if not documents:
+            return []
+
+        if not self.is_available:
+            return []  # 不可用时返回空，让调用方 fallback
+
+        model = self._load_model()
+        if model is None:
+            return []
+
+        # CrossEncoder 输入格式：[(query, doc), (query, doc), ...]
+        pairs = [[query, doc] for doc in documents]
+        scores = model.predict(pairs, show_progress_bar=False)
+
+        # 按分数降序排序
+        ranked = sorted(
+            enumerate(scores),
+            key=lambda x: x[1],
+            reverse=True,
+        )
+        return ranked[:top_k]
+
+
+_reranker: Optional[Reranker] = None
+
+
+def get_reranker() -> Reranker:
+    """获取 Reranker 单例。"""
+    global _reranker
+    if _reranker is None:
+        _reranker = Reranker()
+    return _reranker
+
+
+def is_reranker_available() -> bool:
+    """检查 Reranker 是否可用。"""
+    return get_reranker().is_available
+
+# ===================================================================
+#                   Chroma 客户端 & Collection 管理
+# ===================================================================
+
+
+_client: Optional[chromadb.PersistentClient] = None
+
+
+def _get_client() -> chromadb.PersistentClient:
+    """获取 Chroma 持久化客户端（单例）。"""
+    global _client
+    if _client is None:
+        os.makedirs(CHROMA_DATA_DIR, exist_ok=True)
+        _client = chromadb.PersistentClient(path=CHROMA_DATA_DIR)
+        logger.info(f"Chroma 客户端已初始化，数据目录: {CHROMA_DATA_DIR}")
+    return _client
+
+
+def get_facts_collection():
+    """获取「比赛事实」collection — 用于精确事实查询。
+
+    存储内容：每场比赛的标准化描述文本
+    示例：「2018年俄罗斯世界杯决赛，法国队对阵克罗地亚队，
+          90分钟内比分为4:2，法国队获胜。result_type=regulation」
+    """
+    client = _get_client()
+    return client.get_or_create_collection(
+        name=COLLECTION_FACTS,
+        embedding_function=get_embedding_function(),
+        metadata={"description": "世界杯比赛标准化事实文本，用于精确检索"},
+    )
+
+
+def get_reports_collection():
+    """获取「比赛报告」collection — 用于总结/分析类查询。
+
+    存储内容：比赛报告、球队回顾、新闻文章的长文本 chunk
+    """
+    client = _get_client()
+    return client.get_or_create_collection(
+        name=COLLECTION_REPORTS,
+        embedding_function=get_embedding_function(),
+        metadata={"description": "世界杯比赛报告和长文本，用于总结和分析"},
+    )
+
+# ===================================================================
+#                   Query Rewrite（查询改写）
+# ===================================================================
+
+
+def _load_team_aliases() -> dict[str, str]:
+    """加载球队别名映射表。
+
+    从 team_aliases.json 读取，建立「中文名/英文名 → team_id」的映射。
+    例如："法国" → "team_FRA", "France" → "team_FRA", "法兰西" → "team_FRA"
+
+    如果文件不存在则返回空字典（降级处理）。
+    """
+    import json
+    alias_file = os.environ.get("TEAM_ALIASES_PATH", "team_aliases.json")
+    if not os.path.isfile(alias_file):
+        # 尝试在项目根目录找
+        alt_paths = [
+            os.path.join(os.path.dirname(__file__), "..", "..", "team_aliases.json"),
+            "team_aliases.json",
+        ]
+        for p in alt_paths:
+            if os.path.isfile(p):
+                alias_file = p
+                break
+        else:
+            logger.warning(f"未找到 team_aliases.json，球队别名功能暂不可用")
+            return {}
+
+    try:
+        with open(alias_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        aliases = data.get("aliases", {})
+        logger.info(f"已加载 {len(aliases)} 条球队别名")
+        return aliases
+    except Exception as e:
+        logger.warning(f"加载 team_aliases.json 失败: {e}")
+        return {}
+
+
+# 模块级缓存
+_team_aliases: Optional[dict[str, str]] = None
+
+
+def get_team_aliases() -> dict[str, str]:
+    """获取球队别名映射（懒加载+缓存）。"""
+    global _team_aliases
+    if _team_aliases is None:
+        _team_aliases = _load_team_aliases()
+    return _team_aliases
+
+
+def extract_filters(query: str) -> dict:
+    """从自然语言问题中提取结构化过滤条件。
+
+    这是 query rewrite 的第一步：在语义检索之前，先提取出可精确匹配的
+    条件（年份、球队、阶段），用于 Chroma 的 metadata 过滤，缩小检索范围。
+
+    球队匹配优先级：
+    1. team_aliases.json 中的别名映射（覆盖 85 支球队的中英文名）
+    2. 回退：team_ids 中的 team_ 前缀 ID
+
+    参数:
+        query: 用户原始问题，如 "2018年法国队在淘汰赛阶段的比赛结果"
+
+    返回:
+        {
+            "tournament_year": 2018,
+            "team": "法国",           # 用户问题中出现的球队名（用于展示）
+            "team_id": "team_FRA",    # 标准化的 team_id（用于 Chroma 过滤）
+            "stage": "决赛",
+            "rewritten_query": "比赛结果",  # 去掉已提取条件的纯文本
+        }
+    """
+    filters = {}
+    aliases = get_team_aliases()
+
+    # --- 年份提取 ---
+    year_match = re.search(r"(19\d{2}|20\d{2})\s*年", query)
+    if year_match:
+        filters["tournament_year"] = int(year_match.group(1))
+
+    # --- 球队名称提取（使用 team_aliases.json 中的别名） ---
+    if aliases:
+        # 按别名长度从长到短排序，优先匹配长名称（如"沙特阿拉伯"优先于"沙特"）
+        sorted_aliases = sorted(aliases.keys(), key=len, reverse=True)
+        for alias in sorted_aliases:
+            if alias in query:
+                team_id = aliases[alias]
+                filters["team"] = alias
+                filters["team_id"] = team_id
+                logger.info(f"球队匹配: '{alias}' -> {team_id}")
+                break
+
+    # --- 阶段提取 ---
+    # 精确阶段：可以用于 Chroma 的 where 过滤
+    exact_stages = {
+        "小组赛": "小组赛",
+        "1/8决赛": "1/8决赛",
+        "1/4决赛": "1/4决赛",
+        "八强": "1/4决赛",
+        "半决赛": "半决赛",
+        "四强": "半决赛",
+        "三四名决赛": "三四名决赛",
+        "三四名": "三四名决赛",
+        "季军赛": "三四名决赛",
+        "决赛": "决赛",
+        "冠军": "决赛",
+    }
+    # 宽泛阶段：不适用于 Chroma 精确过滤（如"淘汰赛"包含多个具体阶段）
+    broad_stages = {"淘汰赛", "16强", "8强", "4强"}
+
+    for keyword, stage in exact_stages.items():
+        if keyword in query:
+            filters["stage"] = stage
+            break
+
+    if "stage" not in filters:
+        for keyword in broad_stages:
+            if keyword in query:
+                # 宽泛阶段不做 where 过滤，仅保留在 filters 中供上层使用
+                filters["stage_hint"] = keyword
+                break
+
+    # --- 生成简化后的查询文本 ---
+    rewritten = query
+    for pattern in [r"(19\d{2}|20\d{2})\s*年", r"(小组赛|淘汰赛|1/8决赛|1/4决赛|半决赛|三四名|季军赛|决赛)"]:
+        rewritten = re.sub(pattern, "", rewritten)
+    rewritten = re.sub(r"\s+", " ", rewritten).strip()
+    filters["rewritten_query"] = rewritten if rewritten else query
+
+    logger.info(f"Query Rewrite: '{query[:60]}...' -> filters={ {k:v for k,v in filters.items() if k != 'rewritten_query'} }")
+    return filters
+
+
+def query_rewrite(query: str) -> list[str]:
+    """对查询做多角度改写，提升召回率。
+
+    生成 2-3 个语义相似但表述不同的查询，合并检索结果。
+    这是提升 Recall 的常用技巧。
+
+    当前实现：基于规则的模板改写
+    后续可升级：用 LLM 做 query expansion
+    """
+    variations = [query]  # 原始查询
+
+    # 模板改写
+    templates = [
+        lambda q: q.replace("谁赢了", "获胜方"),
+        lambda q: q.replace("比分", "比分为"),
+        lambda q: q.replace("输给", "被击败"),
+        lambda q: re.sub(r"(.*)对(.*)的战绩", r"\1与\2 历史交锋", q),
+    ]
+    for tmpl in templates:
+        rewritten = tmpl(query)
+        if rewritten != query and rewritten not in variations:
+            variations.append(rewritten)
+
+    if len(variations) > 1:
+        logger.info(f"Query expansion: {len(variations)} 个变体")
+
+    return variations
+
+# ===================================================================
+#                   对外 API
+# ===================================================================
+
+
+def add_chunks(
+    chunks: list[dict],
+    collection: str = COLLECTION_FACTS,
+) -> int:
+    """批量写入 chunk 到指定 collection。
+
+    参数:
+        chunks: 字典列表，每个字典格式：
+            {
+                "id": "match_2018_final",
+                "document": "2018年世界杯决赛，法国4:2克罗地亚...",
+                "metadata": {
+                    "match_id": "match_2018_final",
+                    "tournament_year": 2018,
+                    "stage": "决赛",
+                    "team_ids": ["FRA", "CRO"],
+                    "document_name": "世界杯事实库.json",
+                    "source_url": "https://...",
+                    "source_page": 1,
+                    "chunk_index": 0,
+                    "language": "zh",
+                    "data_version": "v1.0",
+                },
+            }
+        collection: 目标 collection（COLLECTION_FACTS 或 COLLECTION_REPORTS）
+
+    返回:
+        成功写入的 chunk 数量
+    """
+    if not chunks:
+        raise ValueError("chunks 不能为空")
+    if collection not in (COLLECTION_FACTS, COLLECTION_REPORTS):
+        raise ValueError(f"未知的 collection: {collection}")
+
+    # 拆成 Chroma API 需要的三个并列列表
+    # 同时清理 metadata 中的 None 值（Chroma 不接受 None）
+    ids = [c["id"] for c in chunks]
+    documents = [c["document"] for c in chunks]
+    metadatas = [
+        {k: v for k, v in c["metadata"].items() if v is not None}
+        for c in chunks
+    ]
+
+    col = get_facts_collection() if collection == COLLECTION_FACTS else get_reports_collection()
+
+    # 去重
+    existing_ids = set()
+    try:
+        existing = col.get(ids=ids)
+        existing_ids = set(existing["ids"])
+    except Exception:
+        pass
+
+    if existing_ids:
+        logger.warning(f"{len(existing_ids)} 个 chunk 已存在，跳过")
+        filtered = [(i, d, m) for i, d, m in zip(ids, documents, metadatas) if i not in existing_ids]
+        if not filtered:
+            return 0
+        ids, documents, metadatas = zip(*filtered)
+        ids, documents, metadatas = list(ids), list(documents), list(metadatas)
+
+    col.add(ids=ids, documents=documents, metadatas=metadatas)
+    logger.info(f"[{collection}] 成功写入 {len(ids)} 个 chunk，总计 {col.count()} 条")
+    return len(ids)
+
+
+def _build_where_filter(filters: dict) -> Optional[dict]:
+    """将我们自己的 filter dict 转为 Chroma 的 where 格式。
+
+    处理数据中的中英文混合阶段名（如 semi-finals ↔ 半决赛）。
+    """
+    # 阶段名对照表（向后兼容旧版英文阶段名）
+    # 新版数据（v1.0）阶段已全部中文化，此映射仅用于处理遗留的英文查询词
+    STAGE_ALIASES = {
+        "半决赛": ["半决赛", "semi-finals"],
+        "1/4决赛": ["1/4决赛", "quarter-finals"],
+        "1/8决赛": ["1/8决赛", "round of 16"],
+        "小组赛": ["小组赛", "group stage"],
+        "决赛": ["决赛", "final"],
+        "三四名决赛": ["三四名决赛", "third-place match"],
+        "决赛轮": ["决赛轮", "final round"],
+        "第二轮小组赛": ["第二轮小组赛", "second group stage"],
+    }
+
+    where_parts = []
+    if "tournament_year" in filters:
+        where_parts.append({"tournament_year": filters["tournament_year"]})
+
+    if "stage" in filters:
+        stage = filters["stage"]
+        aliases = STAGE_ALIASES.get(stage, [stage])
+        if len(aliases) == 1:
+            where_parts.append({"stage": aliases[0]})
+        else:
+            # 多条别名用 $or 匹配
+            where_parts.append({"$or": [{"stage": a} for a in aliases]})
+    # 优先用 team_id（标准 ID），其次用 team 名称
+    if "team_id" in filters:
+        # team_ids 在 metadata 中存储为列表（如 ["team_FRA", "team_CRO"]）
+        # Chroma 的 $contains 可匹配列表中的元素
+        where_parts.append({"team_ids": {"$contains": filters["team_id"]}})
+    elif "team" in filters:
+        where_parts.append({"team_ids": {"$contains": filters["team"]}})
+
+    if not where_parts:
+        return None
+    if len(where_parts) == 1:
+        return where_parts[0]
+    return {"$and": where_parts}
+
+
+def query_top_k(
+    query_text: str,
+    k: int = 5,
+    collection: str = COLLECTION_FACTS,
+    filters: Optional[dict] = None,
+    use_query_rewrite: bool = True,
+) -> list[dict]:
+    """语义检索：输入自然语言问题，返回 Top-K 个 chunk。
+
+    参数:
+        query_text: 用户问题
+        k: 返回数量
+        collection: 查询哪个 collection
+        filters: 结构化过滤条件（由 extract_filters() 生成）
+        use_query_rewrite: 是否启用 query rewrite 提升召回
+
+    返回:
+        [
+            {
+                "id": "match_2018_final",
+                "document": "...",
+                "metadata": {...},
+                "similarity": 0.95,
+                "collection": "world_cup_match_facts",
+            },
+            ...
+        ]
+    """
+    if not query_text or not query_text.strip():
+        raise ValueError("query_text 不能为空")
+
+    col = get_facts_collection() if collection == COLLECTION_FACTS else get_reports_collection()
+    where = _build_where_filter(filters) if filters else None
+
+    # --- Step 1: query expansion（可选）---
+    queries = query_rewrite(query_text) if use_query_rewrite else [query_text]
+
+    # --- Step 2: 执行检索 ---
+    # 根据 embedding 模式选择查询方式
+    ef = get_embedding_function()
+    all_items = {}  # 用 id 去重合并
+
+    for q in queries:
+        if ef is not None and EMBEDDING_MODE == "bge":
+            # BGE 模式：手动编码查询向量
+            query_embedding = ef.encode_query(q)
+            result = col.query(
+                query_embeddings=[query_embedding],
+                n_results=k * 2,
+                where=where,
+                include=["documents", "metadatas", "distances"],
+            )
+        else:
+            # Chroma 内置模式：直接传文本，让 Chroma 自己编码
+            result = col.query(
+                query_texts=[q],
+                n_results=k * 2,
+                where=where,
+                include=["documents", "metadatas", "distances"],
+            )
+
+        if result["ids"] and result["ids"][0]:
+            for i, chunk_id in enumerate(result["ids"][0]):
+                if chunk_id not in all_items:
+                    dist = result["distances"][0][i] if result.get("distances") else None
+                    all_items[chunk_id] = {
+                        "id": chunk_id,
+                        "document": result["documents"][0][i] if result.get("documents") else "",
+                        "metadata": result["metadatas"][0][i] if result.get("metadatas") else {},
+                        "distance": round(dist, 4) if dist is not None else None,
+                        "similarity": round(1 - dist, 4) if dist is not None else None,
+                        "collection": collection,
+                    }
+
+    items = list(all_items.values())
+    # 按相似度降序
+    items.sort(key=lambda x: x["similarity"] if x["similarity"] is not None else 0, reverse=True)
+
+    logger.info(f"查询「{query_text[:50]}...」→ 召回 {len(items)} 条")
+    return items[:k]
+
+
+def query_with_rerank(
+    query_text: str,
+    k: int = 5,
+    collection: str = COLLECTION_FACTS,
+    filters: Optional[dict] = None,
+    recall_k: int = 20,
+) -> list[dict]:
+    """完整检索管线：粗筛（Embedding+Chroma）→ 精排（Reranker）。
+
+    流程：
+    1. Chroma 粗筛召回 Top-recall_k 条
+    2. Reranker 精排取 Top-k 条
+    3. 返回最终结果
+
+    这比单纯 query_top_k 更准确，但多一次模型推理，延迟稍高。
+    """
+    # Step 1: 粗筛
+    candidates = query_top_k(
+        query_text=query_text,
+        k=recall_k,
+        collection=collection,
+        filters=filters,
+        use_query_rewrite=True,
+    )
+
+    if len(candidates) <= k:
+        return candidates
+
+    # Step 2: Reranker 精排（如果可用）
+    docs = [c["document"] for c in candidates]
+    reranker = get_reranker()
+    ranked = reranker.rerank(query_text, docs, top_k=k)
+
+    if not ranked:
+        # Reranker 不可用，直接返回粗筛结果
+        logger.info("Reranker 不可用，使用 Chroma 原始排序")
+        return candidates[:k]
+
+    # Step 3: 重组结果
+    results = []
+    for idx, score in ranked:
+        item = candidates[idx].copy()
+        item["rerank_score"] = round(float(score), 4)
+        results.append(item)
+
+    logger.info(f"Rerank: {len(candidates)} -> {len(results)} 条, Top-1: {results[0]['rerank_score'] if results else 'N/A'}")
+    return results
+
+
+def list_documents(collection: str = COLLECTION_FACTS) -> list[dict]:
+    """列出指定 collection 中已存储的文档（按 match_id 去重）。"""
+    col = get_facts_collection() if collection == COLLECTION_FACTS else get_reports_collection()
+
+    try:
+        all_data = col.get(include=["metadatas"])
+    except Exception:
+        logger.warning(f"[{collection}] 为空或获取失败")
+        return []
+
+    if not all_data["metadatas"]:
+        return []
+
+    doc_map: dict[str, dict] = {}
+    for meta in all_data["metadatas"]:
+        match_id = meta.get("match_id", "unknown")
+        if match_id not in doc_map:
+            doc_map[match_id] = {
+                "match_id": match_id,
+                "tournament_year": meta.get("tournament_year", ""),
+                "stage": meta.get("stage", ""),
+                "teams": meta.get("team_ids", []),
+                "chunk_count": 0,
+            }
+        doc_map[match_id]["chunk_count"] += 1
+
+    return sorted(doc_map.values(), key=lambda x: x["tournament_year"], reverse=True)
+
+
+def delete_document(match_id: str, collection: str = COLLECTION_FACTS) -> int:
+    """删除指定比赛的所有 chunk。"""
+    if not match_id or not match_id.strip():
+        raise ValueError("match_id 不能为空")
+
+    col = get_facts_collection() if collection == COLLECTION_FACTS else get_reports_collection()
+
+    try:
+        existing = col.get(where={"match_id": match_id})
+    except Exception:
+        return 0
+
+    if not existing["ids"]:
+        logger.info(f"match_id={match_id} 不存在")
+        return 0
+
+    col.delete(ids=existing["ids"])
+    logger.info(f"已删除 match_id={match_id}，共 {len(existing['ids'])} 个 chunk")
+    return len(existing["ids"])
+
+
+def get_collection_stats() -> dict:
+    """获取两个 collection 的整体统计。"""
+    facts = get_facts_collection()
+    reports = get_reports_collection()
+
+    facts_docs = list_documents(COLLECTION_FACTS)
+    reports_docs = list_documents(COLLECTION_REPORTS)
+
+    return {
+        "world_cup_match_facts": {
+            "total_chunks": facts.count(),
+            "unique_matches": len(facts_docs),
+            "years": sorted({d["tournament_year"] for d in facts_docs if d["tournament_year"]}),
+        },
+        "world_cup_reports": {
+            "total_chunks": reports.count(),
+            "unique_matches": len(reports_docs),
+            "years": sorted({d["tournament_year"] for d in reports_docs if d["tournament_year"]}),
+        },
+    }
+
+
+def reset_all():
+    """清空两个 collection（仅开发用）。"""
+    client = _get_client()
+    for name in [COLLECTION_FACTS, COLLECTION_REPORTS]:
+        try:
+            client.delete_collection(name)
+            logger.warning(f"已删除 collection: {name}")
+        except Exception:
+            pass
+    logger.info("所有 collection 已重置")
+
+
+def import_match_facts(json_path: str = "match_facts.json") -> int:
+    """从 match_facts.json 批量导入比赛事实到 Chroma。
+
+    match_facts.json 格式（C 成员提供）：
+        [
+            {
+                "text": "1930年世界杯小组赛，法国队...",
+                "metadata": {
+                    "match_id": "M-1930-01",
+                    "tournament_year": 1930,
+                    "stage": "小组赛",
+                    "team_ids": ["team_FRA", "team_MEX"],
+                    ...
+                }
+            },
+            ...
+        ]
+
+    本函数自动做格式转换：
+        - text → document（Chroma API 字段名）
+        - id   → 使用 match_id（保证唯一性）
+
+    参数:
+        json_path: match_facts.json 文件路径
+
+    返回:
+        成功导入的 chunk 数量
+    """
+    import json
+
+    if not os.path.isfile(json_path):
+        # 尝试多个路径
+        alt_paths = [
+            json_path,
+            os.path.join(os.path.dirname(__file__), "..", "..", json_path),
+        ]
+        for p in alt_paths:
+            if os.path.isfile(p):
+                json_path = p
+                break
+        else:
+            raise FileNotFoundError(f"找不到文件: {json_path}")
+
+    logger.info(f"正在读取: {json_path}")
+    with open(json_path, "r", encoding="utf-8") as f:
+        raw_data = json.load(f)
+
+    # 转换为 Chroma 格式
+    chunks = []
+    for item in raw_data:
+        meta = item["metadata"].copy()
+        match_id = meta.get("match_id", f"unknown_{len(chunks)}")
+
+        chunks.append({
+            "id": match_id,                     # 使用 match_id 作为唯一 ID
+            "document": item["text"],           # text → document
+            "metadata": meta,                   # metadata 直接使用
+        })
+
+    # 统计信息
+    years = sorted({c["metadata"].get("tournament_year") for c in chunks if c["metadata"].get("tournament_year")})
+    stages = set(c["metadata"].get("stage") for c in chunks if c["metadata"].get("stage"))
+    logger.info(f"准备导入 {len(chunks)} 条事实，覆盖年份 {years[0]}-{years[-1]}，阶段: {stages}")
+
+    # 写入
+    count = add_chunks(chunks, COLLECTION_FACTS)
+    logger.info(f"导入完成！成功写入 {count}/{len(chunks)} 条")
+    return count
+
+
+# ===================================================================
+#              结果增强：球队名解析 + SQLite 详情 + 格式化
+# ===================================================================
+
+# --- 球队信息缓存 ---
+_team_info: Optional[dict[str, dict]] = None
+
+
+def _load_team_info() -> dict[str, dict]:
+    """从 team_aliases.json 加载球队详情。"""
+    global _team_info
+    if _team_info is not None:
+        return _team_info
+
+    import json
+    path = os.environ.get("TEAM_ALIASES_PATH", "team_aliases.json")
+    if not os.path.isfile(path):
+        alt = os.path.join(os.path.dirname(__file__), "..", "..", "team_aliases.json")
+        if os.path.isfile(alt):
+            path = alt
+
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        _team_info = data.get("teams", {})
+        logger.info(f"已加载 {len(_team_info)} 支球队信息")
+    except Exception as e:
+        logger.warning(f"加载球队信息失败: {e}")
+        _team_info = {}
+    return _team_info
+
+
+def resolve_team_name(team_id: str) -> str:
+    """team_id → 中文名。如 team_FRA → 法国。"""
+    info = _load_team_info()
+    team = info.get(team_id, {})
+    return team.get("canonical_name", team_id)
+
+
+def resolve_team_names(team_ids: list[str]) -> list[str]:
+    """批量 team_id → 中文名。"""
+    return [resolve_team_name(tid) for tid in team_ids]
+
+
+# --- SQLite match 数据库 ---
+_match_db_path: Optional[str] = None
+
+
+def _get_match_db_path() -> Optional[str]:
+    """查找 worldcup.db 路径。"""
+    global _match_db_path
+    if _match_db_path is not None:
+        return _match_db_path if os.path.isfile(_match_db_path) else None
+
+    candidates = [
+        "worldcup.db",
+        os.path.join(os.path.dirname(__file__), "..", "..", "worldcup.db"),
+    ]
+    for p in candidates:
+        if os.path.isfile(p):
+            _match_db_path = p
+            return p
+    return None
+
+
+def get_match_detail(match_id: str) -> Optional[dict]:
+    """从 worldcup.db 查询单场比赛的完整详情（比分/日期/场馆/胜者）。"""
+    import sqlite3
+    db_path = _get_match_db_path()
+    if not db_path:
+        return None
+
+    try:
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM matches WHERE match_id = ?", (match_id,))
+        row = cur.fetchone()
+        conn.close()
+        if row:
+            result = dict(row)
+            # 将 team_id 转成中文名
+            for key in ["home_team_id", "away_team_id", "winner_team_id"]:
+                if key in result and result[key]:
+                    result[key.replace("_id", "")] = resolve_team_name(result[key])
+            return result
+    except Exception as e:
+        logger.warning(f"查询 match 详情失败 ({match_id}): {e}")
+    return None
+
+
+def get_goal_details(match_id: str) -> list[dict]:
+    """从 worldcup.db 的 goals 表查询一场比赛的全部进球记录。
+
+    返回（按进球时间排序）:
+        [
+            {
+                "player": "Kylian Mbappe",        # 球员全名
+                "team_name": "France",             # 进球方
+                "minute_label": "65'",             # 进球时间
+                "match_period": "second half",     # 比赛阶段
+                "penalty": 0,                      # 是否点球
+                "own_goal": 0,                     # 是否乌龙
+            },
+            ...
+        ]
+    """
+    import sqlite3
+    db_path = _get_match_db_path()
+    if not db_path:
+        return []
+
+    try:
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT given_name, family_name, team_name, minute_label,
+                   match_period, penalty, own_goal
+            FROM goals
+            WHERE match_id = ?
+            ORDER BY minute_regulation
+        """, (match_id,))
+        rows = cur.fetchall()
+        conn.close()
+
+        goals = []
+        for row in rows:
+            r = dict(row)
+            # 组装球员全名（西方习惯：given_name + family_name）
+            first = (r.get("given_name") or "").strip()
+            last = (r.get("family_name") or "").strip()
+            full = f"{first} {last}".strip()
+
+            goals.append({
+                "player": full,
+                "team_name": r.get("team_name", ""),
+                "minute_label": r.get("minute_label", ""),
+                "match_period": r.get("match_period", ""),
+                "penalty": r.get("penalty", 0),
+                "own_goal": r.get("own_goal", 0),
+            })
+
+        return goals
+    except Exception as e:
+        logger.warning(f"查询进球详情失败 ({match_id}): {e}")
+        return []
+
+
+def enrich_result(item: dict) -> dict:
+    """增强单条查询结果：添加球队中文名 + match 完整详情。"""
+    enriched = dict(item)
+    meta = item.get("metadata", {})
+
+    # 1. 球队名解析
+    team_ids = meta.get("team_ids", [])
+    if team_ids:
+        enriched["team_names"] = resolve_team_names(team_ids)
+
+    # 2. 从 SQLite 获取 match 详情（比分、胜者等）
+    match_id = meta.get("match_id")
+    if match_id:
+        detail = get_match_detail(match_id)
+        if detail:
+            enriched["match_detail"] = detail
+
+    # 3. 从 SQLite 获取进球详情
+    if match_id:
+        goals = get_goal_details(match_id)
+        if goals:
+            enriched["goals"] = goals
+
+    return enriched
+
+
+def format_result(item: dict, verbose: bool = False) -> str:
+    """将增强后的查询结果格式化为可读字符串（调试/前端展示用）。"""
+    meta = item.get("metadata", {})
+    detail = item.get("match_detail", {})
+    team_names = item.get("team_names", [])
+    sim = item.get("similarity")
+    rerank = item.get("rerank_score")
+
+    year = meta.get("tournament_year", "?")
+    stage = meta.get("stage", "?")
+    score = detail.get("score_display") or meta.get("score_display", "?")
+
+    teams_str = " vs ".join(team_names) if team_names else "? vs ?"
+
+    score_tag = f"rerank={rerank:.4f}" if rerank is not None else f"sim={sim:.4f}" if sim is not None else ""
+
+    result_type = detail.get("result_type") or meta.get("result_type", "")
+    winner = detail.get("winner") or ""
+    if winner:
+        result_type += f" (胜者: {winner})"
+
+    base = f"[{year}] {stage} | {teams_str} | 比分 {score} | {score_tag}"
+    if result_type:
+        base += f" | {result_type}"
+
+    if verbose:
+        date = detail.get("match_date", "")
+        venue = detail.get("venue", "")
+        if date:
+            base += f"\n  日期: {date}"
+        if venue:
+            base += f"\n  场馆: {venue}"
+
+        # 进球详情
+        goals = item.get("goals", [])
+        if goals:
+            goal_lines = []
+            for g in goals[:8]:  # 最多显示 8 球
+                tag = ""
+                if g.get("penalty"):
+                    tag = " (点球)"
+                if g.get("own_goal"):
+                    tag = " (乌龙)"
+                goal_lines.append(f"    {g['minute_label']} {g['player']} [{g['team_name']}]{tag}")
+            if len(goals) > 8:
+                goal_lines.append(f"    ... 还有 {len(goals) - 8} 球")
+            base += "\n  进球:\n" + "\n".join(goal_lines)
+
+        doc = item.get("document", "")
+        if doc:
+            base += f"\n  摘要: {doc[:150]}"
+
+    return base
+
+
+# ===================================================================
+#                      独立测试入口
+# ===================================================================
+
+
+if __name__ == "__main__":
+    print("=" * 60)
+    print("世界杯知识库 — Chroma Service 测试")
+    print("=" * 60)
+
+    # ---- 测试假数据（模拟 C 处理后的世界杯数据）----
+    mock_facts = [
+        {
+            "id": "match_2018_final",
+            "document": (
+                "2018年俄罗斯世界杯决赛，法国队对阵克罗地亚队。"
+                "90分钟内比分为4:2，法国队获胜。"
+                "进球球员：格列兹曼、博格巴、姆巴佩（法国）；佩里西奇、曼朱基奇（克罗地亚）。"
+                "比赛地点：莫斯科卢日尼基体育场。"
+            ),
+            "metadata": {
+                "match_id": "match_2018_final",
+                "tournament_year": 2018,
+                "stage": "决赛",
+                "team_ids": ["法国", "克罗地亚"],
+                "home_team": "法国",
+                "away_team": "克罗地亚",
+                "score_display": "4:2",
+                "result_type": "regulation",
+                "winner": "法国",
+                "document_name": "世界杯事实库.json",
+                "source_url": "https://www.fifa.com/worldcup/2018/final",
+                "source_page": 1,
+                "chunk_index": 0,
+                "language": "zh",
+                "data_version": "v1.0",
+            },
+        },
+        {
+            "id": "match_2018_semi_fra_bel",
+            "document": (
+                "2018年俄罗斯世界杯半决赛，法国队对阵比利时队。"
+                "90分钟内比分为1:0，法国队获胜，乌姆蒂蒂头球破门。"
+                "比赛地点：圣彼得堡体育场。"
+            ),
+            "metadata": {
+                "match_id": "match_2018_semi_fra_bel",
+                "tournament_year": 2018,
+                "stage": "半决赛",
+                "team_ids": ["法国", "比利时"],
+                "home_team": "法国",
+                "away_team": "比利时",
+                "score_display": "1:0",
+                "result_type": "regulation",
+                "winner": "法国",
+                "document_name": "世界杯事实库.json",
+                "source_url": "https://www.fifa.com/worldcup/2018/semi-final-1",
+                "source_page": 1,
+                "chunk_index": 0,
+                "language": "zh",
+                "data_version": "v1.0",
+            },
+        },
+        {
+            "id": "match_2018_quarter_fra_uru",
+            "document": (
+                "2018年俄罗斯世界杯1/4决赛，法国队对阵乌拉圭队。"
+                "90分钟内比分为2:0，法国队获胜。"
+                "进球球员：瓦拉内、格列兹曼（法国）。"
+            ),
+            "metadata": {
+                "match_id": "match_2018_quarter_fra_uru",
+                "tournament_year": 2018,
+                "stage": "1/4决赛",
+                "team_ids": ["法国", "乌拉圭"],
+                "home_team": "法国",
+                "away_team": "乌拉圭",
+                "score_display": "2:0",
+                "result_type": "regulation",
+                "winner": "法国",
+                "document_name": "世界杯事实库.json",
+                "source_url": "https://www.fifa.com/worldcup/2018/quarter-final-1",
+                "source_page": 1,
+                "chunk_index": 0,
+                "language": "zh",
+                "data_version": "v1.0",
+            },
+        },
+        {
+            "id": "match_2022_final",
+            "document": (
+                "2022年卡塔尔世界杯决赛，阿根廷队对阵法国队。"
+                "90分钟内比分为2:2，加时赛后3:3平局。"
+                "点球大战阿根廷4:2法国。"
+                "最终阿根廷获胜，梅西梅开二度，姆巴佩帽子戏法。"
+                "比赛地点：卢塞尔体育场。"
+            ),
+            "metadata": {
+                "match_id": "match_2022_final",
+                "tournament_year": 2022,
+                "stage": "决赛",
+                "team_ids": ["阿根廷", "法国"],
+                "home_team": "阿根廷",
+                "away_team": "法国",
+                "score_display": "3:3(点球4:2)",
+                "result_type": "penalties",
+                "winner": "阿根廷",
+                "document_name": "世界杯事实库.json",
+                "source_url": "https://www.fifa.com/worldcup/2022/final",
+                "source_page": 1,
+                "chunk_index": 0,
+                "language": "zh",
+                "data_version": "v1.0",
+            },
+        },
+    ]
+
+    mock_reports = [
+        {
+            "id": "report_2018_fra_journey",
+            "document": (
+                "法国队在2018年俄罗斯世界杯的夺冠之路："
+                "小组赛阶段，法国队以2胜1平的不败战绩获得C组第一。"
+                "1/8决赛4:3力克阿根廷，姆巴佩独中两元闪耀全场。"
+                "1/4决赛2:0战胜乌拉圭，半决赛1:0击败比利时。"
+                "决赛中法国队4:2战胜克罗地亚，时隔20年再次捧起大力神杯。"
+                "主教练德尚成为历史上第三位以球员和教练身份都赢得世界杯的人。"
+            ),
+            "metadata": {
+                "match_id": "report_2018_fra_summary",
+                "tournament_year": 2018,
+                "stage": "总结",
+                "team_ids": ["法国"],
+                "document_name": "世界杯比赛报告.md",
+                "source_url": "https://www.fifa.com/worldcup/2018/report-france",
+                "source_page": 1,
+                "chunk_index": 0,
+                "language": "zh",
+                "data_version": "v1.0",
+            },
+        },
+    ]
+
+    # ---- 测试 1：写入比赛事实 ----
+    print("\n[测试 1] add_chunks -> world_cup_match_facts")
+    count = add_chunks(mock_facts, COLLECTION_FACTS)
+    print(f"  -> 写入了 {count} 条事实")
+
+    # ---- 测试 2：写入比赛报告 ----
+    print("\n[测试 2] add_chunks -> world_cup_reports")
+    count = add_chunks(mock_reports, COLLECTION_REPORTS)
+    print(f"  -> 写入了 {count} 条报告")
+
+    # ---- 测试 3：精确事实查询 ----
+    print("\n[测试 3] query_top_k: 2018年决赛谁赢了")
+    results = query_top_k("2018年世界杯决赛谁赢了", k=3, collection=COLLECTION_FACTS)
+    for r in results:
+        print(f"  [{r['similarity']:.3f}] {r['document'][:80]}...")
+
+    # ---- 测试 4：带过滤条件的查询 ----
+    print("\n[测试 4] extract_filters + query_top_k: 2018年法国队在淘汰赛的表现")
+    filters = extract_filters("2018年法国队在淘汰赛的比赛结果")
+    print(f"  提取的过滤条件: { {k:v for k,v in filters.items() if k != 'rewritten_query'} }")
+    print(f"  改写后的查询: {filters['rewritten_query']}")
+    results = query_top_k(filters["rewritten_query"], k=3, collection=COLLECTION_FACTS, filters=filters)
+    for r in results:
+        print(f"  [{r['similarity']:.3f}] {r['document'][:80]}...")
+
+    # ---- 测试 5：语义总结查询（查报告） ----
+    print("\n[测试 5] query_top_k: 法国队2018年夺冠历程（从 reports 查）")
+    results = query_top_k("法国队2018年怎么夺冠的", k=2, collection=COLLECTION_REPORTS)
+    for r in results:
+        print(f"  [{r['similarity']:.3f}] {r['document'][:80]}...")
+
+    # ---- 测试 6：reranker 精排 ----
+    print("\n[测试 6] query_with_rerank: 2018年决赛")
+    results = query_with_rerank("2018年世界杯决赛", k=3, collection=COLLECTION_FACTS)
+    for r in results:
+        rerank_val = r.get('rerank_score')
+        if rerank_val is not None:
+            print(f"  [rerank={rerank_val:.3f}] {r['document'][:80]}...")
+        else:
+            print(f"  [chroma={r['similarity']:.3f}] {r['document'][:80]}...")
+
+    # ---- 测试 7：查看统计 ----
+    print("\n[测试 7] 统计信息")
+    stats = get_collection_stats()
+    for col_name, info in stats.items():
+        print(f"  {col_name}: {info}")
+
+    # ---- 测试 8：查看文档列表 ----
+    print("\n[测试 8] 文档列表")
+    docs = list_documents(COLLECTION_FACTS)
+    for d in docs:
+        print(f"  [{d['tournament_year']}] {d['stage']}: {', '.join(d['teams'])} ({d['chunk_count']} chunks)")
+
+    print("\n" + "=" * 60)
+    print("测试完成！")
+
+    # 如果要清空测试数据重新跑，取消下面的注释：
+    # reset_all()
