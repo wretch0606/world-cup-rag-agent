@@ -451,6 +451,79 @@ def query_rewrite(query: str) -> list[str]:
     return variations
 
 # ===================================================================
+#              状态枚举 & 结构化返回
+# ===================================================================
+
+
+class RetrievalStatus:
+    """检索服务状态码（对应 B 同学整改清单 5.7 和 D→E 契约）。
+
+    使用方式：
+        status = RetrievalStatus.OK        # 查询成功且有结果
+        status = RetrievalStatus.EMPTY     # 查询成功但无满足阈值的证据
+        status = RetrievalStatus.DEGRADED  # reranker 等增强模块不可用，已降级
+        status = RetrievalStatus.ERROR     # 完全不可用
+    """
+    OK = "ok"
+    EMPTY = "empty"
+    DEGRADED = "degraded"
+    ERROR = "error"
+
+
+class RetrievalResponse:
+    """结构化检索响应（对齐 02-D-to-E 契约 v2.0）。
+
+    替代直接返回 list[dict]，让 E 能拿到完整的执行状态。
+    """
+
+    def __init__(
+        self,
+        query: str,
+        candidates: list[dict],
+        status: str = RetrievalStatus.OK,
+        rewritten_query: Optional[str] = None,
+        filters: Optional[dict] = None,
+        config: Optional[dict] = None,
+        warnings: Optional[list[str]] = None,
+        timing: Optional[dict] = None,
+    ):
+        self.query = query
+        self.status = status
+        self.candidates = candidates
+        self.rewritten_query = rewritten_query
+        self.filters = filters
+        self.config = config or {}
+        self.warnings = warnings or []
+        self.timing = timing or {}
+
+    def to_dict(self) -> dict:
+        return {
+            "query": self.query,
+            "status": self.status,
+            "rewritten_query": self.rewritten_query,
+            "filters": self.filters,
+            "config": self.config,
+            "candidates": [
+                {
+                    "text": c.get("document", ""),
+                    "vector_score": c.get("distance"),
+                    "rerank_score": c.get("rerank_score"),
+                    "retrieval_rank": c.get("retrieval_rank", i + 1),
+                    "rerank_rank": c.get("rerank_rank"),
+                    "metadata": c.get("metadata", {}),
+                }
+                for i, c in enumerate(self.candidates)
+            ],
+            "execution": {
+                "rewrite_applied": bool(self.rewritten_query),
+                "reranker_applied": any(c.get("rerank_score") is not None for c in self.candidates),
+                "warnings": self.warnings,
+                "timing": self.timing,
+            },
+        }
+
+
+# ===================================================================
 #                   对外 API
 # ===================================================================
 
@@ -500,24 +573,9 @@ def add_chunks(
 
     col = get_facts_collection() if collection == COLLECTION_FACTS else get_reports_collection()
 
-    # 去重
-    existing_ids = set()
-    try:
-        existing = col.get(ids=ids)
-        existing_ids = set(existing["ids"])
-    except Exception:
-        pass
-
-    if existing_ids:
-        logger.warning(f"{len(existing_ids)} 个 chunk 已存在，跳过")
-        filtered = [(i, d, m) for i, d, m in zip(ids, documents, metadatas) if i not in existing_ids]
-        if not filtered:
-            return 0
-        ids, documents, metadatas = zip(*filtered)
-        ids, documents, metadatas = list(ids), list(documents), list(metadatas)
-
-    col.add(ids=ids, documents=documents, metadatas=metadatas)
-    logger.info(f"[{collection}] 成功写入 {len(ids)} 个 chunk，总计 {col.count()} 条")
+    # 使用 upsert（幂等写入），重复 id 自动覆盖而非插入
+    col.upsert(ids=ids, documents=documents, metadatas=metadatas)
+    logger.info(f"[{collection}] upsert {len(ids)} 个 chunk，当前总计 {col.count()} 条")
     return len(ids)
 
 
@@ -782,37 +840,34 @@ def reset_all():
 
 
 def import_match_facts(json_path: str = "match_facts.json") -> int:
-    """从 match_facts.json 批量导入比赛事实到 Chroma。
+    """从 JSON 或 JSONL 文件批量导入比赛事实到 Chroma。
 
-    match_facts.json 格式（C 成员提供）：
-        [
-            {
-                "text": "1930年世界杯小组赛，法国队...",
-                "metadata": {
-                    "match_id": "M-1930-01",
-                    "tournament_year": 1930,
-                    "stage": "小组赛",
-                    "team_ids": ["team_FRA", "team_MEX"],
-                    ...
-                }
-            },
-            ...
-        ]
+    支持格式（按优先级检测）：
+    1. .jsonl → C 的 v2 格式（每行一个 JSON 对象，含 id/text/metadata）
+    2. .json  → C 的 v1 格式（JSON 数组，含 text/metadata）
 
-    本函数自动做格式转换：
-        - text → document（Chroma API 字段名）
-        - id   → 使用 match_id（保证唯一性）
+    v2 格式示例（对齐 01-C-to-D 契约 v2.0）：
+        {"id": "match_fact_M-2018-64_v1", "text": "...", "metadata": {...}}
+
+    v1 格式示例（向后兼容）：
+        [{"text": "...", "metadata": {"match_id": "M-1930-01", ...}}]
+
+    幂等性：使用 upsert，连续两次导入不会产生重复向量。
 
     参数:
-        json_path: match_facts.json 文件路径
+        json_path: match_facts.json 或 match_facts.jsonl 文件路径
 
     返回:
         成功导入的 chunk 数量
     """
     import json
 
+    # 自动检测 .jsonl 文件
+    if not os.path.isfile(json_path) and os.path.isfile(json_path + "l"):
+        json_path = json_path + "l"
+        logger.info(f"自动检测到 JSONL 文件: {json_path}")
+
     if not os.path.isfile(json_path):
-        # 尝试多个路径
         alt_paths = [
             json_path,
             os.path.join(os.path.dirname(__file__), "..", "..", json_path),
@@ -825,27 +880,45 @@ def import_match_facts(json_path: str = "match_facts.json") -> int:
             raise FileNotFoundError(f"找不到文件: {json_path}")
 
     logger.info(f"正在读取: {json_path}")
-    with open(json_path, "r", encoding="utf-8") as f:
-        raw_data = json.load(f)
 
-    # 转换为 Chroma 格式
+    # 检测格式
+    is_jsonl = json_path.endswith(".jsonl")
+
     chunks = []
-    for item in raw_data:
-        meta = item["metadata"].copy()
-        match_id = meta.get("match_id", f"unknown_{len(chunks)}")
+    if is_jsonl:
+        # v2 格式：每行一个 JSON
+        with open(json_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                item = json.loads(line)
+                meta = item["metadata"].copy()
+                # v2 格式已含 id 字段，直接使用
+                chunks.append({
+                    "id": item["id"],
+                    "document": item["text"],
+                    "metadata": meta,
+                })
+    else:
+        # v1 格式：JSON 数组
+        with open(json_path, "r", encoding="utf-8") as f:
+            raw_data = json.load(f)
+        for item in raw_data:
+            meta = item["metadata"].copy()
+            chunk_id = item.get("id", meta.get("match_id", f"unknown_{len(chunks)}"))
+            chunks.append({
+                "id": chunk_id,
+                "document": item["text"],
+                "metadata": meta,
+            })
 
-        chunks.append({
-            "id": match_id,                     # 使用 match_id 作为唯一 ID
-            "document": item["text"],           # text → document
-            "metadata": meta,                   # metadata 直接使用
-        })
-
-    # 统计信息
+    # 统计
     years = sorted({c["metadata"].get("tournament_year") for c in chunks if c["metadata"].get("tournament_year")})
     stages = set(c["metadata"].get("stage") for c in chunks if c["metadata"].get("stage"))
     logger.info(f"准备导入 {len(chunks)} 条事实，覆盖年份 {years[0]}-{years[-1]}，阶段: {stages}")
 
-    # 写入
+    # 写入（upsert）
     count = add_chunks(chunks, COLLECTION_FACTS)
     logger.info(f"导入完成！成功写入 {count}/{len(chunks)} 条")
     return count
@@ -1079,6 +1152,128 @@ def format_result(item: dict, verbose: bool = False) -> str:
             base += f"\n  摘要: {doc[:150]}"
 
     return base
+
+
+# ===================================================================
+#              Async 包装（避免阻塞 FastAPI 事件循环）
+# ===================================================================
+
+# 注意：这些 async 函数仅仅是 asyncio.to_thread 的便捷包装。
+# B 也可以直接用 run_in_threadpool 调用同步函数。
+# 模型只需加载一次（已在模块级别做单例缓存），不会每个请求重复加载。
+
+
+async def query_top_k_async(*args, **kwargs) -> list[dict]:
+    """`query_top_k` 的 async 包装。在线程池中执行同步调用。"""
+    import asyncio
+    return await asyncio.to_thread(query_top_k, *args, **kwargs)
+
+
+async def query_with_rerank_async(*args, **kwargs) -> list[dict]:
+    """`query_with_rerank` 的 async 包装。"""
+    import asyncio
+    return await asyncio.to_thread(query_with_rerank, *args, **kwargs)
+
+
+async def add_chunks_async(*args, **kwargs) -> int:
+    """`add_chunks` 的 async 包装。"""
+    import asyncio
+    return await asyncio.to_thread(add_chunks, *args, **kwargs)
+
+
+async def import_match_facts_async(*args, **kwargs) -> int:
+    """`import_match_facts` 的 async 包装。批量导入不应在用户请求中调用。"""
+    import asyncio
+    return await asyncio.to_thread(import_match_facts, *args, **kwargs)
+
+
+# ===================================================================
+#         结构化查询接口（对齐 02-D-to-E 契约 v2.0）
+# ===================================================================
+
+
+def query_structured(
+    query_text: str,
+    k: int = 5,
+    collection: str = COLLECTION_FACTS,
+    filters: Optional[dict] = None,
+    use_query_rewrite: bool = True,
+    use_rerank: bool = False,
+    recall_k: int = 20,
+) -> RetrievalResponse:
+    """执行检索并返回 D→E 契约格式的结构化响应。
+
+    这是给 E（RAG 生成）调用的主接口。返回 RetrievalResponse
+    而非裸 list[dict]，包含完整执行状态。
+    """
+    import time
+
+    warnings_list = []
+    timing = {}
+    rewritten = None
+
+    # 1. 提取过滤条件
+    if filters is None:
+        filters = extract_filters(query_text)
+
+    rewritten = filters.get("rewritten_query") if "rewritten_query" in filters else None
+
+    # 2. 检索
+    t0 = time.time()
+    if use_rerank:
+        candidates = query_with_rerank(
+            query_text=query_text,
+            k=k,
+            collection=collection,
+            filters=filters,
+            recall_k=recall_k,
+        )
+        reranker_applied = any(c.get("rerank_score") is not None for c in candidates)
+        if use_rerank and not reranker_applied:
+            warnings_list.append("reranker unavailable, fallback to vector ranking")
+    else:
+        candidates = query_top_k(
+            query_text=query_text,
+            k=k,
+            collection=collection,
+            filters=filters,
+            use_query_rewrite=use_query_rewrite,
+        )
+        reranker_applied = False
+
+    timing["retrieval_ms"] = round((time.time() - t0) * 1000)
+
+    # 3. 添加排序位置
+    for i, c in enumerate(candidates):
+        c["retrieval_rank"] = i + 1
+        # rerank_rank 暂与 retrieval_rank 一致（reranker 不可用时）
+        if c.get("rerank_score") is not None and "rerank_rank" not in c:
+            c["rerank_rank"] = i + 1
+
+    # 4. 判断状态
+    col = get_facts_collection() if collection == COLLECTION_FACTS else get_reports_collection()
+    col_count = col.count()
+
+    if col_count == 0:
+        status = RetrievalStatus.ERROR
+        warnings_list.append(f"collection '{collection}' is empty, retrieval unavailable")
+    elif not candidates:
+        status = RetrievalStatus.EMPTY
+    elif reranker_applied is False and use_rerank:
+        status = RetrievalStatus.DEGRADED
+    else:
+        status = RetrievalStatus.OK
+
+    return RetrievalResponse(
+        query=query_text,
+        status=status,
+        candidates=candidates,
+        rewritten_query=rewritten,
+        filters={k: v for k, v in filters.items() if k not in ("rewritten_query", "stage_hint")},
+        config={"top_k": k, "reranker_enabled": use_rerank, "use_rewrite": use_query_rewrite},
+        warnings=warnings_list,
+        timing=timing,
+    )
 
 
 # ===================================================================
