@@ -1,0 +1,686 @@
+{
+  "aliases": {
+    "Algeria": "team_ALG",
+    "algeria": "team_ALG",
+    "阿尔及利亚": "team_ALG",
+    "Angola": "team_ANG",
+    "angola": "team_ANG",
+    "安哥拉": "team_ANG",
+    "Argentina": "team_ARG",
+    "argentina": "team_ARG",
+    "阿根廷": "team_ARG",
+    "Australia": "team_AUS",
+    "australia": "team_AUS",
+    "澳大利亚": "team_AUS",
+    "Austria": "team_AUT",
+    "austria": "team_AUT",
+    "奥地利": "team_AUT",
+    "Belgium": "team_BEL",
+    "belgium": "team_BEL",
+    "比利时": "team_BEL",
+    "Bolivia": "team_BOL",
+    "bolivia": "team_BOL",
+    "玻利维亚": "team_BOL",
+    "Bosnia and Herzegovina": "team_BIH",
+    "bosnia and herzegovina": "team_BIH",
+    "波黑": "team_BIH",
+    "Brazil": "team_BRA",
+    "brazil": "team_BRA",
+    "巴西": "team_BRA",
+    "Bulgaria": "team_BUL",
+    "bulgaria": "team_BUL",
+    "保加利亚": "team_BUL",
+    "Cameroon": "team_CMR",
+    "cameroon": "team_CMR",
+    "喀麦隆": "team_CMR",
+    "Canada": "team_CAN",
+    "canada": "team_CAN",
+    "加拿大": "team_CAN",
+    "Chile": "team_CHI",
+    "chile": "team_CHI",
+    "智利": "team_CHI",
+    "China": "team_CHN",
+    "china": "team_CHN",
+    "中国": "team_CHN",
+    "Colombia": "team_COL",
+    "colombia": "team_COL",
+    "哥伦比亚": "team_COL",
+    "Costa Rica": "team_CRC",
+    "costa rica": "team_CRC",
+    "哥斯达黎加": "team_CRC",
+    "Croatia": "team_CRO",
+    "croatia": "team_CRO",
+    "克罗地亚": "team_CRO",
+    "Cuba": "team_CUB",
+    "cuba": "team_CUB",
+    "古巴": "team_CUB",
+    "Czech Republic": "team_CZE",
+    "czech republic": "team_CZE",
+    "捷克": "team_CZE",
+    "Czechoslovakia": "team_TCH",
+    "czechoslovakia": "team_TCH",
+    "捷克斯洛伐克": "team_TCH",
+    "Denmark": "team_DEN",
+    "denmark": "team_DEN",
+    "丹麦": "team_DEN",
+    "Dutch East Indies": "team_DEI",
+    "dutch east indies": "team_DEI",
+    "荷属东印度": "team_DEI",
+    "East Germany": "team_GDR",
+    "east germany": "team_GDR",
+    "东德": "team_GDR",
+    "Ecuador": "team_ECU",
+    "ecuador": "team_ECU",
+    "厄瓜多尔": "team_ECU",
+    "Egypt": "team_EGY",
+    "egypt": "team_EGY",
+    "埃及": "team_EGY",
+    "El Salvador": "team_SLV",
+    "el salvador": "team_SLV",
+    "萨尔瓦多": "team_SLV",
+    "England": "team_ENG",
+    "england": "team_ENG",
+    "英格兰": "team_ENG",
+    "France": "team_FRA",
+    "france": "team_FRA",
+    "法国": "team_FRA",
+    "Germany": "team_GER",
+    "germany": "team_GER",
+    "德国": "team_GER",
+    "Ghana": "team_GHA",
+    "ghana": "team_GHA",
+    "加纳": "team_GHA",
+    "Greece": "team_GRE",
+    "greece": "team_GRE",
+    "希腊": "team_GRE",
+    "Haiti": "team_HAI",
+    "haiti": "team_HAI",
+    "海地": "team_HAI",
+    "Honduras": "team_HON",
+    "honduras": "team_HON",
+    "洪都拉斯": "team_HON",
+    "Hungary": "team_HUN",
+    "hungary": "team_HUN",
+    "匈牙利": "team_HUN",
+    "Iceland": "team_ISL",
+    "iceland": "team_ISL",
+    "冰岛": "team_ISL",
+    "Iran": "team_IRN",
+    "iran": "team_IRN",
+    "伊朗": "team_IRN",
+    "Iraq": "team_IRQ",
+    "iraq": "team_IRQ",
+    "伊拉克": "team_IRQ",
+    "Israel": "team_ISR",
+    "israel": "team_ISR",
+    "以色列": "team_ISR",
+    "Italy": "team_ITA",
+    "italy": "team_ITA",
+    "意大利": "team_ITA",
+    "Ivory Coast": "team_CIV",
+    "ivory coast": "team_CIV",
+    "科特迪瓦": "team_CIV",
+    "Jamaica": "team_JAM",
+    "jamaica": "team_JAM",
+    "牙买加": "team_JAM",
+    "Japan": "team_JPN",
+    "japan": "team_JPN",
+    "日本": "team_JPN",
+    "Kuwait": "team_KUW",
+    "kuwait": "team_KUW",
+    "科威特": "team_KUW",
+    "Mexico": "team_MEX",
+    "mexico": "team_MEX",
+    "墨西哥": "team_MEX",
+    "Morocco": "team_MAR",
+    "morocco": "team_MAR",
+    "摩洛哥": "team_MAR",
+    "Netherlands": "team_NED",
+    "netherlands": "team_NED",
+    "荷兰": "team_NED",
+    "New Zealand": "team_NZL",
+    "new zealand": "team_NZL",
+    "新西兰": "team_NZL",
+    "Nigeria": "team_NGA",
+    "nigeria": "team_NGA",
+    "尼日利亚": "team_NGA",
+    "North Korea": "team_PRK",
+    "north korea": "team_PRK",
+    "朝鲜": "team_PRK",
+    "Northern Ireland": "team_NIR",
+    "northern ireland": "team_NIR",
+    "北爱尔兰": "team_NIR",
+    "Norway": "team_NOR",
+    "norway": "team_NOR",
+    "挪威": "team_NOR",
+    "Panama": "team_PAN",
+    "panama": "team_PAN",
+    "巴拿马": "team_PAN",
+    "Paraguay": "team_PAR",
+    "paraguay": "team_PAR",
+    "巴拉圭": "team_PAR",
+    "Peru": "team_PER",
+    "peru": "team_PER",
+    "秘鲁": "team_PER",
+    "Poland": "team_POL",
+    "poland": "team_POL",
+    "波兰": "team_POL",
+    "Portugal": "team_POR",
+    "portugal": "team_POR",
+    "葡萄牙": "team_POR",
+    "Qatar": "team_QAT",
+    "qatar": "team_QAT",
+    "卡塔尔": "team_QAT",
+    "Republic of Ireland": "team_IRL",
+    "republic of ireland": "team_IRL",
+    "爱尔兰": "team_IRL",
+    "Romania": "team_ROU",
+    "romania": "team_ROU",
+    "罗马尼亚": "team_ROU",
+    "Russia": "team_RUS",
+    "russia": "team_RUS",
+    "俄罗斯": "team_RUS",
+    "Saudi Arabia": "team_KSA",
+    "saudi arabia": "team_KSA",
+    "沙特阿拉伯": "team_KSA",
+    "Scotland": "team_SCO",
+    "scotland": "team_SCO",
+    "苏格兰": "team_SCO",
+    "Senegal": "team_SEN",
+    "senegal": "team_SEN",
+    "塞内加尔": "team_SEN",
+    "Serbia": "team_SRB",
+    "serbia": "team_SRB",
+    "塞尔维亚": "team_SRB",
+    "Serbia and Montenegro": "team_SCG",
+    "serbia and montenegro": "team_SCG",
+    "塞尔维亚和黑山": "team_SCG",
+    "Slovakia": "team_SVK",
+    "slovakia": "team_SVK",
+    "斯洛伐克": "team_SVK",
+    "Slovenia": "team_SVN",
+    "slovenia": "team_SVN",
+    "斯洛文尼亚": "team_SVN",
+    "South Africa": "team_RSA",
+    "south africa": "team_RSA",
+    "南非": "team_RSA",
+    "South Korea": "team_KOR",
+    "south korea": "team_KOR",
+    "韩国": "team_KOR",
+    "Soviet Union": "team_URS",
+    "soviet union": "team_URS",
+    "苏联": "team_URS",
+    "Spain": "team_ESP",
+    "spain": "team_ESP",
+    "西班牙": "team_ESP",
+    "Sweden": "team_SWE",
+    "sweden": "team_SWE",
+    "瑞典": "team_SWE",
+    "Switzerland": "team_SUI",
+    "switzerland": "team_SUI",
+    "瑞士": "team_SUI",
+    "Togo": "team_TOG",
+    "togo": "team_TOG",
+    "多哥": "team_TOG",
+    "Trinidad and Tobago": "team_TRI",
+    "trinidad and tobago": "team_TRI",
+    "特立尼达和多巴哥": "team_TRI",
+    "Tunisia": "team_TUN",
+    "tunisia": "team_TUN",
+    "突尼斯": "team_TUN",
+    "Turkey": "team_TUR",
+    "turkey": "team_TUR",
+    "土耳其": "team_TUR",
+    "Ukraine": "team_UKR",
+    "ukraine": "team_UKR",
+    "乌克兰": "team_UKR",
+    "United Arab Emirates": "team_UAE",
+    "united arab emirates": "team_UAE",
+    "阿联酋": "team_UAE",
+    "United States": "team_USA",
+    "united states": "team_USA",
+    "美国": "team_USA",
+    "Uruguay": "team_URU",
+    "uruguay": "team_URU",
+    "乌拉圭": "team_URU",
+    "Wales": "team_WAL",
+    "wales": "team_WAL",
+    "威尔士": "team_WAL",
+    "West Germany": "team_FRG",
+    "west germany": "team_FRG",
+    "西德": "team_FRG",
+    "Yugoslavia": "team_YUG",
+    "yugoslavia": "team_YUG",
+    "南斯拉夫": "team_YUG",
+    "Zaire": "team_ZAI",
+    "zaire": "team_ZAI",
+    "扎伊尔": "team_ZAI"
+  },
+  "teams": {
+    "team_ALG": {
+      "canonical_name": "阿尔及利亚",
+      "confederation": "CAF",
+      "fifa_code": "ALG"
+    },
+    "team_ANG": {
+      "canonical_name": "安哥拉",
+      "confederation": "CAF",
+      "fifa_code": "ANG"
+    },
+    "team_ARG": {
+      "canonical_name": "阿根廷",
+      "confederation": "CONMEBOL",
+      "fifa_code": "ARG"
+    },
+    "team_AUS": {
+      "canonical_name": "澳大利亚",
+      "confederation": "AFC",
+      "fifa_code": "AUS"
+    },
+    "team_AUT": {
+      "canonical_name": "奥地利",
+      "confederation": "UEFA",
+      "fifa_code": "AUT"
+    },
+    "team_BEL": {
+      "canonical_name": "比利时",
+      "confederation": "UEFA",
+      "fifa_code": "BEL"
+    },
+    "team_BOL": {
+      "canonical_name": "玻利维亚",
+      "confederation": "CONMEBOL",
+      "fifa_code": "BOL"
+    },
+    "team_BIH": {
+      "canonical_name": "波黑",
+      "confederation": "UEFA",
+      "fifa_code": "BIH"
+    },
+    "team_BRA": {
+      "canonical_name": "巴西",
+      "confederation": "CONMEBOL",
+      "fifa_code": "BRA"
+    },
+    "team_BUL": {
+      "canonical_name": "保加利亚",
+      "confederation": "UEFA",
+      "fifa_code": "BUL"
+    },
+    "team_CMR": {
+      "canonical_name": "喀麦隆",
+      "confederation": "CAF",
+      "fifa_code": "CMR"
+    },
+    "team_CAN": {
+      "canonical_name": "加拿大",
+      "confederation": "CONCACAF",
+      "fifa_code": "CAN"
+    },
+    "team_CHI": {
+      "canonical_name": "智利",
+      "confederation": "CONMEBOL",
+      "fifa_code": "CHI"
+    },
+    "team_CHN": {
+      "canonical_name": "中国",
+      "confederation": "AFC",
+      "fifa_code": "CHN"
+    },
+    "team_COL": {
+      "canonical_name": "哥伦比亚",
+      "confederation": "CONMEBOL",
+      "fifa_code": "COL"
+    },
+    "team_CRC": {
+      "canonical_name": "哥斯达黎加",
+      "confederation": "CONCACAF",
+      "fifa_code": "CRC"
+    },
+    "team_CRO": {
+      "canonical_name": "克罗地亚",
+      "confederation": "UEFA",
+      "fifa_code": "CRO"
+    },
+    "team_CUB": {
+      "canonical_name": "古巴",
+      "confederation": "CONCACAF",
+      "fifa_code": "CUB"
+    },
+    "team_CZE": {
+      "canonical_name": "捷克",
+      "confederation": "UEFA",
+      "fifa_code": "CZE"
+    },
+    "team_TCH": {
+      "canonical_name": "捷克斯洛伐克",
+      "confederation": "UEFA",
+      "fifa_code": "TCH"
+    },
+    "team_DEN": {
+      "canonical_name": "丹麦",
+      "confederation": "UEFA",
+      "fifa_code": "DEN"
+    },
+    "team_DEI": {
+      "canonical_name": "荷属东印度",
+      "confederation": "",
+      "fifa_code": "DEI"
+    },
+    "team_GDR": {
+      "canonical_name": "东德",
+      "confederation": "UEFA",
+      "fifa_code": "GDR"
+    },
+    "team_ECU": {
+      "canonical_name": "厄瓜多尔",
+      "confederation": "CONMEBOL",
+      "fifa_code": "ECU"
+    },
+    "team_EGY": {
+      "canonical_name": "埃及",
+      "confederation": "CAF",
+      "fifa_code": "EGY"
+    },
+    "team_SLV": {
+      "canonical_name": "萨尔瓦多",
+      "confederation": "CONCACAF",
+      "fifa_code": "SLV"
+    },
+    "team_ENG": {
+      "canonical_name": "英格兰",
+      "confederation": "UEFA",
+      "fifa_code": "ENG"
+    },
+    "team_FRA": {
+      "canonical_name": "法国",
+      "confederation": "UEFA",
+      "fifa_code": "FRA"
+    },
+    "team_GER": {
+      "canonical_name": "德国",
+      "confederation": "UEFA",
+      "fifa_code": "GER"
+    },
+    "team_GHA": {
+      "canonical_name": "加纳",
+      "confederation": "CAF",
+      "fifa_code": "GHA"
+    },
+    "team_GRE": {
+      "canonical_name": "希腊",
+      "confederation": "UEFA",
+      "fifa_code": "GRE"
+    },
+    "team_HAI": {
+      "canonical_name": "海地",
+      "confederation": "CONCACAF",
+      "fifa_code": "HAI"
+    },
+    "team_HON": {
+      "canonical_name": "洪都拉斯",
+      "confederation": "CONCACAF",
+      "fifa_code": "HON"
+    },
+    "team_HUN": {
+      "canonical_name": "匈牙利",
+      "confederation": "UEFA",
+      "fifa_code": "HUN"
+    },
+    "team_ISL": {
+      "canonical_name": "冰岛",
+      "confederation": "UEFA",
+      "fifa_code": "ISL"
+    },
+    "team_IRN": {
+      "canonical_name": "伊朗",
+      "confederation": "AFC",
+      "fifa_code": "IRN"
+    },
+    "team_IRQ": {
+      "canonical_name": "伊拉克",
+      "confederation": "AFC",
+      "fifa_code": "IRQ"
+    },
+    "team_ISR": {
+      "canonical_name": "以色列",
+      "confederation": "",
+      "fifa_code": "ISR"
+    },
+    "team_ITA": {
+      "canonical_name": "意大利",
+      "confederation": "UEFA",
+      "fifa_code": "ITA"
+    },
+    "team_CIV": {
+      "canonical_name": "科特迪瓦",
+      "confederation": "CAF",
+      "fifa_code": "CIV"
+    },
+    "team_JAM": {
+      "canonical_name": "牙买加",
+      "confederation": "CONCACAF",
+      "fifa_code": "JAM"
+    },
+    "team_JPN": {
+      "canonical_name": "日本",
+      "confederation": "AFC",
+      "fifa_code": "JPN"
+    },
+    "team_KUW": {
+      "canonical_name": "科威特",
+      "confederation": "AFC",
+      "fifa_code": "KUW"
+    },
+    "team_MEX": {
+      "canonical_name": "墨西哥",
+      "confederation": "CONCACAF",
+      "fifa_code": "MEX"
+    },
+    "team_MAR": {
+      "canonical_name": "摩洛哥",
+      "confederation": "CAF",
+      "fifa_code": "MAR"
+    },
+    "team_NED": {
+      "canonical_name": "荷兰",
+      "confederation": "UEFA",
+      "fifa_code": "NED"
+    },
+    "team_NZL": {
+      "canonical_name": "新西兰",
+      "confederation": "OFC",
+      "fifa_code": "NZL"
+    },
+    "team_NGA": {
+      "canonical_name": "尼日利亚",
+      "confederation": "CAF",
+      "fifa_code": "NGA"
+    },
+    "team_PRK": {
+      "canonical_name": "朝鲜",
+      "confederation": "AFC",
+      "fifa_code": "PRK"
+    },
+    "team_NIR": {
+      "canonical_name": "北爱尔兰",
+      "confederation": "UEFA",
+      "fifa_code": "NIR"
+    },
+    "team_NOR": {
+      "canonical_name": "挪威",
+      "confederation": "UEFA",
+      "fifa_code": "NOR"
+    },
+    "team_PAN": {
+      "canonical_name": "巴拿马",
+      "confederation": "CONCACAF",
+      "fifa_code": "PAN"
+    },
+    "team_PAR": {
+      "canonical_name": "巴拉圭",
+      "confederation": "CONMEBOL",
+      "fifa_code": "PAR"
+    },
+    "team_PER": {
+      "canonical_name": "秘鲁",
+      "confederation": "CONMEBOL",
+      "fifa_code": "PER"
+    },
+    "team_POL": {
+      "canonical_name": "波兰",
+      "confederation": "UEFA",
+      "fifa_code": "POL"
+    },
+    "team_POR": {
+      "canonical_name": "葡萄牙",
+      "confederation": "UEFA",
+      "fifa_code": "POR"
+    },
+    "team_QAT": {
+      "canonical_name": "卡塔尔",
+      "confederation": "AFC",
+      "fifa_code": "QAT"
+    },
+    "team_IRL": {
+      "canonical_name": "爱尔兰",
+      "confederation": "UEFA",
+      "fifa_code": "IRL"
+    },
+    "team_ROU": {
+      "canonical_name": "罗马尼亚",
+      "confederation": "UEFA",
+      "fifa_code": "ROU"
+    },
+    "team_RUS": {
+      "canonical_name": "俄罗斯",
+      "confederation": "UEFA",
+      "fifa_code": "RUS"
+    },
+    "team_KSA": {
+      "canonical_name": "沙特阿拉伯",
+      "confederation": "AFC",
+      "fifa_code": "KSA"
+    },
+    "team_SCO": {
+      "canonical_name": "苏格兰",
+      "confederation": "UEFA",
+      "fifa_code": "SCO"
+    },
+    "team_SEN": {
+      "canonical_name": "塞内加尔",
+      "confederation": "CAF",
+      "fifa_code": "SEN"
+    },
+    "team_SRB": {
+      "canonical_name": "塞尔维亚",
+      "confederation": "UEFA",
+      "fifa_code": "SRB"
+    },
+    "team_SCG": {
+      "canonical_name": "塞尔维亚和黑山",
+      "confederation": "UEFA",
+      "fifa_code": "SCG"
+    },
+    "team_SVK": {
+      "canonical_name": "斯洛伐克",
+      "confederation": "UEFA",
+      "fifa_code": "SVK"
+    },
+    "team_SVN": {
+      "canonical_name": "斯洛文尼亚",
+      "confederation": "UEFA",
+      "fifa_code": "SVN"
+    },
+    "team_RSA": {
+      "canonical_name": "南非",
+      "confederation": "CAF",
+      "fifa_code": "RSA"
+    },
+    "team_KOR": {
+      "canonical_name": "韩国",
+      "confederation": "AFC",
+      "fifa_code": "KOR"
+    },
+    "team_URS": {
+      "canonical_name": "苏联",
+      "confederation": "UEFA",
+      "fifa_code": "URS"
+    },
+    "team_ESP": {
+      "canonical_name": "西班牙",
+      "confederation": "UEFA",
+      "fifa_code": "ESP"
+    },
+    "team_SWE": {
+      "canonical_name": "瑞典",
+      "confederation": "UEFA",
+      "fifa_code": "SWE"
+    },
+    "team_SUI": {
+      "canonical_name": "瑞士",
+      "confederation": "UEFA",
+      "fifa_code": "SUI"
+    },
+    "team_TOG": {
+      "canonical_name": "多哥",
+      "confederation": "CAF",
+      "fifa_code": "TOG"
+    },
+    "team_TRI": {
+      "canonical_name": "特立尼达和多巴哥",
+      "confederation": "CONCACAF",
+      "fifa_code": "TRI"
+    },
+    "team_TUN": {
+      "canonical_name": "突尼斯",
+      "confederation": "CAF",
+      "fifa_code": "TUN"
+    },
+    "team_TUR": {
+      "canonical_name": "土耳其",
+      "confederation": "UEFA",
+      "fifa_code": "TUR"
+    },
+    "team_UKR": {
+      "canonical_name": "乌克兰",
+      "confederation": "UEFA",
+      "fifa_code": "UKR"
+    },
+    "team_UAE": {
+      "canonical_name": "阿联酋",
+      "confederation": "AFC",
+      "fifa_code": "UAE"
+    },
+    "team_USA": {
+      "canonical_name": "美国",
+      "confederation": "CONCACAF",
+      "fifa_code": "USA"
+    },
+    "team_URU": {
+      "canonical_name": "乌拉圭",
+      "confederation": "CONMEBOL",
+      "fifa_code": "URU"
+    },
+    "team_WAL": {
+      "canonical_name": "威尔士",
+      "confederation": "UEFA",
+      "fifa_code": "WAL"
+    },
+    "team_FRG": {
+      "canonical_name": "西德",
+      "confederation": "UEFA",
+      "fifa_code": "FRG"
+    },
+    "team_YUG": {
+      "canonical_name": "南斯拉夫",
+      "confederation": "UEFA",
+      "fifa_code": "YUG"
+    },
+    "team_ZAI": {
+      "canonical_name": "扎伊尔",
+      "confederation": "CAF",
+      "fifa_code": "ZAI"
+    }
+  }
+}
