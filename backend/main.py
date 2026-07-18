@@ -2,13 +2,34 @@
 
 from __future__ import annotations
 
-from fastapi import FastAPI
+import logging
+
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.responses import JSONResponse
 
 from backend.api.health import router as health_router
 from backend.config import settings
+from backend.middleware.logging import LoggingMiddleware
+from backend.middleware.trace import TraceMiddleware, get_trace_id
+from backend.schemas.response import ErrorDetail, error
+
+# ---------------------------------------------------------------------------
+# Structured logging setup
+# ---------------------------------------------------------------------------
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(name)s] %(levelname)s %(message)s",
+    datefmt="%Y-%m-%dT%H:%M:%S",
+)
+logger = logging.getLogger("backend")
 
 
+# ---------------------------------------------------------------------------
+# App factory
+# ---------------------------------------------------------------------------
 def create_app() -> FastAPI:
     """Build and configure the FastAPI application."""
     app = FastAPI(
@@ -17,7 +38,9 @@ def create_app() -> FastAPI:
         description=settings.app_description,
     )
 
-    # CORS — only allow configured origins, never * with credentials
+    # ---- Middleware (order: outermost first → innermost last) ----
+    app.add_middleware(LoggingMiddleware)
+    app.add_middleware(TraceMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
@@ -26,10 +49,76 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # Routes — all under /api prefix
+    # ---- Routes ----
     app.include_router(health_router, prefix="/api")
 
+    # ---- Exception handlers ----
+    _register_exception_handlers(app)
+
     return app
+
+
+# ---------------------------------------------------------------------------
+# Exception handlers
+# ---------------------------------------------------------------------------
+def _register_exception_handlers(app: FastAPI) -> None:
+    @app.exception_handler(RequestValidationError)
+    async def validation_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+        trace_id = get_trace_id()
+        details = [
+            ErrorDetail(
+                field=".".join(str(loc) for loc in e.get("loc", ())),
+                error=e.get("msg", ""),
+            )
+            for e in exc.errors()
+        ]
+        logger.warning(
+            "validation_error path=%s trace_id=%s errors=%d",
+            request.url.path,
+            trace_id,
+            len(details),
+        )
+        return error(
+            code="VALIDATION_ERROR",
+            message="请求参数校验失败",
+            status_code=422,
+            retryable=False,
+            details=details,
+        )
+
+    @app.exception_handler(StarletteHTTPException)
+    async def http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
+        trace_id = get_trace_id()
+        code_map: dict[int, str] = {404: "NOT_FOUND"}
+        code = code_map.get(exc.status_code, "ERROR")
+        logger.info(
+            "http_exception path=%s status=%d trace_id=%s",
+            request.url.path,
+            exc.status_code,
+            trace_id,
+        )
+        return error(
+            code=code,
+            message=exc.detail or "资源未找到",
+            status_code=exc.status_code,
+            retryable=False,
+        )
+
+    @app.exception_handler(Exception)
+    async def unhandled_handler(request: Request, exc: Exception) -> JSONResponse:
+        trace_id = get_trace_id()
+        logger.exception(
+            "unhandled_error path=%s trace_id=%s error=%s",
+            request.url.path,
+            trace_id,
+            exc,
+        )
+        return error(
+            code="INTERNAL_ERROR",
+            message="服务器内部错误，请稍后重试",
+            status_code=500,
+            retryable=True,
+        )
 
 
 # Module-level app instance for uvicorn

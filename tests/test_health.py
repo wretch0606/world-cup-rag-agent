@@ -24,10 +24,15 @@ def test_app_imports() -> None:
 
 
 def test_health_returns_200() -> None:
-    """GET /api/health returns 200 with correct body."""
+    """GET /api/health returns 200 with ApiResponse[HealthData] envelope."""
     response = client.get("/api/health")
     assert response.status_code == 200
-    data = response.json()
+    body = response.json()
+    # Envelope fields
+    assert body["success"] is True
+    assert body["code"] == "OK"
+    # Business data inside envelope
+    data = body["data"]
     assert data["status"] == "ok"
     assert data["service"] == "world-cup-rag-agent-backend"
     assert data["version"] == "0.1.0"
