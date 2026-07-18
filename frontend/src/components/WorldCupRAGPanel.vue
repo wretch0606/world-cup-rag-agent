@@ -109,8 +109,8 @@
               <span class="question-text">{{ currentUserQuestion }}</span>
             </div>
 
-            <!-- 意图标签 Badge 行 -->
-            <div class="intent-badges">
+            <!-- 意图标签 Badge 行 —— 仅在有问答结果时显示 -->
+            <div v-if="queryResult" class="intent-badges">
               <span class="badge-label">{{ intentLabels.title }}</span>
               <span
                 v-for="badge in intentBadges"
@@ -123,8 +123,8 @@
               </span>
             </div>
 
-            <!-- 核心事实表：6 行纵向结构 -->
-            <div class="fact-panel">
+            <!-- 核心事实表：6 行纵向结构 —— 仅在有事实数据时显示 -->
+            <div v-if="queryResult && queryResult.facts.length" class="fact-panel">
               <h4 class="panel-title">{{ factLabels.title }}</h4>
               <table class="fact-table">
                 <tbody>
@@ -139,8 +139,8 @@
               </table>
             </div>
 
-            <!-- 引用来源卡片 -->
-            <div class="sources-panel">
+            <!-- 引用来源卡片 —— 仅在有来源数据时显示 -->
+            <div v-if="queryResult && queryResult.sources.length" class="sources-panel">
               <h4 class="panel-title">{{ sourceLabels.title }}</h4>
               <div class="sources-cards">
                 <div v-for="src in sourceCatalog" :key="src.source_id" class="source-card">
@@ -307,8 +307,23 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted, nextTick } from 'vue'
 import * as d3 from 'd3'
+import {
+  type QueryFilters,
+  type FilterOptionsResponse,
+  type MatchItem,
+  type MatchSourceItem,
+  type GraphResponse,
+  type GraphNode,
+  type GraphEdge,
+  type QueryResponse,
+  type ApiSourceItem,
+  fetchFilterOptions,
+  fetchMatches,
+  fetchGraph,
+  postQuery,
+} from '@/api'
 
 // ============================================================
 // 1. 筛选栏
@@ -335,26 +350,13 @@ const filterGroupOpen = reactive({
 
 function toggleFilterGroup(k: keyof typeof filterGroupOpen) { filterGroupOpen[k] = !filterGroupOpen[k] }
 
-const filterOptions = {
-  tournaments: [1994, 2006, 2010, 2014, 2018, 2022],
-  teams: [
-    { id: 'team_ARG', name: '阿根廷' },{ id: 'team_FRA', name: '法国' },{ id: 'team_CRO', name: '克罗地亚' },
-    { id: 'team_GER', name: '德国' },{ id: 'team_ESP', name: '西班牙' },{ id: 'team_NED', name: '荷兰' },
-    { id: 'team_BRA', name: '巴西' },{ id: 'team_ITA', name: '意大利' },{ id: 'team_ENG', name: '英格兰' },
-    { id: 'team_BEL', name: '比利时' },{ id: 'team_URU', name: '乌拉圭' },{ id: 'team_POR', name: '葡萄牙' },
-    { id: 'team_MAR', name: '摩洛哥' },{ id: 'team_AUS', name: '澳大利亚' },{ id: 'team_DEN', name: '丹麦' },
-    { id: 'team_RUS', name: '俄罗斯' },{ id: 'team_PAR', name: '巴拉圭' },{ id: 'team_ALG', name: '阿尔及利亚' },
-  ],
-  stages: [
-    { value: 'group', label: '小组赛' },{ value: 'round_of_16', label: '1/8 决赛' },
-    { value: 'quarter_final', label: '1/4 决赛' },{ value: 'semi_final', label: '半决赛' },
-    { value: 'third_place', label: '三四名决赛' },{ value: 'final', label: '决赛' },
-  ],
-  resultTypes: [
-    { value: 'regulation', label: '常规时间' },{ value: 'extra_time', label: '加时赛' },
-    { value: 'penalties', label: '点球大战' },{ value: 'draw', label: '平局' },
-  ],
-}
+/** 筛选选项 —— 由 GET /api/filter-options 填充 */
+const filterOptions = ref<FilterOptionsResponse>({
+  tournaments: [],
+  teams: [],
+  stages: [],
+  resultTypes: [],
+})
 
 const selectedFilters = reactive({
   tournamentYears: [] as number[],
@@ -364,94 +366,23 @@ const selectedFilters = reactive({
   hasPenalties: false,
 })
 
-function selectAllTournaments() { selectedFilters.tournamentYears = [...filterOptions.tournaments] }
+function selectAllTournaments() { selectedFilters.tournamentYears = [...filterOptions.value.tournaments] }
 function clearAllTournaments() { selectedFilters.tournamentYears = [] }
-function selectAllTeams() { selectedFilters.teamIds = filterOptions.teams.map(t => t.id) }
+function selectAllTeams() { selectedFilters.teamIds = filterOptions.value.teams.map(t => t.id) }
 function clearAllTeams() { selectedFilters.teamIds = [] }
-function selectAllStages() { selectedFilters.stages = filterOptions.stages.map(s => s.value) }
+function selectAllStages() { selectedFilters.stages = filterOptions.value.stages.map(s => s.value) }
 function clearAllStages() { selectedFilters.stages = [] }
 function resetFilters() {
-  selectedFilters.tournamentYears = []; selectedFilters.teamIds = []
-  selectedFilters.stages = []; selectedFilters.resultTypes = []; selectedFilters.hasPenalties = false
+  selectedFilters.tournamentYears = []
+  selectedFilters.teamIds = []
+  selectedFilters.stages = []
+  selectedFilters.resultTypes = []
+  selectedFilters.hasPenalties = false
 }
 
 // ============================================================
-// 2. API 数据模型 & 意图 Badge + 事实表
+// 2. 问答区
 // ============================================================
-
-// ---- 新接口契约 (v2 — 结构化 score 对象) ----
-interface TeamRef { team_id: string; name: string }
-interface ScoreDetail { home: number; away: number }
-interface MatchScore {
-  regular_time: ScoreDetail
-  after_extra_time: ScoreDetail | null
-  penalties: ScoreDetail | null
-  display: string
-  penalty_display: string | null
-}
-interface ApiFact {
-  fact_id: string; match_id: string; stage_name: string
-  home_team: TeamRef; away_team: TeamRef
-  score: MatchScore; winner_team: TeamRef | null
-}
-interface ApiSourceItem {
-  source_id: string; title: string; url: string | null
-}
-interface ApiGraphNode { id: string; name: string; type: string }
-interface ApiGraphEdge { id: string; source: string; target: string; match_id: string; label: string }
-interface ApiResponseData {
-  status: string; intent: string; route: string; answer: string
-  facts: ApiFact[]; sources: ApiSourceItem[]
-  graph: { nodes: ApiGraphNode[]; edges: ApiGraphEdge[] }
-}
-interface ApiEnvelope { success: boolean; code: string; message: string; data: ApiResponseData }
-
-// ---- Mock API 响应 (v2 契约) ----
-const apiResponse: ApiEnvelope = {
-  success: true, code: 'OK', message: '查询成功',
-  data: {
-    status: 'ok', intent: 'match_result_query', route: 'structured_query',
-    answer: '2022年世界杯决赛，阿根廷与法国加时赛后3:3战平，阿根廷在点球大战中4:2获胜并夺冠。',
-    facts: [{
-      fact_id: 'fact-M-2022-64-result', match_id: 'M-2022-64', stage_name: '决赛',
-      home_team: { team_id: 'team_ARG', name: '阿根廷' },
-      away_team: { team_id: 'team_FRA', name: '法国' },
-      score: {
-        regular_time: { home: 2, away: 2 },
-        after_extra_time: { home: 3, away: 3 },
-        penalties: { home: 4, away: 2 },
-        display: '3:3', penalty_display: '4:2',
-      },
-      winner_team: { team_id: 'team_ARG', name: '阿根廷' },
-    }],
-    sources: [
-      { source_id: 'source-example-001', title: 'FIFA World Cup 2022 — Official Match Report', url: 'https://example.com' },
-      { source_id: 'source-example-002', title: 'FIFA World Cup 2018 — Official Match Report', url: 'https://example.com/2018' },
-    ],
-    graph: {
-      nodes: [
-        { id: 'team_ARG', name: '阿根廷', type: 'team' },
-        { id: 'team_FRA', name: '法国', type: 'team' },
-        { id: 'team_CRO', name: '克罗地亚', type: 'team' },
-        { id: 'team_GER', name: '德国', type: 'team' },
-        { id: 'team_NED', name: '荷兰', type: 'team' },
-        { id: 'team_ITA', name: '意大利', type: 'team' },
-      ],
-      edges: [
-        { id: 'edge-M-2022-64', source: 'team_ARG', target: 'team_FRA', match_id: 'M-2022-64', label: '2022·决赛·3:3（点球4:2）' },
-        { id: 'edge-M-2022-61', source: 'team_ARG', target: 'team_CRO', match_id: 'M-2022-61', label: '2022·半决赛·3:0' },
-        { id: 'edge-M-2022-57', source: 'team_ARG', target: 'team_NED', match_id: 'M-2022-57', label: '2022·1/4决赛·2:2（点球4:3）' },
-        { id: 'edge-M-2018-64', source: 'team_FRA', target: 'team_CRO', match_id: 'M-2018-64', label: '2018·决赛·4:2' },
-        { id: 'edge-M-2014-64', source: 'team_GER', target: 'team_ARG', match_id: 'M-2014-64', label: '2014·决赛·1:0' },
-        { id: 'edge-M-2006-64', source: 'team_ITA', target: 'team_FRA', match_id: 'M-2006-64', label: '2006·决赛·1:1（点球5:3）' },
-      ],
-    },
-  },
-}
-
-const intentLabels = { title: '分析结果' }
-
-// ---- 问答输入 ----
 const qaLabels = {
   questionPrefix: '问：',
   inputPlaceholder: '请输入您的问题...',
@@ -461,36 +392,60 @@ const qaLabels = {
 const userInputText = ref('')
 const currentUserQuestion = ref('2022年世界杯决赛阿根廷对法国的比分是多少？')
 
-function handleSendQuestion() {
+/** POST /api/query 的响应 */
+const queryResult = ref<QueryResponse | null>(null)
+
+async function handleSendQuestion() {
   const trimmed = userInputText.value.trim()
   if (!trimmed) return
   currentUserQuestion.value = trimmed
   userInputText.value = ''
+
+  const filters = currentFilters()
+  const res = await postQuery(trimmed, filters)
+  if (res) {
+    queryResult.value = res
+    // 问答结果可能携带新的 graph 数据，同步到图谱
+    if (res.graph) {
+      graphResult.value = res.graph
+    }
+  }
 }
 
-// 从 API 响应动态生成 Badge
+// ---- 意图 Badge（置信度 null 时不显示该 badge） ----
+const intentLabels = { title: '分析结果' }
+
 const intentBadges = computed(() => {
-  const d = apiResponse.data
+  const d = queryResult.value
+  if (!d) return []
   const f = d.facts[0]
   const teams = f ? `${f.home_team.name}, ${f.away_team.name}` : '—'
-  return [
-    { key: '意图',   val: d.intent === 'match_result_query' ? '精确事实查询' : d.intent, css: 'badge-blue' },
-    { key: '实体',   val: teams, css: 'badge-green' },
-    { key: '赛事',   val: f ? `2022·${f.stage_name}` : '—', css: 'badge-orange' },
-    { key: '置信度', val: '99%', css: 'badge-purple' },
+
+  const badges = [
+    { key: '意图', val: d.intent, css: 'badge-blue' },
+    { key: '实体', val: teams, css: 'badge-green' },
+    { key: '赛事', val: f ? `${f.stage_name}` : '—', css: 'badge-orange' },
   ]
+
+  // MVP 阶段 confidence 为 null → 不展示置信度 badge
+  if (d.confidence != null) {
+    badges.push({ key: '置信度', val: `${Math.round(d.confidence * 100)}%`, css: 'badge-purple' })
+  }
+
+  return badges
 })
 
+// ---- 核心事实表 ----
 const factLabels = { title: '核心事实' }
 
 interface FactRow { label: string; value: string }
 
 const factRows = computed<FactRow[]>(() => {
-  const f = apiResponse.data.facts[0]
+  const f = queryResult.value?.facts[0]
   if (!f) return []
   const s = f.score
   return [
-    { label: '赛事',     value: `2022 世界杯 · ${f.stage_name}` },
+    { label: '赛事',     value: `${f.stage_name}` },
     { label: '对阵',     value: `${f.home_team.name} vs ${f.away_team.name}` },
     { label: '常规时间', value: `${f.home_team.name} ${s.regular_time.home} : ${s.regular_time.away} ${f.away_team.name}` },
     { label: '加时赛',   value: s.after_extra_time ? `${f.home_team.name} ${s.after_extra_time.home} : ${s.after_extra_time.away} ${f.away_team.name}` : '（无加时）' },
@@ -499,15 +454,117 @@ const factRows = computed<FactRow[]>(() => {
   ]
 })
 
-// ============================================================
-// 3. 来源卡片 — 来自 API response.data.sources
-// ============================================================
+// ---- 来源卡片 ----
 const sourceLabels = { title: '引用来源' }
-
-const sourceCatalog = computed<ApiSourceItem[]>(() => apiResponse.data.sources)
+const sourceCatalog = computed<ApiSourceItem[]>(() => queryResult.value?.sources ?? [])
 
 // ============================================================
-// 4. D3 图 —— 数据来自 API response.data.graph
+// 3. 比赛时间线
+// ============================================================
+const timelineLabels = {
+  title: '比赛时间线', close: '关闭',
+  regularTime: '🕐 90 分钟常规时间', extraTime: '🕑 加时赛', penaltyShootout: '⚽ 点球大战',
+  sourceDetails: '📖 来源详情', notApplicable: '本场比赛无此阶段',
+  formalScore: '正式比分：', penaltyScoreLabel: '点球比分：', noSource: '暂无来源信息',
+}
+
+interface TSource { source_id: string; title: string; url: string | null }
+interface TMatch {
+  match_id: string; match_date: string | null; tournament_year: number
+  stage: string; stage_name: string
+  home_team_name: string; away_team_name: string
+  score: {
+    regular_time: { home: number; away: number }
+    after_extra_time: { home: number; away: number } | null
+    penalties: { home: number; away: number } | null
+    display: string
+    penalty_display: string | null
+  }
+  sources: TSource[]
+}
+interface TStage { stage: string; stage_name: string; matches: TMatch[] }
+
+/** 将 API 返回的 MatchItem 平铺字段映射为嵌套 MatchScore 结构 */
+function toMatchScore(m: MatchItem): TMatch['score'] {
+  return {
+    regular_time: { home: m.home_score_90, away: m.away_score_90 },
+    after_extra_time:
+      m.home_score_et !== null && m.away_score_et !== null
+        ? { home: m.home_score_et, away: m.away_score_et }
+        : null,
+    penalties:
+      m.home_penalties !== null && m.away_penalties !== null
+        ? { home: m.home_penalties, away: m.away_penalties }
+        : null,
+    display: m.score_display,
+    penalty_display: m.penalty_score,
+  }
+}
+
+function toTMatch(m: MatchItem): TMatch {
+  return {
+    match_id: m.match_id,
+    match_date: m.match_date,
+    tournament_year: m.tournament_year,
+    stage: m.stage,
+    stage_name: m.stage_name,
+    home_team_name: m.home_team_name,
+    away_team_name: m.away_team_name,
+    score: toMatchScore(m),
+    sources: (m.sources as MatchSourceItem[]).map(s => ({
+      source_id: s.source_id,
+      title: s.title,
+      url: s.url,
+    })),
+  }
+}
+
+/** GET /api/matches 返回的原始数据 */
+const allMatches = ref<MatchItem[]>([])
+
+/** 阶段排序（映射 stage enum 到展示顺序） */
+const STAGE_ORDER: Record<string, number> = {
+  group: 0, second_group: 1, round_of_16: 2, quarter_final: 3,
+  semi_final: 4, third_place: 5, final: 6, final_round: 7,
+}
+
+const timelineStages = computed<TStage[]>(() => {
+  const groups = new Map<string, TMatch[]>()
+  for (const m of allMatches.value) {
+    const tm = toTMatch(m)
+    const key = m.stage
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key)!.push(tm)
+  }
+
+  // 按比赛阶段排序
+  return Array.from(groups.entries())
+    .sort((a, b) => (STAGE_ORDER[a[0]] ?? 99) - (STAGE_ORDER[b[0]] ?? 99))
+    .map(([stage, matches]) => ({
+      stage,
+      stage_name: matches[0].stage_name,
+      matches,
+    }))
+})
+
+const expandedMatchId = ref<string | null>(null)
+
+function findTMatch(id: string): TMatch | null {
+  for (const s of timelineStages.value) {
+    const f = s.matches.find(m => m.match_id === id)
+    if (f) return f
+  }
+  return null
+}
+
+const expandedMatchDetail = computed<TMatch | null>(() =>
+  expandedMatchId.value ? findTMatch(expandedMatchId.value) : null,
+)
+function toggleMatchDetail(id: string) { expandedMatchId.value = expandedMatchId.value === id ? null : id }
+function closeMatchDetail() { expandedMatchId.value = null }
+
+// ============================================================
+// 4. D3 知识图谱
 // ============================================================
 const graphLabels = {
   title: '球队关系图谱', legendTitle: '图例说明',
@@ -515,21 +572,23 @@ const graphLabels = {
   edgeFormatDesc: '连线标签格式：', edgeFormatExample: '2022·决赛·3:3（点球4:2）',
 }
 
-const graphData = reactive({
-  nodes: [...apiResponse.data.graph.nodes] as ApiGraphNode[],
-  edges: [...apiResponse.data.graph.edges] as ApiGraphEdge[],
-})
+/** GET /api/graph 返回的图谱数据 */
+const graphResult = ref<GraphResponse>({ nodes: [], edges: [] })
 
 function initD3Graph() {
   const el = document.getElementById('d3-graph-container')
   if (!el) return
 
+  const nodes = graphResult.value.nodes
+  const edges = graphResult.value.edges
+  if (!nodes.length) return
+
   const width = 400, height = 280
   const colors = ['#4A90D9', '#E07B39', '#5D9C6E', '#C0504D', '#8064A2', '#F2A640']
 
   // 深拷贝 + 注入 D3 力仿真所需字段
-  const nodes: any[] = graphData.nodes.map(n => ({ ...n }))
-  const edges: any[] = graphData.edges.map(e => ({ ...e }))
+  const simNodes: any[] = nodes.map(n => ({ ...n }))
+  const simEdges: any[] = edges.map(e => ({ ...e }))
 
   // 清空容器
   el.innerHTML = ''
@@ -558,7 +617,7 @@ function initD3Graph() {
   // 连线
   const link = svg.append('g')
     .selectAll('line')
-    .data(edges)
+    .data(simEdges)
     .join('line')
     .attr('stroke', '#999')
     .attr('stroke-width', 1.6)
@@ -567,7 +626,7 @@ function initD3Graph() {
   // 节点圆
   const node = svg.append('g')
     .selectAll('circle')
-    .data(nodes)
+    .data(simNodes)
     .join('circle')
     .attr('r', 26)
     .attr('fill', (_d: any, i: number) => colors[i % 6])
@@ -578,7 +637,7 @@ function initD3Graph() {
   // 节点标签
   const label = svg.append('g')
     .selectAll('text')
-    .data(nodes)
+    .data(simNodes)
     .join('text')
     .text((d: any) => d.name)
     .attr('text-anchor', 'middle')
@@ -590,7 +649,7 @@ function initD3Graph() {
   // 连线标签（强描边背景，彻底解决交叉文字重叠）
   const edgeLabel = svg.append('g')
     .selectAll('text')
-    .data(edges)
+    .data(simEdges)
     .join('text')
     .text((d: any) => d.label)
     .attr('text-anchor', 'middle')
@@ -604,8 +663,8 @@ function initD3Graph() {
     .attr('stroke-linejoin', 'round')
 
   // 力仿真
-  d3.forceSimulation(nodes)
-    .force('link', d3.forceLink(edges).id((d: any) => d.id).distance(200))
+  d3.forceSimulation(simNodes)
+    .force('link', d3.forceLink(simEdges).id((d: any) => d.id).distance(200))
     .force('charge', d3.forceManyBody().strength(-500))
     .force('collide', d3.forceCollide().radius(40))
     .force('center', d3.forceCenter(width / 2, height / 2))
@@ -638,68 +697,65 @@ function initD3Graph() {
     })
 }
 
-// ============================================================
-// 5. 时间线 — 使用结构化 score 对象
-// ============================================================
-const timelineLabels = {
-  title: '比赛时间线', close: '关闭',
-  regularTime: '🕐 90 分钟常规时间', extraTime: '🕑 加时赛', penaltyShootout: '⚽ 点球大战',
-  sourceDetails: '📖 来源详情', notApplicable: '本场比赛无此阶段',
-  formalScore: '正式比分：', penaltyScoreLabel: '点球比分：', noSource: '暂无来源信息',
-}
+// 图谱数据变化时自动重绘
+watch(graphResult, () => {
+  nextTick(() => initD3Graph())
+})
 
-interface TSource { source_id: string; title: string; url: string | null }
-interface TMatch {
-  match_id: string; match_date: string | null; tournament_year: number
-  stage: string; stage_name: string
-  home_team_name: string; away_team_name: string
-  score: MatchScore
-  sources: TSource[]
-}
-interface TStage { stage: string; stage_name: string; matches: TMatch[] }
+// ============================================================
+// 5. 筛选联动 & API 调用
+// ============================================================
 
-function mkScore(regH: number, regA: number, etH: number|null, etA: number|null, pkH: number|null, pkA: number|null, display: string, pkDisplay: string|null): MatchScore {
+/** 从 selectedFilters 构造 QueryFilters（空数组转为 undefined 表示不过滤） */
+function currentFilters(): QueryFilters {
   return {
-    regular_time: { home: regH, away: regA },
-    after_extra_time: etH !== null && etA !== null ? { home: etH, away: etA } : null,
-    penalties: pkH !== null && pkA !== null ? { home: pkH, away: pkA } : null,
-    display,
-    penalty_display: pkDisplay,
+    years: selectedFilters.tournamentYears.length ? selectedFilters.tournamentYears : undefined,
+    teamIds: selectedFilters.teamIds.length ? selectedFilters.teamIds : undefined,
+    stages: selectedFilters.stages.length ? selectedFilters.stages : undefined,
+    resultTypes: selectedFilters.resultTypes.length ? selectedFilters.resultTypes : undefined,
+    hasPenalties: selectedFilters.hasPenalties || undefined,
   }
 }
 
-const timelineStages: TStage[] = [
-  { stage:'round_of_16', stage_name:'1/8 决赛', matches:[
-    { match_id:'M-2022-49', match_date:'2022-12-03', tournament_year:2022, stage:'round_of_16', stage_name:'1/8 决赛', home_team_name:'荷兰', away_team_name:'美国', score: mkScore(3,1,null,null,null,null,'3:1',null), sources:[{ source_id:'source-001', title:'FIFA R16 Report', url:null }] },
-    { match_id:'M-2022-50', match_date:'2022-12-03', tournament_year:2022, stage:'round_of_16', stage_name:'1/8 决赛', home_team_name:'阿根廷', away_team_name:'澳大利亚', score: mkScore(2,1,null,null,null,null,'2:1',null), sources:[{ source_id:'source-001', title:'FIFA R16 Report', url:null }] },
-  ]},
-  { stage:'quarter_final', stage_name:'1/4 决赛', matches:[
-    { match_id:'M-2022-57', match_date:'2022-12-09', tournament_year:2022, stage:'quarter_final', stage_name:'1/4 决赛', home_team_name:'荷兰', away_team_name:'阿根廷', score: mkScore(2,2,2,2,3,4,'2:2','3:4'), sources:[{ source_id:'source-001', title:'FIFA QF Report', url:'https://fifa.com/qf' }] },
-    { match_id:'M-2022-60', match_date:'2022-12-10', tournament_year:2022, stage:'quarter_final', stage_name:'1/4 决赛', home_team_name:'英格兰', away_team_name:'法国', score: mkScore(1,2,null,null,null,null,'1:2',null), sources:[{ source_id:'source-001', title:'FIFA QF Report', url:null }] },
-  ]},
-  { stage:'semi_final', stage_name:'半决赛', matches:[
-    { match_id:'M-2022-61', match_date:'2022-12-13', tournament_year:2022, stage:'semi_final', stage_name:'半决赛', home_team_name:'阿根廷', away_team_name:'克罗地亚', score: mkScore(3,0,null,null,null,null,'3:0',null), sources:[{ source_id:'source-001', title:'FIFA SF Report', url:null }] },
-    { match_id:'M-2022-62', match_date:'2022-12-14', tournament_year:2022, stage:'semi_final', stage_name:'半决赛', home_team_name:'法国', away_team_name:'摩洛哥', score: mkScore(2,0,null,null,null,null,'2:0',null), sources:[{ source_id:'source-001', title:'FIFA SF Report', url:null }] },
-  ]},
-  { stage:'third_place', stage_name:'三四名决赛', matches:[
-    { match_id:'M-2022-63', match_date:'2022-12-17', tournament_year:2022, stage:'third_place', stage_name:'三四名决赛', home_team_name:'克罗地亚', away_team_name:'摩洛哥', score: mkScore(2,1,null,null,null,null,'2:1',null), sources:[{ source_id:'source-001', title:'FIFA 3rd Report', url:null }] },
-  ]},
-  { stage:'final', stage_name:'决赛', matches:[
-    { match_id:'M-2022-64', match_date:'2022-12-18', tournament_year:2022, stage:'final', stage_name:'决赛', home_team_name:'阿根廷', away_team_name:'法国', score: mkScore(2,2,3,3,4,2,'3:3','4:2'), sources:[{ source_id:'source-001', title:'FIFA World Cup 2022 Final Report', url:'https://www.fifa.com/worldcup/final' }] },
-  ]},
-]
-
-const expandedMatchId = ref<string | null>(null)
-
-function findTMatch(id: string): TMatch | null {
-  for (const s of timelineStages) { const f = s.matches.find(m => m.match_id === id); if (f) return f }
-  return null
+/** 并行请求 matches + graph */
+async function loadMatchesAndGraph() {
+  const f = currentFilters()
+  const [mRes, gRes] = await Promise.all([
+    fetchMatches(f),
+    fetchGraph(f),
+  ])
+  if (mRes) {
+    allMatches.value = mRes.matches
+  }
+  if (gRes) {
+    graphResult.value = gRes
+  }
 }
-const expandedMatchDetail = computed<TMatch | null>(() => expandedMatchId.value ? findTMatch(expandedMatchId.value) : null)
-function toggleMatchDetail(id: string) { expandedMatchId.value = expandedMatchId.value === id ? null : id }
-function closeMatchDetail() { expandedMatchId.value = null }
 
-onMounted(() => { initD3Graph() })
+// 筛选条件变化 → 重新加载时间线和图谱
+watch(
+  () => [
+    selectedFilters.tournamentYears.length,
+    selectedFilters.teamIds.join(','),
+    selectedFilters.stages.join(','),
+    selectedFilters.resultTypes.join(','),
+    selectedFilters.hasPenalties,
+  ],
+  () => loadMatchesAndGraph(),
+)
+
+// ============================================================
+// 6. 页面初始化
+// ============================================================
+onMounted(async () => {
+  const [fo] = await Promise.all([
+    fetchFilterOptions(),
+    loadMatchesAndGraph(),
+  ])
+  if (fo) {
+    filterOptions.value = fo
+  }
+})
 </script>
 
 <style scoped>
@@ -943,18 +999,17 @@ onMounted(() => { initD3Graph() })
 }
 
 .fact-table td {
-  padding: 10px 12px;
-  border-bottom: 1px solid #f2f2f2;
-  font-size: 14px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 13px;
 }
 
 .fact-label {
-  font-weight: 700;
-  color: #555;
+  width: 80px;
+  font-weight: 600;
+  color: #888;
   white-space: nowrap;
-  width: 100px;
-  background: #fafbfc;
-  border-right: 1px solid #f0f0f0;
+  vertical-align: top;
 }
 
 .fact-value {
@@ -962,12 +1017,9 @@ onMounted(() => { initD3Graph() })
   font-weight: 500;
 }
 
-.champion-crown {
-  margin-right: 6px;
-  font-size: 16px;
-}
+.champion-crown { margin-right: 4px; }
 
-/* 来源卡片 */
+/* 来源面板 */
 .sources-panel {
   background: #fff;
   border: 1px solid #e0e0e0;
@@ -982,53 +1034,49 @@ onMounted(() => { initD3Graph() })
 }
 
 .source-card {
-  background: #fafbfc;
+  background: #f9fafb;
   border: 1px solid #eee;
-  border-radius: 8px;
-  padding: 12px 14px;
+  border-radius: 6px;
+  padding: 12px;
 }
 
 .source-card-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 4px;
+  gap: 6px;
+  margin-bottom: 6px;
 }
 
 .source-card-id {
+  font-size: 11px;
   font-weight: 700;
   color: #4a90d9;
-  font-family: monospace;
-  font-size: 13px;
-}
-
-.source-card-version {
-  font-size: 11px;
-  color: #aaa;
-  font-family: monospace;
+  background: #e8f0fe;
+  padding: 2px 8px;
+  border-radius: 4px;
 }
 
 .source-card-title {
-  margin: 4px 0;
-  font-size: 14px;
-  font-weight: 600;
+  margin: 0;
+  font-size: 13px;
   color: #333;
+  line-height: 1.4;
 }
 
 .source-card-meta {
+  margin-top: 6px;
   display: flex;
   gap: 12px;
   font-size: 12px;
-  color: #888;
-  margin-top: 6px;
 }
 
-.source-card-url { color: #4a90d9; text-decoration: none; }
+.source-card-url {
+  color: #4a90d9;
+  text-decoration: none;
+}
 .source-card-url:hover { text-decoration: underline; }
-.source-card-page { color: #888; }
-.source-card-doc { color: #aaa; }
 
-/* 底部提问输入框：margin-top:auto 强制沉底 */
+/* 输入栏：始终贴合问答区底部 */
 .qa-input-bar {
   flex-shrink: 0;
   display: flex;
@@ -1042,84 +1090,125 @@ onMounted(() => { initD3Graph() })
 
 .qa-input {
   flex: 1;
-  padding: 10px 14px;
-  border: 1px solid #d0d0d0;
-  border-radius: 8px;
+  padding: 10px 12px;
+  border: 1px solid #d0d5dd;
+  border-radius: 6px;
   font-size: 14px;
   outline: none;
-  color: #333;
-  background: #fafbfc;
-  transition: border-color 0.2s;
+  transition: border-color 0.15s;
 }
 
-.qa-input:focus {
-  border-color: #4a90d9;
-  box-shadow: 0 0 0 2px rgba(74,144,217,.12);
-}
+.qa-input:focus { border-color: #4a90d9; }
 
 .qa-send-btn {
-  padding: 10px 22px;
+  padding: 10px 24px;
   background: #4a90d9;
   color: #fff;
   border: none;
-  border-radius: 8px;
+  border-radius: 6px;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s;
-  flex-shrink: 0;
+  white-space: nowrap;
+  transition: background 0.15s;
 }
+.qa-send-btn:hover { background: #357abd; }
 
-.qa-send-btn:hover {
-  background: #3a7bc8;
-}
-
-/* ---- D3 图：固定 400px ---- */
+/* ---- 图谱 ---- */
 .graph-section {
-  width: 400px;
-  flex-shrink: 0;
+  width: 280px;
+  min-width: 280px;
   background: #fff;
   border: 1px solid #e0e0e0;
   border-radius: 8px;
   padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  overflow-y: auto;
 }
 
 .d3-box {
   width: 100%;
-  min-height: 280px;
-  border: 1px dashed #ccc;
-  border-radius: 6px;
+  height: 280px;
   background: #fafbfc;
+  border: 1px solid #eee;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   overflow: hidden;
-  flex-shrink: 0;
 }
 
-.d3-svg { width:100%; height:280px; }
-
-/* SVG 连线文字防穿透阴影 */
+.d3-svg { width: 100%; height: 280px; }
 .d3-svg text { text-shadow: 1px 1px 2px #fff, -1px -1px 2px #fff; }
 
 .graph-legend {
+  margin-top: 12px;
+  padding: 12px;
   background: #f9fafb;
-  border: 1px solid #eee;
   border-radius: 6px;
-  padding: 10px 12px;
+  font-size: 12px;
 }
-.graph-legend h5 { margin:0 0 6px; font-size:13px; color:#555; }
-.legend-row { display:flex; align-items:center; gap:8px; font-size:12px; color:#666; margin:4px 0; }
-.leg-dot { width:12px; height:12px; border-radius:50%; background:#4a90d9; display:inline-block; flex-shrink:0; }
-.leg-line { width:18px; height:2px; background:#999; display:inline-block; flex-shrink:0; }
-.leg-arrow { color:#999; font-size:14px; width:18px; text-align:center; flex-shrink:0; }
-.legend-fmt { border-top:1px solid #eee; padding-top:6px; margin-top:4px; }
-.legend-fmt p { margin:0 0 2px; font-size:11px; color:#999; }
-.legend-fmt code { font-size:12px; background:#eef; padding:2px 6px; border-radius:3px; color:#4a90d9; }
+
+.graph-legend h5 {
+  margin: 0 0 8px 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: #555;
+}
+
+.legend-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+  color: #666;
+}
+
+.leg-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  background: #4a90d9;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.leg-line {
+  display: inline-block;
+  width: 20px;
+  height: 2px;
+  background: #999;
+  flex-shrink: 0;
+}
+
+.leg-arrow {
+  flex-shrink: 0;
+  color: #999;
+}
+
+.legend-fmt {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #eee;
+}
+
+.legend-fmt p {
+  margin: 0 0 4px 0;
+  color: #888;
+}
+
+.legend-fmt code {
+  display: block;
+  font-size: 11px;
+  color: #4a90d9;
+  background: #e8f0fe;
+  padding: 3px 6px;
+  border-radius: 4px;
+  word-break: break-all;
+}
 
 /* ============================================================
-   底部时间线：min-height 保底，overflow-y:auto 防裁切
+   下半部分：横向时间线
    ============================================================ */
 .timeline-section {
   flex-shrink: 0;
@@ -1134,32 +1223,31 @@ onMounted(() => { initD3Graph() })
 }
 
 .tl-scroll {
-  flex-shrink: 0;
   overflow-x: auto;
-  padding: 12px 0 8px;
+  overflow-y: visible;
+  padding-bottom: 4px;
 }
 
 .tl-track {
   display: flex;
   align-items: flex-start;
-  gap: 20px;
-  min-width: max-content;
-  padding: 0 16px 12px;
+  gap: 0;
   position: relative;
+  padding: 26px 20px 12px 20px;
+  min-width: min-content;
 }
 
 .tl-spine {
   position: absolute;
-  top: 26px;                    /* dot 圆心位置 */
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, #4a90d9, #5d9c6e, #e07b39, #c0504d, #27ae60);
-  border-radius: 2px;
+  top: 26px;
+  left: 20px;
+  right: 20px;
+  height: 2px;
+  background: #c8cdd4;
+  border-radius: 1px;
   z-index: 0;
 }
 
-/* ---- 阶段分组：flex 列，垂直居中对齐，保证卡片在圆圈正下方 ---- */
 .tl-group {
   display: flex;
   flex-direction: column;
@@ -1169,7 +1257,6 @@ onMounted(() => { initD3Graph() })
   flex-shrink: 0;
 }
 
-/* 阶段标记：dot 圆心对准脊柱 (padding-top = 26 - 14/2 = 19) */
 .tl-stage {
   display: flex;
   flex-direction: column;
@@ -1179,22 +1266,25 @@ onMounted(() => { initD3Graph() })
 }
 
 .tl-dot {
-  width: 14px; height: 14px;
-  border-radius: 50%;
+  width: 14px;
+  height: 14px;
   background: #4a90d9;
-  border: 3px solid #fff;
-  box-shadow: 0 0 0 2px #4a90d9;
+  border: 2px solid #fff;
+  border-radius: 50%;
   flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+  position: relative;
+  z-index: 2;
 }
 
 .tl-stage-name {
   font-size: 11px;
-  font-weight: 700;
-  color: #444;
+  font-weight: 600;
+  color: #4a90d9;
   white-space: nowrap;
+  margin-top: 2px;
 }
 
-/* 圆圈 → 卡片 的连接竖线 */
 .tl-stage-conn {
   width: 2px;
   height: 14px;
@@ -1203,7 +1293,6 @@ onMounted(() => { initD3Graph() })
   flex-shrink: 0;
 }
 
-/* 比赛卡片垂直罗列 */
 .tl-cards {
   display: flex;
   flex-direction: column;
@@ -1211,127 +1300,202 @@ onMounted(() => { initD3Graph() })
   gap: 6px;
 }
 
-/* 比赛节点 */
 .tl-match {
   cursor: pointer;
   flex-shrink: 0;
   transition: transform 0.15s;
+  min-width: 150px;
 }
-.tl-match:hover { transform: scale(1.04); }
+
+.tl-match:hover { transform: translateY(-1px); }
+
+.tl-active .tl-card {
+  border-color: #4a90d9;
+  box-shadow: 0 0 0 2px rgba(74,144,217,0.2);
+}
 
 .tl-card {
-  background: #fff;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  padding: 6px 12px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
-  box-shadow: 0 1px 3px rgba(0,0,0,.05);
-  min-width: 150px;
-  text-align: center;
-}
-.tl-active .tl-card {
-  border-color: #4a90d9;
-  box-shadow: 0 2px 10px rgba(74,144,217,.22);
-  background: #f0f6ff;
+  gap: 4px;
+  padding: 8px 14px;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  white-space: nowrap;
+  transition: border-color 0.12s, box-shadow 0.12s;
 }
 
-.tl-teams { font-size: 13px; font-weight: 600; color: #333; }
-.tl-score { font-size: 15px; font-weight: 700; color: #1a1a1a; font-family: 'Fira Code', monospace; }
-.tl-pk { font-size: 11px; color: #e07b39; }
+.tl-teams {
+  font-size: 12px;
+  font-weight: 600;
+  color: #333;
+}
 
-/* 展开面板 */
+.tl-score {
+  font-size: 11px;
+  color: #888;
+  font-weight: 500;
+}
+
+.tl-pk {
+  font-size: 10px;
+  color: #b85c10;
+}
+
+/* ==== 展开详情面板 ==== */
 .tl-detail {
   margin-top: 20px;
   margin-bottom: 24px;
-  border: 2px solid #4a90d9;
-  border-radius: 10px;
-  background: #fff;
-  overflow: hidden;
-  animation: tlIn .25s ease-out;
-}
-@keyframes tlIn { from{opacity:0;transform:translateY(-10px)} to{opacity:1;transform:translateY(0)} }
-
-.tl-detail-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 20px;
-  background: linear-gradient(135deg, #e8f0fe, #f5f7fa);
-  border-bottom: 1px solid #d0ddf0;
-}
-.tl-detail-head h4 { margin:0; font-size:16px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-.tl-vs { font-weight:400; color:#888; font-size:13px; }
-.tl-tag { font-size:12px; background:#4a90d9; color:#fff; padding:2px 10px; border-radius:12px; font-weight:600; }
-.tl-tag-year { background:#f0f0f0; color:#666; }
-.tl-detail-head button {
-  padding:6px 14px; border:1px solid #d0d0d0; border-radius:6px; background:#fff; color:#888; font-size:13px; cursor:pointer;
-}
-.tl-detail-head button:hover { background:#f5f5f5; color:#333; }
-
-.tl-detail-body {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 14px;
+  background: #f5f9ff;
+  border: 1px solid #d0ddf0;
+  border-radius: 8px;
   padding: 20px;
 }
 
-.tl-score-card {
-  background: #fafbfc;
-  border: 1px solid #eee;
-  border-radius: 8px;
-  padding: 14px 16px;
+.tl-detail-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18px;
 }
-.tl-score-card h5 { margin:0 0 8px; font-size:13px; color:#555; border-bottom:1px solid #eee; padding-bottom:6px; }
+
+.tl-detail-head h4 {
+  margin: 0;
+  font-size: 16px;
+  color: #1a1a1a;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tl-vs {
+  font-weight: 400;
+  color: #999;
+  font-size: 13px;
+}
+
+.tl-tag {
+  font-size: 11px;
+  font-weight: 600;
+  color: #4a90d9;
+  background: #e8f0fe;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.tl-tag-year {
+  background: #fef3e5;
+  color: #b85c10;
+}
+
+.tl-detail-head button {
+  padding: 6px 14px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+.tl-detail-head button:hover { background: #f5f5f5; }
+
+.tl-detail-body {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.tl-score-card {
+  flex: 1;
+  min-width: 190px;
+  background: #fff;
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.tl-score-card h5 {
+  margin: 0 0 10px 0;
+  font-size: 14px;
+  color: #333;
+  border-bottom: 1px solid #f0f0f0;
+  padding-bottom: 8px;
+}
 
 .tl-score-row {
-  display: flex; align-items: center; justify-content: center; gap: 8px; padding: 4px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
 }
-.tl-team-name { font-size:14px; font-weight:600; color:#333; min-width:40px; }
-.tl-team-name:first-child { text-align:right; }
-.tl-team-name:last-child { text-align:left; }
-.tl-big-score { font-size:26px; font-weight:800; color:#1a1a1a; font-family:'Fira Code',monospace; }
-.tl-colon { font-size:18px; color:#999; font-weight:700; }
-.tl-na { margin:4px 0 0; font-size:12px; color:#bbb; font-style:italic; text-align:center; }
-.tl-summary { margin:6px 0 0; font-size:12px; color:#888; text-align:center; background:#fff; padding:5px 10px; border-radius:4px; border:1px dashed #ddd; }
 
-.tl-src-card { grid-column: 1 / -1; }
-.tl-src-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:5px; }
-.tl-src-item { font-size:12px; color:#555; display:flex; align-items:baseline; gap:6px; padding:5px 10px; background:#fff; border-radius:4px; border:1px solid #f0f0f0; flex-wrap:wrap; }
-.tl-src-id { font-weight:700; color:#4a90d9; font-family:monospace; }
+.tl-team-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #555;
+}
 
-/* ============================================================
-   响应式
-   ============================================================ */
-@media (max-width: 1100px) {
-  .app-layout { flex-direction: column; }
-  .sidebar { width: 100%; flex-shrink: 1; max-height: 260px; border-right: none; border-bottom: 1px solid #e0e0e0; }
-  .main-area { padding: 12px; }
-  .top-row { flex-direction: column; }
-  .graph-section { width: 100%; }
+.tl-big-score {
+  font-size: 28px;
+  font-weight: 800;
+  color: #1a1a1a;
+}
+
+.tl-colon {
+  font-size: 22px;
+  font-weight: 300;
+  color: #bbb;
+}
+
+.tl-na {
+  margin: 8px 0 0 0;
+  font-size: 12px;
+  color: #aaa;
+  text-align: center;
+}
+
+.tl-summary {
+  margin: 8px 0 0 0;
+  font-size: 12px;
+  color: #888;
+  text-align: center;
+  font-weight: 500;
+}
+
+.tl-src-card {
+  min-width: 240px;
+}
+
+.tl-src-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tl-src-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #555;
+  margin-bottom: 4px;
+}
+
+.tl-src-id {
+  font-weight: 700;
+  color: #4a90d9;
+  flex-shrink: 0;
 }
 
 /* ============================================================
    全局滚动条美化
    ============================================================ */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-  border-radius: 3px;
-}
-::-webkit-scrollbar-thumb {
-  background: #c8cdd4;
-  border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #a0a7b0;
-}
-::-webkit-scrollbar-corner {
-  background: transparent;
-}
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; border-radius: 3px; }
+::-webkit-scrollbar-thumb { background: #c8cdd4; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #a0a7b0; }
+::-webkit-scrollbar-corner { background: transparent; }
 </style>
