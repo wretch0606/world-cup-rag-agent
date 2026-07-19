@@ -8,6 +8,9 @@ from backend.repositories.sqlite_frontend_data import (
 )
 from backend.schemas.common import MatchFilters
 import sqlite3
+
+
+def test_filter_options_live_data_status(sqlite_provider) -> None:
     opts = sqlite_provider.get_filter_options()
     assert opts["data_status"] == "live"
 
