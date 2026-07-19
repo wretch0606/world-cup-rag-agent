@@ -51,7 +51,6 @@ CREATE TABLE tournaments (
     tournament_id TEXT PRIMARY KEY,
     year INTEGER NOT NULL,
     host TEXT NOT NULL,
-    label TEXT,
     start_date TEXT,
     end_date TEXT,
     teams_count INTEGER
@@ -125,6 +124,7 @@ CREATE TABLE documents (
     document_id TEXT PRIMARY KEY,
     title TEXT,
     source_id TEXT,
+    file_path TEXT,
     file_type TEXT,
     parse_status TEXT,
     chunk_count INTEGER,
@@ -134,9 +134,9 @@ CREATE TABLE documents (
 """
 
 _FIXTURE_DML = """
-INSERT INTO tournaments VALUES ('WC2022', 2022, '卡塔尔', '2022 卡塔尔世界杯', '2022-11-20', '2022-12-18', 32);
-INSERT INTO tournaments VALUES ('WC2018', 2018, '俄罗斯', '2018 俄罗斯世界杯', '2018-06-14', '2018-07-15', 32);
-INSERT INTO tournaments VALUES ('WC2014', 2014, '巴西', '2014 巴西世界杯', '2014-06-12', '2014-07-13', 32);
+INSERT INTO tournaments VALUES ('WC2022', 2022, '卡塔尔', '2022-11-20', '2022-12-18', 32);
+INSERT INTO tournaments VALUES ('WC2018', 2018, '俄罗斯', '2018-06-14', '2018-07-15', 32);
+INSERT INTO tournaments VALUES ('WC2014', 2014, '巴西', '2014-06-12', '2014-07-13', 32);
 
 INSERT INTO teams VALUES ('team_ARG', '阿根廷', '["Argentina"]', 'CONMEBOL', 'ARG');
 INSERT INTO teams VALUES ('team_FRA', '法国', '["France"]', 'UEFA', 'FRA');
@@ -173,5 +173,5 @@ INSERT INTO goals VALUES ('G-001', 'M-2022-64', NULL, 'Messi', 'Lionel', 10, 'te
 INSERT INTO goals VALUES ('G-002', 'M-2022-64', NULL, 'Di Maria', 'Angel', 11, 'team_ARG', '阿根廷', '36''', 36, 0, 'first_half', 0, 0);
 INSERT INTO goals VALUES ('G-003', 'M-2022-64', NULL, 'Mbappe', 'Kylian', 10, 'team_FRA', '法国', '80''', 80, 0, 'second_half', 0, 1);
 
-INSERT INTO documents VALUES ('doc-001', 'FIFA World Cup Dataset', 'src-001', 'csv', 'parsed', 964, '2026-07-16', '2026-07-16-v2');
+INSERT INTO documents VALUES ('doc-001', 'FIFA World Cup Dataset', 'src-001', '/data/src-001.csv', 'csv', 'parsed', 964, '2026-07-16', '2026-07-16-v2');
 """

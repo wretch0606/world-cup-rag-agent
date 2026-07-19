@@ -58,11 +58,11 @@ class SQLiteFrontendDataProvider:
     def get_filter_options(self) -> dict:
         conn = self._connect()
         try:
-            # Tournaments
+            # Tournaments — "label" is generated, not a DB column
             tournaments = [
-                {"year": r["year"], "label": r["label"], "host": r["host"]}
+                {"year": r["year"], "label": f"{r['year']} {r['host']}世界杯", "host": r["host"]}
                 for r in conn.execute(
-                    "SELECT year, label, host FROM tournaments ORDER BY year DESC"
+                    "SELECT year, host FROM tournaments ORDER BY year DESC"
                 ).fetchall()
             ]
             # Teams
