@@ -10,8 +10,6 @@ client = TestClient(app)
 
 # Paths that must NOT exist in this step (step 03+)
 FORBIDDEN_PATHS: list[str] = [
-    "/api/filter-options",
-    "/api/matches",
     "/api/graph",
     "/api/agent/query",
 ]

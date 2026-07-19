@@ -11,6 +11,8 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import JSONResponse
 
 from backend.api.health import router as health_router
+from backend.api.routers.filters import router as filters_router
+from backend.api.routers.matches import router as matches_router
 from backend.config import settings
 from backend.middleware.logging import LoggingMiddleware
 from backend.middleware.trace import TraceMiddleware, get_trace_id
@@ -51,6 +53,8 @@ def create_app() -> FastAPI:
 
     # ---- Routes ----
     app.include_router(health_router, prefix="/api")
+    app.include_router(filters_router, prefix="/api")
+    app.include_router(matches_router, prefix="/api")
 
     # ---- Exception handlers ----
     _register_exception_handlers(app)
