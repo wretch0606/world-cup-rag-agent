@@ -121,7 +121,7 @@ def match_to_structured_fact(
     fact_text = generate_match_fact(match, home_team, away_team, tournament_host)
 
     # 生成 document_id
-    document_id = f"match-fact:{match.match_id}:{match.data_version or 'v2'}"
+    document_id = f"match-fact:{match.match_id}:{match.data_version or '2026-07-16-v2'}"
 
     # 生成 checksum
     checksum = _compute_fact_checksum(fact_text, match.match_id)
@@ -149,7 +149,7 @@ def match_to_structured_fact(
         winner_team_id=match.winner_team_id,
         fact_text=fact_text,
         source_ids=source_ids,
-        data_version=match.data_version or "v2",
+        data_version=match.data_version or "2026-07-16-v2",
         checksum=checksum,
     )
 
@@ -161,7 +161,7 @@ def match_to_structured_fact(
 def generate_all_match_facts(
     matches: list[Match],
     teams: dict[str, Team],
-    source_id: str = "",
+    source_ids: Optional[list[str]] = None,
     source_url: str = "",
     source_page: Optional[str] = None,
     tournament_host: str = "",
@@ -184,27 +184,35 @@ def generate_all_match_facts(
             "team_ids": ["team_FRA", "team_CRO"],   // 数组或序列化字符串
             "result_type": "regulation",
 
-            "source_id": "src_csv_20260716_001",     // 必须保留，进入最终响应
+            "source_ids": ["src_csv_20260716_001"],    // 支持多来源数组
             "document_name": "FIFA World Cup 2018",
             "source_url": "https://...",             // 可追溯 URL
             "source_page": null,                     // PDF 页码
 
             "chunk_index": 0,                        // 长文档切片定位
             "language": "zh",
-            "data_version": "2026-07-16-v1"          // 实验复现用
+            "data_version": "2026-07-16-v2"          // 实验复现用
         }
     }
 
     注意：
     - D 需确认 Chroma 版本是否支持 team_ids 数组；不支持则序列化为逗号分隔字符串
-    - source_id 必须在全链路保留，最终进入 E→B 的 sources
+    - source_ids 必须在全链路保留，最终进入 E→B 的 sources
     """
+    if source_ids is None:
+        source_ids = []
+
     results = []
+    skipped = []
     for match in matches:
         home_team = teams.get(match.home_team_id)
         away_team = teams.get(match.away_team_id)
 
         if not home_team or not away_team:
+            skipped.append(
+                f"{match.match_id}: home={match.home_team_id}({'found' if home_team else 'MISSING'}), "
+                f"away={match.away_team_id}({'found' if away_team else 'MISSING'})"
+            )
             continue
 
         fact_text = generate_match_fact(match, home_team, away_team, tournament_host)
@@ -218,20 +226,28 @@ def generate_all_match_facts(
             "metadata": {
                 "match_id": match.match_id,
                 "tournament_year": match.tournament_year,
-                "stage": match.stage_name or match.stage,
+                "stage": match.stage,                   # 英文 enum，与 DB 一致
+                "stage_name": match.stage_name or match.stage,  # 中文显示名
                 "team_ids": [match.home_team_id, match.away_team_id],
                 "result_type": match.result_type,
 
-                "source_id": source_id,
+                "source_ids": source_ids,               # 支持多来源数组
                 "document_name": f"FIFA World Cup {match.tournament_year}",
                 "source_url": source_url,
                 "source_page": source_page,
 
                 "chunk_index": 0,
                 "language": "zh",
-                "data_version": match.data_version or "2026-07-16-v1",
+                "data_version": match.data_version or "2026-07-16-v2",
             },
         })
+
+    if skipped:
+        import sys
+        print(f"\n[C] 以下比赛因无法匹配球队而跳过 ({len(skipped)} 场):",
+              file=sys.stderr)
+        for s in skipped:
+            print(f"    {s}", file=sys.stderr)
 
     return results
 

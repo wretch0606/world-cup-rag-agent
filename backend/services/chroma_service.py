@@ -32,6 +32,10 @@ from chromadb import Documents, EmbeddingFunction, Embeddings
 
 CHROMA_DATA_DIR = os.environ.get("CHROMA_DATA_DIR", "./backend/data/chroma_db")
 
+# 数据库路径（C→B 交付的 SQLite，D 仅用于调试增强）
+# 正式流程中 B/E 负责 SQLite 查询，D 的 enrich_result() 是可选调试辅助
+WORLD_CUP_DB_PATH = os.environ.get("WORLD_CUP_DB_PATH", "")
+
 # 两个 Collection（见文档 5.3 节）
 COLLECTION_FACTS = "world_cup_match_facts"    # 比赛事实（精确检索）
 COLLECTION_REPORTS = "world_cup_reports"       # 比赛报告/长文本（语义检索）
@@ -292,35 +296,51 @@ def get_reports_collection():
 # ===================================================================
 
 
+def _find_file(filename: str, env_var: Optional[str] = None) -> Optional[str]:
+    """通用文件查找：依次搜索多个可能路径。
+
+    优先级：环境变量 > D/ 文件夹 > 项目根 > backend 相对路径
+    """
+    # 1. 环境变量
+    if env_var:
+        env_path = os.environ.get(env_var)
+        if env_path and os.path.isfile(env_path):
+            return env_path
+
+    # 2. 项目根目录下的常见子目录
+    project_root = os.path.join(os.path.dirname(__file__), "..", "..")
+    candidates = [
+        filename,                                                       # 当前目录
+        os.path.join(project_root, filename),                           # 项目根
+        os.path.join(project_root, "D", filename),                      # D 文件夹（C 交付）
+        os.path.join(project_root, "交付", "B", filename),               # 交付/B 文件夹（C→B 交付）
+        os.path.join(project_root, "交付", "C", filename),               # 交付/C 文件夹
+    ]
+    for p in candidates:
+        if os.path.isfile(p):
+            return p
+    return None
+
+
 def _load_team_aliases() -> dict[str, str]:
     """加载球队别名映射表。
 
-    从 team_aliases.json 读取，建立「中文名/英文名 → team_id」的映射。
+    从 D/team_aliases.json 读取，建立「中文名/英文名 → team_id」的映射。
     例如："法国" → "team_FRA", "France" → "team_FRA", "法兰西" → "team_FRA"
 
     如果文件不存在则返回空字典（降级处理）。
     """
     import json
-    alias_file = os.environ.get("TEAM_ALIASES_PATH", "team_aliases.json")
-    if not os.path.isfile(alias_file):
-        # 尝试在项目根目录找
-        alt_paths = [
-            os.path.join(os.path.dirname(__file__), "..", "..", "team_aliases.json"),
-            "team_aliases.json",
-        ]
-        for p in alt_paths:
-            if os.path.isfile(p):
-                alias_file = p
-                break
-        else:
-            logger.warning(f"未找到 team_aliases.json，球队别名功能暂不可用")
-            return {}
+    alias_file = _find_file("team_aliases.json", "TEAM_ALIASES_PATH")
+    if not alias_file:
+        logger.warning("未找到 team_aliases.json，球队别名功能暂不可用")
+        return {}
 
     try:
         with open(alias_file, "r", encoding="utf-8") as f:
             data = json.load(f)
         aliases = data.get("aliases", {})
-        logger.info(f"已加载 {len(aliases)} 条球队别名")
+        logger.info(f"已加载 {len(aliases)} 条球队别名 ({alias_file})")
         return aliases
     except Exception as e:
         logger.warning(f"加载 team_aliases.json 失败: {e}")
@@ -381,33 +401,38 @@ def extract_filters(query: str) -> dict:
                 logger.info(f"球队匹配: '{alias}' -> {team_id}")
                 break
 
-    # --- 阶段提取 ---
-    # 精确阶段：可以用于 Chroma 的 where 过滤
-    exact_stages = {
-        "小组赛": "小组赛",
-        "1/8决赛": "1/8决赛",
-        "1/4决赛": "1/4决赛",
-        "八强": "1/4决赛",
-        "半决赛": "半决赛",
-        "四强": "半决赛",
-        "三四名决赛": "三四名决赛",
-        "三四名": "三四名决赛",
-        "季军赛": "三四名决赛",
-        "决赛": "决赛",
-        "冠军": "决赛",
-    }
-    # 宽泛阶段：不适用于 Chroma 精确过滤（如"淘汰赛"包含多个具体阶段）
-    broad_stages = {"淘汰赛", "16强", "8强", "4强"}
+    # --- 阶段提取（使用 stage_mapping.json，支持中英文输入） ---
+    sm = get_stage_mapping()
+    d2e = sm.get("display_to_enum", {}) if sm else {}
 
-    for keyword, stage in exact_stages.items():
-        if keyword in query:
-            filters["stage"] = stage
-            break
+    if d2e:
+        # 按 key 长度降序排列，优先匹配长关键词（如"三四名决赛"优先于"决赛"）
+        sorted_keys = sorted(d2e.keys(), key=len, reverse=True)
+        for keyword in sorted_keys:
+            if keyword in query.lower():
+                stage_enum = d2e[keyword]
+                filters["stage"] = stage_enum         # 英文 enum（用于 Chroma 过滤）
+                filters["stage_name"] = sm.get("enum_to_display", {}).get(stage_enum, keyword)
+                logger.info(f"阶段匹配: '{keyword}' -> {stage_enum}")
+                break
+    else:
+        # 降级：硬编码中文阶段（stage_mapping.json 不可用时）
+        exact_stages = {
+            "小组赛": "group", "1/8决赛": "round_of_16", "1/4决赛": "quarter_final",
+            "八强": "quarter_final", "半决赛": "semi_final", "四强": "semi_final",
+            "三四名决赛": "third_place", "三四名": "third_place", "季军赛": "third_place",
+            "决赛": "final", "冠军": "final",
+        }
+        for keyword, stage_enum in exact_stages.items():
+            if keyword in query:
+                filters["stage"] = stage_enum
+                break
 
+    # 宽泛阶段：不适用于 Chroma 精确过滤
+    broad_stages = {"淘汰赛", "16强", "8强", "4强", "quarter", "semi"}
     if "stage" not in filters:
         for keyword in broad_stages:
-            if keyword in query:
-                # 宽泛阶段不做 where 过滤，仅保留在 filters 中供上层使用
+            if keyword in query.lower():
                 filters["stage_hint"] = keyword
                 break
 
@@ -449,6 +474,79 @@ def query_rewrite(query: str) -> list[str]:
         logger.info(f"Query expansion: {len(variations)} 个变体")
 
     return variations
+
+# ===================================================================
+#              状态枚举 & 结构化返回
+# ===================================================================
+
+
+class RetrievalStatus:
+    """检索服务状态码（对应 B 同学整改清单 5.7 和 D→E 契约）。
+
+    使用方式：
+        status = RetrievalStatus.OK        # 查询成功且有结果
+        status = RetrievalStatus.EMPTY     # 查询成功但无满足阈值的证据
+        status = RetrievalStatus.DEGRADED  # reranker 等增强模块不可用，已降级
+        status = RetrievalStatus.ERROR     # 完全不可用
+    """
+    OK = "ok"
+    EMPTY = "empty"
+    DEGRADED = "degraded"
+    ERROR = "error"
+
+
+class RetrievalResponse:
+    """结构化检索响应（对齐 02-D-to-E 契约 v2.0）。
+
+    替代直接返回 list[dict]，让 E 能拿到完整的执行状态。
+    """
+
+    def __init__(
+        self,
+        query: str,
+        candidates: list[dict],
+        status: str = RetrievalStatus.OK,
+        rewritten_query: Optional[str] = None,
+        filters: Optional[dict] = None,
+        config: Optional[dict] = None,
+        warnings: Optional[list[str]] = None,
+        timing: Optional[dict] = None,
+    ):
+        self.query = query
+        self.status = status
+        self.candidates = candidates
+        self.rewritten_query = rewritten_query
+        self.filters = filters
+        self.config = config or {}
+        self.warnings = warnings or []
+        self.timing = timing or {}
+
+    def to_dict(self) -> dict:
+        return {
+            "query": self.query,
+            "status": self.status,
+            "rewritten_query": self.rewritten_query,
+            "filters": self.filters,
+            "config": self.config,
+            "candidates": [
+                {
+                    "text": c.get("document", ""),
+                    "vector_score": c.get("distance"),
+                    "rerank_score": c.get("rerank_score"),
+                    "retrieval_rank": c.get("retrieval_rank", i + 1),
+                    "rerank_rank": c.get("rerank_rank"),
+                    "metadata": c.get("metadata", {}),
+                }
+                for i, c in enumerate(self.candidates)
+            ],
+            "execution": {
+                "rewrite_applied": bool(self.rewritten_query),
+                "reranker_applied": any(c.get("rerank_score") is not None for c in self.candidates),
+                "warnings": self.warnings,
+                "timing": self.timing,
+            },
+        }
+
 
 # ===================================================================
 #                   对外 API
@@ -500,61 +598,80 @@ def add_chunks(
 
     col = get_facts_collection() if collection == COLLECTION_FACTS else get_reports_collection()
 
-    # 去重
-    existing_ids = set()
-    try:
-        existing = col.get(ids=ids)
-        existing_ids = set(existing["ids"])
-    except Exception:
-        pass
-
-    if existing_ids:
-        logger.warning(f"{len(existing_ids)} 个 chunk 已存在，跳过")
-        filtered = [(i, d, m) for i, d, m in zip(ids, documents, metadatas) if i not in existing_ids]
-        if not filtered:
-            return 0
-        ids, documents, metadatas = zip(*filtered)
-        ids, documents, metadatas = list(ids), list(documents), list(metadatas)
-
-    col.add(ids=ids, documents=documents, metadatas=metadatas)
-    logger.info(f"[{collection}] 成功写入 {len(ids)} 个 chunk，总计 {col.count()} 条")
+    # 使用 upsert（幂等写入），重复 id 自动覆盖而非插入
+    col.upsert(ids=ids, documents=documents, metadatas=metadatas)
+    logger.info(f"[{collection}] upsert {len(ids)} 个 chunk，当前总计 {col.count()} 条")
     return len(ids)
+
+
+def _load_stage_mapping() -> dict:
+    """加载 D/stage_mapping.json，提供 display→enum 和 enum→display 双向映射。"""
+    import json
+    path = _find_file("stage_mapping.json")
+    if not path:
+        logger.warning("未找到 stage_mapping.json，阶段过滤功能降级")
+        return {}
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        logger.warning(f"加载 stage_mapping.json 失败: {e}")
+        return {}
+
+
+_stage_mapping: Optional[dict] = None
+
+
+def get_stage_mapping() -> dict:
+    """获取阶段映射表（懒加载+缓存）。"""
+    global _stage_mapping
+    if _stage_mapping is None:
+        _stage_mapping = _load_stage_mapping()
+    return _stage_mapping
+
+
+def _display_to_enum(stage_name: str) -> str:
+    """将阶段的中文名（或英文别名）转为标准英文 enum。
+
+    例: "决赛"→"final", "semi-finals"→"semi_final", "quarterfinal"→"quarter_final"
+    """
+    sm = get_stage_mapping()
+    d2e = sm.get("display_to_enum", {})
+    # 1. 精确匹配
+    if stage_name in d2e:
+        return d2e[stage_name]
+    # 2. 小写匹配
+    lower = stage_name.lower().strip()
+    for key, val in d2e.items():
+        if key.lower().strip() == lower:
+            return val
+    # 3. 如果已经是有效 enum，直接返回
+    valid = sm.get("valid_enums", [])
+    if stage_name in valid:
+        return stage_name
+    # 4. 降级：返回原值
+    return stage_name
 
 
 def _build_where_filter(filters: dict) -> Optional[dict]:
     """将我们自己的 filter dict 转为 Chroma 的 where 格式。
 
-    处理数据中的中英文混合阶段名（如 semi-finals ↔ 半决赛）。
+    v2.1 数据使用英文 stage enum（如 "final"、"semi_final"），
+    此函数会将用户输入的中文阶段名转换为英文 enum 后再过滤。
     """
-    # 阶段名对照表（向后兼容旧版英文阶段名）
-    # 新版数据（v1.0）阶段已全部中文化，此映射仅用于处理遗留的英文查询词
-    STAGE_ALIASES = {
-        "半决赛": ["半决赛", "semi-finals"],
-        "1/4决赛": ["1/4决赛", "quarter-finals"],
-        "1/8决赛": ["1/8决赛", "round of 16"],
-        "小组赛": ["小组赛", "group stage"],
-        "决赛": ["决赛", "final"],
-        "三四名决赛": ["三四名决赛", "third-place match"],
-        "决赛轮": ["决赛轮", "final round"],
-        "第二轮小组赛": ["第二轮小组赛", "second group stage"],
-    }
-
     where_parts = []
     if "tournament_year" in filters:
         where_parts.append({"tournament_year": filters["tournament_year"]})
 
     if "stage" in filters:
-        stage = filters["stage"]
-        aliases = STAGE_ALIASES.get(stage, [stage])
-        if len(aliases) == 1:
-            where_parts.append({"stage": aliases[0]})
-        else:
-            # 多条别名用 $or 匹配
-            where_parts.append({"$or": [{"stage": a} for a in aliases]})
+        stage_enum = _display_to_enum(filters["stage"])
+        where_parts.append({"stage": stage_enum})
+    elif "stage_enum" in filters:
+        # 直接传入英文 enum（跳过转换）
+        where_parts.append({"stage": filters["stage_enum"]})
+
     # 优先用 team_id（标准 ID），其次用 team 名称
     if "team_id" in filters:
-        # team_ids 在 metadata 中存储为列表（如 ["team_FRA", "team_CRO"]）
-        # Chroma 的 $contains 可匹配列表中的元素
         where_parts.append({"team_ids": {"$contains": filters["team_id"]}})
     elif "team" in filters:
         where_parts.append({"team_ids": {"$contains": filters["team"]}})
@@ -782,70 +899,88 @@ def reset_all():
 
 
 def import_match_facts(json_path: str = "match_facts.json") -> int:
-    """从 match_facts.json 批量导入比赛事实到 Chroma。
+    """从 JSON 或 JSONL 文件批量导入比赛事实到 Chroma。
 
-    match_facts.json 格式（C 成员提供）：
-        [
-            {
-                "text": "1930年世界杯小组赛，法国队...",
-                "metadata": {
-                    "match_id": "M-1930-01",
-                    "tournament_year": 1930,
-                    "stage": "小组赛",
-                    "team_ids": ["team_FRA", "team_MEX"],
-                    ...
-                }
-            },
-            ...
-        ]
+    支持格式（按优先级检测）：
+    1. .jsonl → C 的 v2 格式（每行一个 JSON 对象，含 id/text/metadata）
+    2. .json  → C 的 v1 格式（JSON 数组，含 text/metadata）
 
-    本函数自动做格式转换：
-        - text → document（Chroma API 字段名）
-        - id   → 使用 match_id（保证唯一性）
+    v2 格式示例（对齐 01-C-to-D 契约 v2.0）：
+        {"id": "match_fact_M-2018-64_v1", "text": "...", "metadata": {...}}
+
+    v1 格式示例（向后兼容）：
+        [{"text": "...", "metadata": {"match_id": "M-1930-01", ...}}]
+
+    幂等性：使用 upsert，连续两次导入不会产生重复向量。
 
     参数:
-        json_path: match_facts.json 文件路径
+        json_path: match_facts.json 或 match_facts.jsonl 文件路径
 
     返回:
         成功导入的 chunk 数量
     """
     import json
 
+    # 自动检测 .jsonl 文件
+    if not os.path.isfile(json_path) and os.path.isfile(json_path + "l"):
+        json_path = json_path + "l"
+        logger.info(f"自动检测到 JSONL 文件: {json_path}")
+
     if not os.path.isfile(json_path):
-        # 尝试多个路径
-        alt_paths = [
-            json_path,
-            os.path.join(os.path.dirname(__file__), "..", "..", json_path),
-        ]
-        for p in alt_paths:
-            if os.path.isfile(p):
-                json_path = p
-                break
-        else:
-            raise FileNotFoundError(f"找不到文件: {json_path}")
+        # 使用通用查找（含 D/ 文件夹）
+        found = _find_file(json_path)
+        if found:
+            json_path = found
+        elif not os.path.isfile(json_path + "l"):
+            pass  # 试试 .jsonl 后缀
+        found_l = _find_file(json_path + "l") if not json_path.endswith(".jsonl") else None
+        if found_l:
+            json_path = found_l
+            logger.info(f"在 D/ 中找到: {json_path}")
+
+    if not os.path.isfile(json_path):
+        raise FileNotFoundError(f"找不到文件: {json_path}（也搜索了 D/ 和 交付/ 目录）")
 
     logger.info(f"正在读取: {json_path}")
-    with open(json_path, "r", encoding="utf-8") as f:
-        raw_data = json.load(f)
 
-    # 转换为 Chroma 格式
+    # 检测格式
+    is_jsonl = json_path.endswith(".jsonl")
+
     chunks = []
-    for item in raw_data:
-        meta = item["metadata"].copy()
-        match_id = meta.get("match_id", f"unknown_{len(chunks)}")
+    if is_jsonl:
+        # v2 格式：每行一个 JSON
+        with open(json_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                item = json.loads(line)
+                meta = item["metadata"].copy()
+                # v2 格式已含 id 字段，直接使用
+                chunks.append({
+                    "id": item["id"],
+                    "document": item["text"],
+                    "metadata": meta,
+                })
+    else:
+        # v1 格式：JSON 数组
+        with open(json_path, "r", encoding="utf-8") as f:
+            raw_data = json.load(f)
+        for item in raw_data:
+            meta = item["metadata"].copy()
+            chunk_id = item.get("id", meta.get("match_id", f"unknown_{len(chunks)}"))
+            chunks.append({
+                "id": chunk_id,
+                "document": item["text"],
+                "metadata": meta,
+            })
 
-        chunks.append({
-            "id": match_id,                     # 使用 match_id 作为唯一 ID
-            "document": item["text"],           # text → document
-            "metadata": meta,                   # metadata 直接使用
-        })
-
-    # 统计信息
+    # 统计
     years = sorted({c["metadata"].get("tournament_year") for c in chunks if c["metadata"].get("tournament_year")})
     stages = set(c["metadata"].get("stage") for c in chunks if c["metadata"].get("stage"))
     logger.info(f"准备导入 {len(chunks)} 条事实，覆盖年份 {years[0]}-{years[-1]}，阶段: {stages}")
 
-    # 写入
+    # 写入（upsert）
     count = add_chunks(chunks, COLLECTION_FACTS)
     logger.info(f"导入完成！成功写入 {count}/{len(chunks)} 条")
     return count
@@ -866,11 +1001,11 @@ def _load_team_info() -> dict[str, dict]:
         return _team_info
 
     import json
-    path = os.environ.get("TEAM_ALIASES_PATH", "team_aliases.json")
-    if not os.path.isfile(path):
-        alt = os.path.join(os.path.dirname(__file__), "..", "..", "team_aliases.json")
-        if os.path.isfile(alt):
-            path = alt
+    path = _find_file("team_aliases.json", "TEAM_ALIASES_PATH")
+    if not path:
+        logger.warning("未找到 team_aliases.json，球队信息不可用")
+        _team_info = {}
+        return _team_info
 
     try:
         with open(path, "r", encoding="utf-8") as f:
@@ -905,14 +1040,17 @@ def _get_match_db_path() -> Optional[str]:
     if _match_db_path is not None:
         return _match_db_path if os.path.isfile(_match_db_path) else None
 
-    candidates = [
-        "worldcup.db",
-        os.path.join(os.path.dirname(__file__), "..", "..", "worldcup.db"),
-    ]
-    for p in candidates:
-        if os.path.isfile(p):
-            _match_db_path = p
-            return p
+    # 优先使用环境变量，其次搜索常见路径
+    db_path = _find_file("worldcup_v2.db", "WORLD_CUP_DB_PATH")
+    if db_path:
+        _match_db_path = db_path
+        return db_path
+    # fallback: 旧版 worldcup.db
+    db_path = _find_file("worldcup.db")
+    if db_path:
+        _match_db_path = db_path
+        return db_path
+    logger.debug("未找到 worldcup_v2.db 或 worldcup.db，SQLite 增强功能不可用")
     return None
 
 
@@ -1079,6 +1217,128 @@ def format_result(item: dict, verbose: bool = False) -> str:
             base += f"\n  摘要: {doc[:150]}"
 
     return base
+
+
+# ===================================================================
+#              Async 包装（避免阻塞 FastAPI 事件循环）
+# ===================================================================
+
+# 注意：这些 async 函数仅仅是 asyncio.to_thread 的便捷包装。
+# B 也可以直接用 run_in_threadpool 调用同步函数。
+# 模型只需加载一次（已在模块级别做单例缓存），不会每个请求重复加载。
+
+
+async def query_top_k_async(*args, **kwargs) -> list[dict]:
+    """`query_top_k` 的 async 包装。在线程池中执行同步调用。"""
+    import asyncio
+    return await asyncio.to_thread(query_top_k, *args, **kwargs)
+
+
+async def query_with_rerank_async(*args, **kwargs) -> list[dict]:
+    """`query_with_rerank` 的 async 包装。"""
+    import asyncio
+    return await asyncio.to_thread(query_with_rerank, *args, **kwargs)
+
+
+async def add_chunks_async(*args, **kwargs) -> int:
+    """`add_chunks` 的 async 包装。"""
+    import asyncio
+    return await asyncio.to_thread(add_chunks, *args, **kwargs)
+
+
+async def import_match_facts_async(*args, **kwargs) -> int:
+    """`import_match_facts` 的 async 包装。批量导入不应在用户请求中调用。"""
+    import asyncio
+    return await asyncio.to_thread(import_match_facts, *args, **kwargs)
+
+
+# ===================================================================
+#         结构化查询接口（对齐 02-D-to-E 契约 v2.0）
+# ===================================================================
+
+
+def query_structured(
+    query_text: str,
+    k: int = 5,
+    collection: str = COLLECTION_FACTS,
+    filters: Optional[dict] = None,
+    use_query_rewrite: bool = True,
+    use_rerank: bool = False,
+    recall_k: int = 20,
+) -> RetrievalResponse:
+    """执行检索并返回 D→E 契约格式的结构化响应。
+
+    这是给 E（RAG 生成）调用的主接口。返回 RetrievalResponse
+    而非裸 list[dict]，包含完整执行状态。
+    """
+    import time
+
+    warnings_list = []
+    timing = {}
+    rewritten = None
+
+    # 1. 提取过滤条件
+    if filters is None:
+        filters = extract_filters(query_text)
+
+    rewritten = filters.get("rewritten_query") if "rewritten_query" in filters else None
+
+    # 2. 检索
+    t0 = time.time()
+    if use_rerank:
+        candidates = query_with_rerank(
+            query_text=query_text,
+            k=k,
+            collection=collection,
+            filters=filters,
+            recall_k=recall_k,
+        )
+        reranker_applied = any(c.get("rerank_score") is not None for c in candidates)
+        if use_rerank and not reranker_applied:
+            warnings_list.append("reranker unavailable, fallback to vector ranking")
+    else:
+        candidates = query_top_k(
+            query_text=query_text,
+            k=k,
+            collection=collection,
+            filters=filters,
+            use_query_rewrite=use_query_rewrite,
+        )
+        reranker_applied = False
+
+    timing["retrieval_ms"] = round((time.time() - t0) * 1000)
+
+    # 3. 添加排序位置
+    for i, c in enumerate(candidates):
+        c["retrieval_rank"] = i + 1
+        # rerank_rank 暂与 retrieval_rank 一致（reranker 不可用时）
+        if c.get("rerank_score") is not None and "rerank_rank" not in c:
+            c["rerank_rank"] = i + 1
+
+    # 4. 判断状态
+    col = get_facts_collection() if collection == COLLECTION_FACTS else get_reports_collection()
+    col_count = col.count()
+
+    if col_count == 0:
+        status = RetrievalStatus.ERROR
+        warnings_list.append(f"collection '{collection}' is empty, retrieval unavailable")
+    elif not candidates:
+        status = RetrievalStatus.EMPTY
+    elif reranker_applied is False and use_rerank:
+        status = RetrievalStatus.DEGRADED
+    else:
+        status = RetrievalStatus.OK
+
+    return RetrievalResponse(
+        query=query_text,
+        status=status,
+        candidates=candidates,
+        rewritten_query=rewritten,
+        filters={k: v for k, v in filters.items() if k not in ("rewritten_query", "stage_hint")},
+        config={"top_k": k, "reranker_enabled": use_rerank, "use_rewrite": use_query_rewrite},
+        warnings=warnings_list,
+        timing=timing,
+    )
 
 
 # ===================================================================

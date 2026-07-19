@@ -47,6 +47,7 @@ data/generated/*
 
 # 数据库文件
 *.db
+!worldcup_v2.db
 
 # 作业文档（非代码）
 *.docx

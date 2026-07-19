@@ -43,7 +43,7 @@ def fix_scores(db_path: str) -> dict:
         goals = conn.execute("""
             SELECT team_id, match_period, COUNT(*) as cnt
             FROM goals
-            WHERE match_id = ? AND match_period != 'penalties'
+            WHERE match_id = ? AND match_period != 'penalties' AND own_goal = 0
             GROUP BY team_id, match_period
         """, (match_id,)).fetchall()
 
