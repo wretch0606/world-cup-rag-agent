@@ -286,6 +286,6 @@ def test_openapi_no_forbidden_paths() -> None:
     """OpenAPI still only contains the /api/health path (no step 04+ paths)."""
     schema = client.get("/openapi.json").json()
     paths = schema.get("paths", {})
-    forbidden = ["/api/agent/query"]
+    forbidden = []
     for path in forbidden:
         assert path not in paths, f"Forbidden path {path} should not exist in step 03"

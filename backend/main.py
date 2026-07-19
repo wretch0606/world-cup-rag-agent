@@ -13,6 +13,7 @@ from starlette.responses import JSONResponse
 from backend.api.health import router as health_router
 from backend.api.routers.filters import router as filters_router
 from backend.api.routers.matches import router as matches_router
+from backend.api.routers.agent import router as agent_router
 from backend.api.routers.documents import router as documents_router
 from backend.api.routers.graph import router as graph_router
 from backend.api.routers.teams import router as teams_router
@@ -61,6 +62,7 @@ def create_app() -> FastAPI:
     app.include_router(teams_router, prefix="/api")
     app.include_router(graph_router, prefix="/api")
     app.include_router(documents_router, prefix="/api")
+    app.include_router(agent_router, prefix="/api")
 
     # ---- Exception handlers ----
     _register_exception_handlers(app)

@@ -9,9 +9,7 @@ from backend.main import app
 client = TestClient(app)
 
 # Paths that must NOT exist in this step (step 03+)
-FORBIDDEN_PATHS: list[str] = [
-    "/api/agent/query",
-]
+FORBIDDEN_PATHS: list[str] = []
 
 
 def test_app_imports() -> None:
