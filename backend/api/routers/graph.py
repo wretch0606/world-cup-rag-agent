@@ -61,8 +61,12 @@ async def get_graph(
 
         w = m.get("winner_team")
         score_display = m.get("score", {}).get("display", "")
-        source = w["team_id"] if w else hid
-        target = aid if (w and w["team_id"] == hid) else (hid if not w else hid)
+        if w and w.get("team_id"):
+            source = w["team_id"]
+            target = aid if w["team_id"] == hid else hid
+        else:
+            source = hid
+            target = aid
         edges.append({
             "id": f"edge-{m['match_id']}",
             "source": source,
@@ -85,13 +89,9 @@ async def get_graph(
         "has_penalties": filters.has_penalties,
     }
 
-    # data_status: inherit from provider when items exist, else infer from provider type
-    if result.items:
-        ds = result.items[0].get("data_status", "mock")
-    elif hasattr(provider, "_db_path"):
-        ds = "live"
-    else:
-        ds = "mock"
+    # data_status from config
+    from backend.config import settings as app_settings
+    ds = "live" if app_settings.frontend_data_mode == "sqlite" else "mock"
 
     return ok(data={
         "data_status": ds,

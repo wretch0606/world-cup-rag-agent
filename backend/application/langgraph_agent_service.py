@@ -360,8 +360,8 @@ def _build_answer_graph(match: dict) -> dict:
         ],
         "edges": [{
             "id": f"edge-{match['match_id']}",
-            "source": w["team_id"] if w else h.get("team_id", ""),
-            "target": a.get("team_id", "") if (w and w["team_id"] == h.get("team_id", "")) else (h.get("team_id", "") if not w else h.get("team_id", "")),
+            "source": w["team_id"] if (w and w.get("team_id")) else h.get("team_id", ""),
+            "target": a.get("team_id", "") if (w and w.get("team_id", "") == h.get("team_id", "")) else h.get("team_id", ""),
             "type": "match_result",
             "match_id": match["match_id"],
             "tournament_year": match.get("tournament_year"),
@@ -386,8 +386,10 @@ def _build_list_graph(items: list[dict]) -> dict:
         aid = m.get("away_team", {}).get("team_id", "")
         edges.append({
             "id": f"edge-{m['match_id']}",
-            "source": w["team_id"] if w else hid,
-            "target": aid if (w and w["team_id"] == hid) else (hid if not w else hid),
+            "source": w["team_id"] if (w and w.get("team_id")) else hid,
+            "target": aid if (w and w.get("team_id") and w["team_id"] == hid) else (
+                hid if (w and w.get("team_id") and w["team_id"] != hid) else aid
+            ),
             "type": "match_result",
             "match_id": m["match_id"],
             "tournament_year": m.get("tournament_year"),

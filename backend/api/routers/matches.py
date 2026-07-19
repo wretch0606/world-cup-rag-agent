@@ -51,7 +51,11 @@ async def list_matches(
         has_penalties=hp,
     )
     result = provider.list_matches(filters, page=page, page_size=page_size)
-    return ok(data=result.model_dump())
+    response_data = result.model_dump()
+    # Inject data_status from config
+    from backend.config import settings as app_settings
+    response_data["data_status"] = "live" if app_settings.frontend_data_mode == "sqlite" else "mock"
+    return ok(data=response_data)
 
 
 @router.get("/matches/{match_id}", response_model=ApiResponse[dict])

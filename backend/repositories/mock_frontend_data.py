@@ -240,12 +240,12 @@ class MockFrontendDataProvider:
             for t in (m["home_team"], m["away_team"]):
                 nodes_set[t["team_id"]] = {"id": t["team_id"], "name": t["name"], "type": "team"}
             winner = m.get("winner_team")
-            source = winner["team_id"] if winner else m["home_team"]["team_id"]
-            target = m["away_team"]["team_id"] if winner and winner["team_id"] == m["home_team"]["team_id"] else (m["home_team"]["team_id"] if not winner else m["away_team"]["team_id"])
-            if winner:
+            if winner and winner.get("team_id"):
+                source = winner["team_id"]
                 target = m["away_team"]["team_id"] if winner["team_id"] == m["home_team"]["team_id"] else m["home_team"]["team_id"]
             else:
-                source, target = m["home_team"]["team_id"], m["away_team"]["team_id"]
+                source = m["home_team"]["team_id"]
+                target = m["away_team"]["team_id"]
             edges.append({
                 "id": f"edge-{m['match_id']}",
                 "source": source,

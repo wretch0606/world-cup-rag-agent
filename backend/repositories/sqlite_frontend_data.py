@@ -321,8 +321,10 @@ class SQLiteFrontendDataProvider:
                 score_display = m.get("score", {}).get("display", "")
                 edges.append({
                     "id": f"edge-{m['match_id']}",
-                    "source": w["team_id"] if w else hid,
-                    "target": aid if (w and w["team_id"] == hid) else (hid if not w else hid),
+                    "source": w["team_id"] if (w and w.get("team_id")) else hid,
+                    "target": aid if (w and w.get("team_id") and w["team_id"] == hid) else (
+                        hid if (w and w.get("team_id") and w["team_id"] != hid) else aid
+                    ),
                     "type": "match_result",
                     "match_id": m["match_id"],
                     "tournament_year": m["tournament_year"],
