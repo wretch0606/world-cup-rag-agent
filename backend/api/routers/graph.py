@@ -85,8 +85,13 @@ async def get_graph(
         "has_penalties": filters.has_penalties,
     }
 
-    # data_status inherited from provider result
-    ds = result.items[0].get("data_status", "mock") if result.items else "mock" if not hasattr(provider, "_db_path") else "live"
+    # data_status: inherit from provider when items exist, else infer from provider type
+    if result.items:
+        ds = result.items[0].get("data_status", "mock")
+    elif hasattr(provider, "_db_path"):
+        ds = "live"
+    else:
+        ds = "mock"
 
     return ok(data={
         "data_status": ds,
