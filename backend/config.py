@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -19,11 +21,26 @@ class Settings(BaseSettings):
     app_version: str = "0.1.0"
     app_description: str = "World Cup RAG Agent — FastAPI backend"
 
+    # API
+    api_prefix: str = "/api"
+
     # CORS — development defaults, override via env for production
     cors_origins: list[str] = [
         "http://localhost:5173",
         "http://127.0.0.1:5173",
     ]
+
+    # Data provider mode
+    #   "mock"  — deterministic mock data for A↔B integration (all marked data_status=mock)
+    #   "sqlite" — read-only SQLite; requires world_cup_db_path pointing to worldcup_v2.db
+    frontend_data_mode: Literal["mock", "sqlite"] = "mock"
+    world_cup_db_path: str = ""
+
+    # Agent mode — only "mock" is supported in the current phase
+    agent_mode: Literal["mock"] = "mock"
+
+    # Logging
+    log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
 
 
 settings = Settings()
