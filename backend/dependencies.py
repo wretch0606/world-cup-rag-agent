@@ -42,3 +42,27 @@ def get_provider() -> FrontendDataProvider:
             logger.exception("SQLite provider initialisation failed")
             raise
     return _data_provider
+
+
+# ---------------------------------------------------------------------------
+# Agent service
+# ---------------------------------------------------------------------------
+_agent_service: object | None = None
+
+
+def get_agent_service() -> object:
+    """Return the configured AgentService singleton (mock or langgraph)."""
+    global _agent_service
+    if _agent_service is None:
+        mode = settings.agent_mode
+        if mode == "langgraph":
+            from backend.application.langgraph_agent_service import LangGraphAgentService
+
+            logger.info("Initialising LangGraphAgentService (exact-query, no LLM)")
+            _agent_service = LangGraphAgentService()
+        else:
+            from backend.application.mock_agent_service import MockAgentService
+
+            logger.info("Initialising MockAgentService")
+            _agent_service = MockAgentService()
+    return _agent_service

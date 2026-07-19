@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     world_cup_db_path: str = ""
 
     # Agent mode — only "mock" is supported in the current phase
-    agent_mode: Literal["mock"] = "mock"
+    agent_mode: Literal["mock", "langgraph"] = "mock"
 
     # Logging
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
