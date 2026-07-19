@@ -15,9 +15,9 @@
           <span class="filter-arrow">{{ filterGroupOpen.tournament ? '▾' : '▸' }}</span>
         </div>
         <div v-show="filterGroupOpen.tournament" class="filter-checks">
-          <label v-for="y in filterOptions.tournaments" :key="y" class="filter-check">
-            <input type="checkbox" :value="y" v-model="selectedFilters.tournamentYears" />
-            <span>{{ y }}</span>
+          <label v-for="y in filterOptions.tournaments" :key="y.year" class="filter-check">
+            <input type="checkbox" :value="y.year" v-model="selectedFilters.tournamentYears" />
+            <span>{{ y.label }}</span>
           </label>
           <div class="filter-actions">
             <button @click="selectAllTournaments">{{ filterLabels.selectAll }}</button>
@@ -33,8 +33,8 @@
           <span class="filter-arrow">{{ filterGroupOpen.team ? '▾' : '▸' }}</span>
         </div>
         <div v-show="filterGroupOpen.team" class="filter-checks filter-checks-scroll">
-          <label v-for="t in filterOptions.teams" :key="t.id" class="filter-check">
-            <input type="checkbox" :value="t.id" v-model="selectedFilters.teamIds" />
+          <label v-for="t in filterOptions.teams" :key="t.team_id" class="filter-check">
+            <input type="checkbox" :value="t.team_id" v-model="selectedFilters.teamIds" />
             <span>{{ t.name }}</span>
           </label>
           <div class="filter-actions">
@@ -69,7 +69,7 @@
           <span class="filter-arrow">{{ filterGroupOpen.resultType ? '▾' : '▸' }}</span>
         </div>
         <div v-show="filterGroupOpen.resultType" class="filter-checks">
-          <label v-for="r in filterOptions.resultTypes" :key="r.value" class="filter-check">
+          <label v-for="r in filterOptions.result_types" :key="r.value" class="filter-check">
             <input type="checkbox" :value="r.value" v-model="selectedFilters.resultTypes" />
             <span>{{ r.label }}</span>
           </label>
@@ -311,13 +311,10 @@ import { ref, reactive, computed, watch, onMounted, nextTick } from 'vue'
 import * as d3 from 'd3'
 import {
   type QueryFilters,
-  type FilterOptionsResponse,
   type MatchItem,
-  type MatchSourceItem,
-  type GraphResponse,
-  type GraphNode,
-  type GraphEdge,
-  type QueryResponse,
+  type GraphData,
+  type FilterOptionsData,
+  type QueryResponseData,
   type ApiSourceItem,
   fetchFilterOptions,
   fetchMatches,
@@ -351,11 +348,12 @@ const filterGroupOpen = reactive({
 function toggleFilterGroup(k: keyof typeof filterGroupOpen) { filterGroupOpen[k] = !filterGroupOpen[k] }
 
 /** 筛选选项 —— 由 GET /api/filter-options 填充 */
-const filterOptions = ref<FilterOptionsResponse>({
+const filterOptions = ref<FilterOptionsData>({
+  data_status: 'mock',
   tournaments: [],
   teams: [],
   stages: [],
-  resultTypes: [],
+  result_types: [],
 })
 
 const selectedFilters = reactive({
@@ -366,9 +364,9 @@ const selectedFilters = reactive({
   hasPenalties: false,
 })
 
-function selectAllTournaments() { selectedFilters.tournamentYears = [...filterOptions.value.tournaments] }
+function selectAllTournaments() { selectedFilters.tournamentYears = filterOptions.value.tournaments.map(t => t.year) }
 function clearAllTournaments() { selectedFilters.tournamentYears = [] }
-function selectAllTeams() { selectedFilters.teamIds = filterOptions.value.teams.map(t => t.id) }
+function selectAllTeams() { selectedFilters.teamIds = filterOptions.value.teams.map(t => t.team_id) }
 function clearAllTeams() { selectedFilters.teamIds = [] }
 function selectAllStages() { selectedFilters.stages = filterOptions.value.stages.map(s => s.value) }
 function clearAllStages() { selectedFilters.stages = [] }
@@ -392,8 +390,8 @@ const qaLabels = {
 const userInputText = ref('')
 const currentUserQuestion = ref('2022年世界杯决赛阿根廷对法国的比分是多少？')
 
-/** POST /api/query 的响应 */
-const queryResult = ref<QueryResponse | null>(null)
+/** POST /api/agent/query 的响应 */
+const queryResult = ref<QueryResponseData | null>(null)
 
 async function handleSendQuestion() {
   const trimmed = userInputText.value.trim()
@@ -419,7 +417,7 @@ const intentBadges = computed(() => {
   const d = queryResult.value
   if (!d) return []
   const f = d.facts[0]
-  const teams = f ? `${f.home_team.name}, ${f.away_team.name}` : '—'
+  const teams = f ? `${f.home_team?.name ?? '?'}, ${f.away_team?.name ?? '?'}` : '—'
 
   const badges = [
     { key: '意图', val: d.intent, css: 'badge-blue' },
@@ -444,12 +442,14 @@ const factRows = computed<FactRow[]>(() => {
   const f = queryResult.value?.facts[0]
   if (!f) return []
   const s = f.score
+  const h = f.home_team?.name ?? '?'
+  const a = f.away_team?.name ?? '?'
   return [
     { label: '赛事',     value: `${f.stage_name}` },
-    { label: '对阵',     value: `${f.home_team.name} vs ${f.away_team.name}` },
-    { label: '常规时间', value: `${f.home_team.name} ${s.regular_time.home} : ${s.regular_time.away} ${f.away_team.name}` },
-    { label: '加时赛',   value: s.after_extra_time ? `${f.home_team.name} ${s.after_extra_time.home} : ${s.after_extra_time.away} ${f.away_team.name}` : '（无加时）' },
-    { label: '点球',     value: s.penalty_display ? `${f.home_team.name} ${s.penalty_display} ${f.away_team.name}` : '（无点球大战）' },
+    { label: '对阵',     value: `${h} vs ${a}` },
+    { label: '常规时间', value: s ? `${h} ${s.regular_time.home} : ${s.regular_time.away} ${a}` : '—' },
+    { label: '加时赛',   value: s?.after_extra_time ? `${h} ${s.after_extra_time.home} : ${s.after_extra_time.away} ${a}` : '（无加时）' },
+    { label: '点球',     value: s?.penalty_display ? `${h} ${s.penalty_display} ${a}` : '（无点球大战）' },
     { label: '冠军',     value: f.winner_team ? f.winner_team.name : '—' },
   ]
 })
@@ -484,38 +484,24 @@ interface TMatch {
 }
 interface TStage { stage: string; stage_name: string; matches: TMatch[] }
 
-/** 将 API 返回的 MatchItem 平铺字段映射为嵌套 MatchScore 结构 */
-function toMatchScore(m: MatchItem): TMatch['score'] {
-  return {
-    regular_time: { home: m.home_score_90, away: m.away_score_90 },
-    after_extra_time:
-      m.home_score_et !== null && m.away_score_et !== null
-        ? { home: m.home_score_et, away: m.away_score_et }
-        : null,
-    penalties:
-      m.home_penalties !== null && m.away_penalties !== null
-        ? { home: m.home_penalties, away: m.away_penalties }
-        : null,
-    display: m.score_display,
-    penalty_display: m.penalty_score,
-  }
-}
-
-function toTMatch(m: MatchItem): TMatch {
+/** 将契约 MatchItem（嵌套结构）映射为 UI TMatch */
+function toTMatch(m: import('@/api').MatchItem): TMatch {
   return {
     match_id: m.match_id,
     match_date: m.match_date,
     tournament_year: m.tournament_year,
     stage: m.stage,
     stage_name: m.stage_name,
-    home_team_name: m.home_team_name,
-    away_team_name: m.away_team_name,
-    score: toMatchScore(m),
-    sources: (m.sources as MatchSourceItem[]).map(s => ({
-      source_id: s.source_id,
-      title: s.title,
-      url: s.url,
-    })),
+    home_team_name: m.home_team?.name ?? '',
+    away_team_name: m.away_team?.name ?? '',
+    score: {
+      regular_time: m.score.regular_time,
+      after_extra_time: m.score.after_extra_time,
+      penalties: m.score.penalties,
+      display: m.score.display,
+      penalty_display: m.score.penalty_display,
+    },
+    sources: [],
   }
 }
 
@@ -573,7 +559,7 @@ const graphLabels = {
 }
 
 /** GET /api/graph 返回的图谱数据 */
-const graphResult = ref<GraphResponse>({ nodes: [], edges: [] })
+const graphResult = ref<GraphData>({ data_status: 'mock', scope: '', nodes: [], edges: [], stats: { node_count: 0, edge_count: 0, truncated: false }, applied_filters: {} })
 
 function initD3Graph() {
   const el = document.getElementById('d3-graph-container')
@@ -710,10 +696,10 @@ watch(graphResult, () => {
 function currentFilters(): QueryFilters {
   return {
     years: selectedFilters.tournamentYears.length ? selectedFilters.tournamentYears : undefined,
-    teamIds: selectedFilters.teamIds.length ? selectedFilters.teamIds : undefined,
+    team_ids: selectedFilters.teamIds.length ? selectedFilters.teamIds : undefined,
     stages: selectedFilters.stages.length ? selectedFilters.stages : undefined,
-    resultTypes: selectedFilters.resultTypes.length ? selectedFilters.resultTypes : undefined,
-    hasPenalties: selectedFilters.hasPenalties || undefined,
+    result_types: selectedFilters.resultTypes.length ? selectedFilters.resultTypes : undefined,
+    has_penalties: selectedFilters.hasPenalties ? true : undefined,
   }
 }
 
@@ -725,7 +711,7 @@ async function loadMatchesAndGraph() {
     fetchGraph(f),
   ])
   if (mRes) {
-    allMatches.value = mRes.matches
+    allMatches.value = mRes.items
   }
   if (gRes) {
     graphResult.value = gRes
