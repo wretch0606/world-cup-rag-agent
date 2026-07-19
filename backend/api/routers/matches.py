@@ -8,7 +8,7 @@ from backend.dependencies import get_provider
 from backend.repositories.protocols import FrontendDataProvider
 from backend.schemas.common import MatchFilters, ResultTypeEnum, StageEnum
 from backend.schemas.response import ApiResponse, error, ok
-from backend.schemas.responses import MatchesData, MatchDetailData
+from backend.schemas.responses import MatchDetailData, MatchesData
 
 router = APIRouter(tags=["matches"])
 

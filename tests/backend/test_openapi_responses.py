@@ -43,7 +43,7 @@ def test_no_api_response_dict() -> None:
 # ─── No HTTPValidationError ───
 def test_no_http_validation_error() -> None:
     schemas = _schema().get("components", {}).get("schemas", {})
-    assert "HTTPValidationError" not in schemas, "HTTPValidationError should not appear in schemas"
+    assert "HTTPValidationError" not in schemas, "HTTPValidationError should not appear"
 
 
 # ─── All 422 are ErrorResponse ───
@@ -58,8 +58,13 @@ def test_all_422_are_error_response() -> None:
                 continue
             resp_422 = op.get("responses", {}).get("422")
             if resp_422:
-                ref = resp_422.get("content", {}).get("application/json", {}).get("schema", {}).get("$ref", "")
-                assert "ErrorResponse" in ref, f"{method.upper()} {ep} 422: expected ErrorResponse, got {ref}"
+                schema = resp_422.get("content", {}).get(
+                    "application/json", {}
+                ).get("schema", {})
+                ref = schema.get("$ref", "")
+                assert "ErrorResponse" in ref, (
+                    f"{method.upper()} {ep} 422: got {ref}"
+                )
 
 
 # ─── All 200 are typed ApiResponse ───
@@ -74,97 +79,87 @@ def test_all_200_are_typed() -> None:
                 continue
             resp_200 = op.get("responses", {}).get("200")
             if resp_200:
-                ref = resp_200.get("content", {}).get("application/json", {}).get("schema", {}).get("$ref", "")
-                assert "ApiResponse_" in ref, f"{method.upper()} {ep} 200: expected typed ApiResponse, got {ref}"
+                schema = resp_200.get("content", {}).get(
+                    "application/json", {}
+                ).get("schema", {})
+                ref = schema.get("$ref", "")
+                assert "ApiResponse_" in ref, (
+                    f"{method.upper()} {ep} 200: got {ref}"
+                )
 
 
-# ─── Runtime: matches data_status=live (SQLite mode) ───
-def test_matches_data_status_live(monkeypatch) -> None:
+# ─── Runtime: SQLite mode data_status=live (uses fixture DB) ───
+def _use_fixture_db(monkeypatch, fixture_db_path: str) -> None:
+    """Switch provider to SQLite mode using the test fixture DB."""
     import backend.config
-    monkeypatch.setattr(backend.config.settings, "frontend_data_mode", "sqlite")
-    # Reset provider to pick up new mode
     import backend.dependencies as d
+
+    monkeypatch.setattr(backend.config.settings, "frontend_data_mode", "sqlite")
+    monkeypatch.setattr(backend.config.settings, "world_cup_db_path", fixture_db_path)
     d._data_provider = None
-    monkeypatch.setattr(backend.config.settings, "world_cup_db_path", r"D:\shixunwork\B\worldcup_v2.db")
-    # This test is best-effort with available DB; skip if no DB
-    import os
-    if not os.path.exists(r"D:\shixunwork\B\worldcup_v2.db"):
-        return
+
+
+def test_matches_data_status_live(monkeypatch, fixture_db_path: str) -> None:
+    _use_fixture_db(monkeypatch, fixture_db_path)
     try:
         r = client.get("/api/matches")
         assert r.status_code == 200
-        data = r.json()["data"]
-        assert data.get("data_status") == "live"
+        assert r.json()["data"].get("data_status") == "live"
     finally:
+        import backend.dependencies as d
         d._data_provider = None
 
 
-# ─── Runtime: graph data_status=live (SQLite mode) ───
-def test_graph_data_status_live(monkeypatch) -> None:
-    import os
-    if not os.path.exists(r"D:\shixunwork\B\worldcup_v2.db"):
-        return
-    import backend.config
-    monkeypatch.setattr(backend.config.settings, "frontend_data_mode", "sqlite")
-    monkeypatch.setattr(backend.config.settings, "world_cup_db_path", r"D:\shixunwork\B\worldcup_v2.db")
-    import backend.dependencies as d
-    d._data_provider = None
+def test_graph_data_status_live(monkeypatch, fixture_db_path: str) -> None:
+    _use_fixture_db(monkeypatch, fixture_db_path)
     try:
         r = client.get("/api/graph?limit=10")
         assert r.status_code == 200
-        data = r.json()["data"]
-        assert data.get("data_status") == "live"
+        assert r.json()["data"].get("data_status") == "live"
     finally:
+        import backend.dependencies as d
         d._data_provider = None
 
 
-# ─── Runtime: Mock data_status=mock ───
+# ─── Runtime: Mock mode data_status=mock ───
 def test_filter_options_data_status_mock() -> None:
-    """Mock mode: filter-options returns data_status=mock."""
     r = client.get("/api/filter-options")
     assert r.status_code == 200
     assert r.json()["data"]["data_status"] == "mock"
 
 
-# ─── Graph no self-loops ───
-def test_graph_no_self_loops(monkeypatch) -> None:
-    import os
-    if not os.path.exists(r"D:\shixunwork\B\worldcup_v2.db"):
-        return
-    import backend.config
-    monkeypatch.setattr(backend.config.settings, "frontend_data_mode", "sqlite")
-    monkeypatch.setattr(backend.config.settings, "world_cup_db_path", r"D:\shixunwork\B\worldcup_v2.db")
-    import backend.dependencies as d
-    d._data_provider = None
+# ─── Graph no self-loops (fixture DB) ───
+def test_graph_no_self_loops(monkeypatch, fixture_db_path: str) -> None:
+    _use_fixture_db(monkeypatch, fixture_db_path)
     try:
-        r = client.get("/api/graph?limit=500")
+        r = client.get("/api/graph?limit=200")
         assert r.status_code == 200
-        edges = r.json()["data"]["edges"]
-        for e in edges:
-            assert e["source"] != e["target"], f"Self-loop: {e['id']} {e['source']}→{e['target']}"
+        for e in r.json()["data"]["edges"]:
+            assert e["source"] != e["target"], (
+                f"Self-loop: {e['id']} {e['source']}"
+            )
     finally:
+        import backend.dependencies as d
         d._data_provider = None
 
 
-# ─── Draw edge direction: home → away ───
-def test_draw_edge_direction(monkeypatch) -> None:
-    import os
-    if not os.path.exists(r"D:\shixunwork\B\worldcup_v2.db"):
-        return
-    import backend.config
-    monkeypatch.setattr(backend.config.settings, "frontend_data_mode", "sqlite")
-    monkeypatch.setattr(backend.config.settings, "world_cup_db_path", r"D:\shixunwork\B\worldcup_v2.db")
-    import backend.dependencies as d
-    d._data_provider = None
+# ─── Draw edge direction: home → away (fixture has M-2022-44 CRO-MAR draw) ───
+def test_draw_edge_direction(monkeypatch, fixture_db_path: str) -> None:
+    _use_fixture_db(monkeypatch, fixture_db_path)
     try:
-        r = client.get("/api/graph?limit=500")
+        r = client.get("/api/graph?limit=200")
         edges_by_id = {e["match_id"]: e for e in r.json()["data"]["edges"]}
-        # M-2022-04: USA vs Wales draw
-        e = edges_by_id.get("M-2022-04")
+        e = edges_by_id.get("M-2022-44")
         if e:
-            assert e["source"] == "team_USA", f"M-2022-04 expected home=USA, got {e['source']}"
-            assert e["target"] == "team_WAL", f"M-2022-04 expected away=WAL, got {e['target']}"
+            assert e["source"] == "team_CRO", (
+                f"M-2022-44 draw: expected home=CRO, got {e['source']}"
+            )
+            assert e["target"] == "team_MAR", (
+                f"M-2022-44 draw: expected away=MAR, got {e['target']}"
+            )
+            assert e["winner_team_id"] is None
     finally:
+        import backend.dependencies as d
         d._data_provider = None
 
 
