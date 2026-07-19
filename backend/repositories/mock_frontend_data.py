@@ -88,6 +88,24 @@ _MOCK_MATCHES: list[dict] = [
         "winner_team": {"team_id": "team_FRA", "name": "法国"},
     },
     {
+        "match_id": "M-2022-44",
+        "tournament_year": 2022,
+        "match_date": "2022-12-01",
+        "stage": "group",
+        "stage_name": "小组赛",
+        "home_team": {"team_id": "team_CRO", "name": "克罗地亚"},
+        "away_team": {"team_id": "team_MAR", "name": "摩洛哥"},
+        "score": {
+            "regular_time": {"home": 0, "away": 0},
+            "after_extra_time": None,
+            "penalties": None,
+            "display": "0:0",
+            "penalty_display": None,
+        },
+        "result_type": "draw",
+        "winner_team": None,
+    },
+    {
         "match_id": "M-2014-64",
         "tournament_year": 2014,
         "match_date": "2014-07-13",
@@ -206,6 +224,15 @@ class MockFrontendDataProvider:
             return {"team": None, "stats": {}, "matches": [], "graph": {"scope": "team_relations", "nodes": [], "edges": []}, "total": 0, "page": page, "page_size": page_size, "applied_filters": {}, "data_status": "mock"}
         # Find matches involving this team
         related = [m for m in _MOCK_MATCHES if m["home_team"]["team_id"] == team_id or m["away_team"]["team_id"] == team_id]
+        # Apply filters
+        if filters.year_from:
+            related = [m for m in related if m["tournament_year"] >= filters.year_from]
+        if filters.year_to:
+            related = [m for m in related if m["tournament_year"] <= filters.year_to]
+        if filters.opponent_id:
+            related = [m for m in related if m["home_team"]["team_id"] == filters.opponent_id or m["away_team"]["team_id"] == filters.opponent_id]
+        if filters.has_penalties is True:
+            related = [m for m in related if m["result_type"] == "penalties"]
         # Build graph
         nodes_set: dict[str, dict] = {}
         edges: list[dict] = []

@@ -80,3 +80,52 @@ def test_matches_applied_filters_echo() -> None:
 def test_openapi_has_matches_path() -> None:
     schema = client.get("/openapi.json").json()
     assert "/api/matches" in schema["paths"]
+
+
+# ---- Match Detail ----
+def test_match_detail_200() -> None:
+    resp = client.get("/api/matches/M-2022-64")
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    assert data["match_id"] == "M-2022-64"
+    assert data["home_team"]["team_id"] == "team_ARG"
+    assert "score" in data
+    assert "timeline" in data
+
+
+def test_match_detail_extra_time() -> None:
+    resp = client.get("/api/matches/M-2014-64")
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    assert data["result_type"] == "extra_time"
+    assert data["score"]["after_extra_time"] is not None
+
+
+def test_match_detail_penalties() -> None:
+    resp = client.get("/api/matches/M-2022-64")
+    data = resp.json()["data"]
+    score = data["score"]
+    assert score["penalties"] is not None
+    assert score["penalty_display"] is not None
+    assert score["display"] != score["penalty_display"]
+
+
+def test_match_detail_draw_no_winner() -> None:
+    resp = client.get("/api/matches/M-2022-44")
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    assert data["result_type"] == "draw"
+    assert data["winner_team"] is None
+
+
+def test_match_detail_404() -> None:
+    resp = client.get("/api/matches/M-9999-99")
+    assert resp.status_code == 404
+    body = resp.json()
+    assert body["code"] == "MATCH_NOT_FOUND"
+    assert body["retryable"] is False
+
+
+def test_openapi_has_match_detail_path() -> None:
+    schema = client.get("/openapi.json").json()
+    assert "/api/matches/{match_id}" in schema["paths"]

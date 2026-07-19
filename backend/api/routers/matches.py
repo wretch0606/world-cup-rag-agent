@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from backend.dependencies import get_provider
 from backend.repositories.protocols import FrontendDataProvider
 from backend.schemas.common import MatchFilters, ResultTypeEnum, StageEnum
-from backend.schemas.response import ApiResponse, ok
+from backend.schemas.response import ApiResponse, error, ok
 
 router = APIRouter(tags=["matches"])
 
@@ -52,3 +52,20 @@ async def list_matches(
     )
     result = provider.list_matches(filters, page=page, page_size=page_size)
     return ok(data=result.model_dump())
+
+
+@router.get("/matches/{match_id}", response_model=ApiResponse[dict])
+async def get_match(
+    match_id: str,
+    provider: FrontendDataProvider = Depends(get_provider),
+) -> ApiResponse[dict]:
+    """Return full match detail with timeline, events, and sources."""
+    data = provider.get_match(match_id)
+    if data is None:
+        return error(
+            code="MATCH_NOT_FOUND",
+            message=f"未找到 match_id 为 {match_id} 的比赛",
+            status_code=404,
+            retryable=False,
+        )
+    return ok(data=data)

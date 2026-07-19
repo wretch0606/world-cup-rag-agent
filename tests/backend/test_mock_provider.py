@@ -20,13 +20,13 @@ def test_filter_options_has_8_stages(mock_provider) -> None:
 
 def test_list_matches_returns_all_with_no_filters(mock_provider) -> None:
     result = mock_provider.list_matches(MatchFilters())
-    assert result.total == 4
-    assert len(result.items) == 4
+    assert result.total == 5
+    assert len(result.items) == 5
 
 
 def test_list_matches_filter_by_year(mock_provider) -> None:
     result = mock_provider.list_matches(MatchFilters(years=[2022]))
-    assert result.total == 2
+    assert result.total == 3
 
 
 def test_list_matches_filter_has_penalties(mock_provider) -> None:
