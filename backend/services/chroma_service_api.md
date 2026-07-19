@@ -1,417 +1,270 @@
-# Chroma 向量数据库模块 — 接口文档（成员 D → 成员 B）
+# Chroma 向量数据库模块 — 接口文档（成员 D → E / B）
 
-> **版本**：v1.1（更新：新增进球查询 + 阶段名全中文化）  
-> **维护者**：成员 D  
+> **版本**：v1.2（适配 C 的 v2.1 契约 + 对齐 B_C_D 协调清单）
+> **日期**：2026-07-19
+> **维护者**：成员 D
 > **模块路径**：`backend/services/chroma_service.py`
+> **调用链**：B → E → D（B 不直接调 D，E 是中间层）
 
 ---
 
 ## 一、模块概述
 
-本模块封装了世界杯知识库的全部 Chroma 向量数据库操作。你（成员 B / Agent 后端）只需调用本模块的公开函数，无需关心 Chroma 底层细节。
+本模块封装世界杯知识库的全部 Chroma 向量数据库操作。E（RAG 生成）通过 `query_structured()` 获得结构化检索结果，B（Agent）不直接调用 D。
 
 ### 1.1 架构位置
 
 ```
-用户问题 → Agent 路由（你的 LangGraph）
-              │
-              ├─ 结构化查询 → SQLite (worldcup.db)
-              │
-              └─ 语义检索 → chroma_service.query_top_k()  ← 你调用我
-                                │
-                                ├─ extract_filters()  提取过滤条件
-                                ├─ BGE Embedding      中文语义编码
-                                ├─ Chroma 检索        向量相似度
-                                └─ enrich_result()    球队名+比分增强
+用户 → B (LangGraph Agent)
+         │
+         ├─ 结构化查询 → SQLite (worldcup_v2.db)   ← B 自己查
+         │
+         └─ 语义检索   → E (RAG Service)
+                           │
+                           └─ D: query_structured()  ← E 调用 D
+                                ├─ extract_filters()  → 提取过滤条件
+                                ├─ query_top_k()      → Chroma 语义检索
+                                └─ RetrievalResponse  → 结构化结果
 ```
 
-### 1.2 两个 Collection
+### 1.2 Collection
 
-| Collection | 用途 | 调用时机 |
-|-----------|------|---------|
-| `world_cup_match_facts` | 964 条比赛事实，精确查询用 | 回答具体比赛、比分、胜负 |
-| `world_cup_reports` | 比赛报告/长篇分析 | 回答总结、对比、评价类问题 |
+| Collection | 数据 | 用途 |
+|-----------|------|------|
+| `world_cup_match_facts` | 964 条，v2.1 英文 stage enum | 比赛事实语义检索 |
+| `world_cup_reports` | 0 条（待 C 提供） | 比赛报告/长篇分析 |
 
 ---
 
-## 二、快速开始（3 分钟集成）
+## 二、快速开始
 
 ```python
 from backend.services.chroma_service import (
-    extract_filters,      # Step 1: 提取过滤条件
-    query_top_k,          # Step 2: 语义检索
-    enrich_result,        # Step 3: 增强结果（可选）
-    COLLECTION_FACTS,     # 常量："world_cup_match_facts"
-    COLLECTION_REPORTS,   # 常量："world_cup_reports"
+    query_structured,      # 推荐：E 调用的主接口
+    query_top_k,           # 备选：原始检索
+    enrich_result,         # 可选：调试增强（查 SQLite）
+    COLLECTION_FACTS,
 )
 
-# ── 完整调用示例 ──
-
-# Step 1: 从用户问题中提取结构化过滤条件
-filters = extract_filters("2014年巴西队在半决赛的结果")
-# → {"tournament_year": 2014, "team": "巴西", "team_id": "team_BRA", "stage": "半决赛"}
-
-# Step 2: 语义检索（自动应用过滤条件 + query expansion）
-results = query_top_k(
-    query_text="2014年巴西队在半决赛的结果",
-    k=5,                           # 返回 Top-5
-    collection=COLLECTION_FACTS,   # 查哪个 collection
-    filters=filters,               # 传入 Step 1 的过滤条件
+# ── E 的调用示例 ──
+response = query_structured(
+    query_text="2022年世界杯决赛比分",
+    k=5,
+    collection=COLLECTION_FACTS,
+    use_rewrite=True,
+    use_rerank=False,
 )
 
-# Step 3: 增强结果（球队名转中文 + SQLite 比分详情）
-for item in results:
-    enriched = enrich_result(item)
-    print(enriched["team_names"])     # ["巴西", "德国"]   ← 而非 ["team_BRA", "team_GER"]
-    print(enriched["match_detail"])   # {"score_display": "1:7", "venue": "...", ...}
+# response.to_dict() → {"status": "ok", "candidates": [...], "execution": {...}}
 ```
 
 ---
 
 ## 三、核心 API
 
-### 3.1 `extract_filters(query: str) → dict`
+### 3.1 `query_structured()` — 推荐 E 使用
 
-从自然语言中提取结构化过滤条件，缩小 Chroma 检索范围。
-
-**参数**：
-| 参数 | 类型 | 说明 |
-|------|------|------|
-| `query` | `str` | 用户原始问题 |
-
-**返回值**：
 ```python
+response = query_structured(
+    query_text: str,
+    k: int = 5,
+    collection: str = COLLECTION_FACTS,
+    filters: dict | None = None,
+    use_rewrite: bool = True,
+    use_rerank: bool = False,
+    recall_k: int = 20,
+) -> RetrievalResponse
+```
+
+返回 `RetrievalResponse` 对象（对齐 02-D-to-E 契约 v2.0），调用 `.to_dict()` 得到：
+
+```json
 {
-    "tournament_year": 2014,       # int | None — 年份
-    "team": "巴西",                 # str | None — 用户提到的球队中文名
-    "team_id": "team_BRA",          # str | None — 标准化的 team_id（用于 Chroma 过滤）
-    "stage": "半决赛",               # str | None — 比赛阶段
-    "stage_hint": "淘汰赛",          # str | None — 宽泛阶段（不用于精确过滤）
-    "rewritten_query": "巴西队结果",  # str — 去掉条件后的纯查询文本
+  "query": "2022年世界杯决赛",
+  "status": "ok",
+  "rewritten_query": "2022 世界杯 决赛",
+  "filters": {"tournament_year": 2022, "stage": "final"},
+  "config": {"top_k": 5, "reranker_enabled": false, "use_rewrite": true},
+  "candidates": [
+    {
+      "text": "2022年世界杯决赛...",
+      "vector_score": 0.18,
+      "rerank_score": null,
+      "retrieval_rank": 1,
+      "rerank_rank": null,
+      "metadata": {
+        "match_id": "M-2022-64",
+        "stage": "final",
+        "stage_name": "决赛",
+        "source_ids": ["src_csv_20260719_001", "source-kaggle-001"],
+        "data_version": "2026-07-16-v2"
+      }
+    }
+  ],
+  "execution": {
+    "rewrite_applied": true,
+    "reranker_applied": false,
+    "warnings": [],
+    "timing": {"retrieval_ms": 30}
+  }
 }
 ```
 
-**注意**：
-- `stage_hint` 是"淘汰赛"这类宽泛词，**不会**用于 Chroma 的 where 过滤（因为淘汰赛包含多个具体阶段），仅作参考
-- `rewritten_query` 已去掉年份/阶段等关键词，但保留球队名（用于语义匹配）
-- 球队匹配依赖 `team_aliases.json`（255 条中英文别名），覆盖 1930-2022 全部参赛队
+**status 取值**：
 
----
+| status | 含义 |
+|--------|------|
+| `ok` | 查询成功且有结果 |
+| `empty` | 查询成功但无满足阈值的证据 |
+| `degraded` | reranker 等增强不可用，已降级 |
+| `error` | collection 为空或不可用 |
 
-### 3.2 `query_top_k(query_text, k, collection, filters, use_query_rewrite) → list[dict]`
+### 3.2 `query_top_k()` — 原始检索
 
-核心检索函数。返回最相关的 Top-K 个 chunk。
-
-**参数**：
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `query_text` | `str` | 必填 | 用户问题（可以是 rewritten_query） |
-| `k` | `int` | `5` | 返回数量，范围 1-100 |
-| `collection` | `str` | 必填 | `COLLECTION_FACTS` 或 `COLLECTION_REPORTS` |
-| `filters` | `dict` | `None` | `extract_filters()` 的返回值，用于 metadata 过滤 |
-| `use_query_rewrite` | `bool` | `True` | 是否启用多角度查询改写（提升召回率） |
-
-**返回值**：
 ```python
-[
-    {
-        "id": "M-2014-61",                    # match_id
-        "document": "2014年世界杯半决赛...",    # chunk 文本
-        "metadata": {
-            "match_id": "M-2014-61",
-            "tournament_year": 2014,
-            "stage": "semi-finals",
-            "team_ids": ["team_BRA", "team_GER"],
-            "document_name": "FIFA World Cup 2014",
-            "source_id": "src_csv_20260716_001",
-        },
-        "similarity": 0.4528,                 # 1 - distance，越大越相关
-        "collection": "world_cup_match_facts",
-    },
-    # ... 最多 k 条，按 similarity 降序
-]
+results = query_top_k(
+    query_text: str,
+    k: int = 5,
+    collection: str = COLLECTION_FACTS,
+    filters: dict | None = None,
+    use_query_rewrite: bool = True,
+) -> list[dict]
 ```
 
-**内部流程**：
-1. `query_rewrite()` — 生成 2-3 个语义变体
-2. 每个变体执行 Chroma 检索（用 filters 做 metadata 过滤）
-3. 合并结果、去重、按相似度排序
+返回 Chroma 原始格式（见 3.1 的 `candidates` 项）。
 
----
+**内部流程**：query expansion（多角度改写）→ Chroma 检索（metadata 过滤）→ 去重 → 按相似度排序。
 
-### 3.3 `query_with_rerank(query_text, k, collection, filters, recall_k) → list[dict]`
+### 3.3 `extract_filters()` — 查询预处理
 
-完整检索管线：**粗筛（Chroma Top-20）→ 精排（Reranker Top-5）**。
-
-**参数**：同 `query_top_k`，额外增加：
-
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `recall_k` | `int` | `20` | 粗筛阶段召回数量（应 > k） |
-
-**注意**：Reranker 需要额外下载模型（~1GB），当前环境未部署。调用时若 Reranker 不可用，**自动降级**为 `query_top_k` 的结果（不报错）。
-
-**返回值**：同 `query_top_k`，额外增加 `rerank_score` 字段（仅在 Reranker 可用时）。
-
----
-
-### 3.4 `enrich_result(item: dict) → dict`
-
-增强 Chroma 原始结果：球队 ID 转中文名 + 从 SQLite 获取比赛详情。
-
-**参数**：`query_top_k()` 返回的单条 item
-
-**返回值**：在原 item 基础上增加：
 ```python
-{
-    # ... 原有字段 ...
-
-    "team_names": ["巴西", "德国"],    # 新增：球队中文名列表
-
-    "match_detail": {                  # 新增：SQLite 完整比赛详情
-        "match_id": "M-2014-61",
-        "tournament_year": 2014,
-        "match_date": "2014-07-08",
-        "stage": "半决赛",              # 🆕 现已全部中文化
-        "venue": "Estadio Mineirao",
-        "home_team": "巴西",           # 已转为中文名
-        "away_team": "德国",
-        "score_display": "1:7",
-        "winner": "德国",
-        "result_type": "regulation",
-    },
-    "goals": [                         # 🆕 进球详情
-        {
-            "player": "Thomas Muller",
-            "team_name": "Germany",
-            "minute_label": "11'",
-            "match_period": "first half",
-            "penalty": 0,
-            "own_goal": 0,
-        },
-        # ... 共 8 球
-    ],
-}
+filters = extract_filters("2018年法国队在决赛的表现")
+# → {
+#     "tournament_year": 2018,
+#     "team": "法国",
+#     "team_id": "team_FRA",
+#     "stage": "final",                 # ← 英文 enum（数据 v2.1）
+#     "stage_name": "决赛",              # ← 中文显示名
+#     "rewritten_query": "法国队表现",
+# }
 ```
 
----
+**v2.1 变更**：`stage` 字段返回英文 enum（如 `"final"`、`"semi_final"`），直接用于 Chroma where 过滤。`stage_name` 保留中文供前端展示。
 
-### 3.5 `get_goal_details(match_id: str) → list[dict]` 🆕
+**支持中英文输入**：用户输入 "semi-finals" 或 "半决赛" 都能识别 → `semi_final`。
 
-查询一场比赛的全部进球记录（数据来源：worldcup.db 的 `goals` 表，共 2720 条）。
+### 3.4 `enrich_result()` — 调试增强（可选）
 
-**返回值**：
+⚠️ **仅用于调试和日志**。正式 RAG 流程中，B/E 应通过 SQLite 自行补充比赛详情。
+
 ```python
-[
-    {
-        "player": "Kylian Mbappe",       # 球员全名
-        "team_name": "France",            # 进球方
-        "minute_label": "65'",            # 进球时间
-        "match_period": "second half",    # 半场/加时
-        "penalty": 0,                     # 是否点球 (0/1)
-        "own_goal": 0,                    # 是否乌龙 (0/1)
-    },
-    ...
-]
+enriched = enrich_result(item)
+# 在原始 metadata 基础上增加:
+#   team_names: ["法国", "克罗地亚"]
+#   match_detail: {score_display, venue, match_date, ...}
+#   goals: [{player, minute_label, penalty, ...}, ...]
 ```
 
-### 3.6 `format_result(item: dict, verbose: bool = False) → str`
+### 3.5 `get_goal_details()` — 进球查询
 
-将增强后的结果格式化为人类可读字符串，适合前端展示或调试日志。
-
-**示例输出**：
-```
-[2014] 半决赛 | 巴西 vs 德国 | 比分 1:7 | sim=0.4528 | regulation
-
-# verbose=True 时额外输出:
-  日期: 2014-07-08
-  场馆: Estadio Mineirao
-  进球:
-    11' Thomas Muller [Germany]
-    23' Miroslav Klose [Germany]
-    ...
-  摘要: 2014年世界杯半决赛，巴西队在Estadio Mineirao...
+```python
+goals = get_goal_details("M-2022-64")
+# → [{"player": "Lionel Messi", "minute_label": "23'", "penalty": 1, ...}, ...]
 ```
 
 ---
 
 ## 四、管理 API
 
-### 4.1 `import_match_facts(json_path="match_facts.json") → int`
-
-从 C 提供的 JSON 文件批量导入数据到 Chroma。**仅在数据更新时调用。**
+### 4.1 `import_match_facts()` — 数据导入
 
 ```python
-count = import_match_facts("match_facts.json")
-# → 964 条导入完成
+count = import_match_facts("D/match_facts.jsonl")  # 自动检测 .json 和 .jsonl
+# → 964 条 upsert 完成
 ```
 
-### 4.2 `add_chunks(chunks, collection) → int`
+**幂等**：使用 Chroma upsert，两次导入 count 不增加。
 
-单条/小批量写入。C 的 `chunk.to_chroma_format()` 格式可直接传入。
+### 4.2 `add_chunks()` / `list_documents()` / `delete_document()` / `get_collection_stats()`
 
-### 4.3 `list_documents(collection) → list[dict]`
-
-列出已存储的文档（按 match_id 去重）。
-
-### 4.4 `delete_document(match_id, collection) → int`
-
-按 match_id 删除指定比赛的所有 chunk。
-
-### 4.5 `get_collection_stats() → dict`
-
-获取两个 collection 的统计信息。
+标准 CRUD，详见函数签名。
 
 ---
 
-## 五、Integration 场景
+## 五、v2.1 契约关键变更
 
-### 场景 1：用户问精确事实（你的 Agent 路由到 RAG 分支）
+| 字段 | v2.0（旧） | v2.1（新） |
+|------|-----------|-----------|
+| 阶段 | `stage: "决赛"`（中文） | `stage: "final"`（英文 enum） |
+| 阶段中文 | 无 | `stage_name: "决赛"`（新增） |
+| 来源 | `source_id: "..."`（单值） | `source_ids: ["...", "..."]`（数组） |
+| 数据版本 | `"1.0"` | `"2026-07-16-v2"` |
+| 阶段枚举 | 无标准 | 8 个英文 enum（见 D/stage_mapping.json） |
 
-```python
-# 你的 Agent 判断意图为 "match_fact_query"
-def handle_fact_query(user_message: str) -> dict:
-    filters = extract_filters(user_message)
-    results = query_top_k(
-        query_text=filters.get("rewritten_query", user_message),
-        k=5,
-        collection=COLLECTION_FACTS,
-        filters=filters,
-    )
-
-    # 增强 + 格式化
-    enriched = [enrich_result(r) for r in results]
-    sources = [format_result(r) for r in enriched]
-
-    return {
-        "intent": "match_fact_query",
-        "answer": enriched[0]["document"] if enriched else "未找到相关比赛",
-        "sources": sources,
-        "matches": [r.get("match_detail") for r in enriched if r.get("match_detail")],
-    }
-```
-
-### 场景 2：用户问总结/分析类问题
-
-```python
-def handle_summary_query(user_message: str) -> dict:
-    results = query_top_k(
-        query_text=user_message,
-        k=5,
-        collection=COLLECTION_REPORTS,  # ← 注意：查 reports
-    )
-    return {
-        "intent": "summary_query",
-        "chunks": [r["document"] for r in results],
-        # 你把 chunks 拼进 Prompt 给 LLM 生成回答
-    }
-```
-
-### 场景 3：混合查询（精确事实 + 语义补充）
-
-```python
-def handle_hybrid_query(user_message: str) -> dict:
-    filters = extract_filters(user_message)
-
-    # 结构化过滤 + 语义检索
-    facts = query_top_k(user_message, k=3, collection=COLLECTION_FACTS, filters=filters)
-    reports = query_top_k(user_message, k=2, collection=COLLECTION_REPORTS)
-
-    # SQLite 精确校验（你的模块负责）
-    # chroma_service 只提供语义检索，结构化精确查询请直接用 worldcup.db
-
-    return {
-        "facts": [enrich_result(f) for f in facts],
-        "context_chunks": [r["document"] for r in reports],
-    }
-```
+**8 个 stage enum**：`group`, `second_group`, `round_of_16`, `quarter_final`, `semi_final`, `third_place`, `final`, `final_round`
 
 ---
 
-## 六、环境配置
+## 六、数据文件依赖
 
-### 6.1 Embedding 模式切换
+| 文件 | 位置 | 用途 |
+|------|------|------|
+| `match_facts.jsonl` | `D/` | 964 条事实文本，导入 Chroma |
+| `team_aliases.json` | `D/` | 255 条球队别名（query rewrite 用） |
+| `stage_mapping.json` | `D/` | stage 英文 enum ↔ 中文显示名 |
+| `source_manifest.json` | `D/` | 数据来源清单 |
+| `worldcup_v2.db` | 项目根目录 | SQLite（`enrich_result` 调试增强用） |
 
-```bash
-# 默认模式：Chroma 内置 ONNX（离线可用，英文为主）
-python your_agent.py
+**代码自动搜索路径**（优先级）：环境变量 > D/ 文件夹 > 项目根 > 交付/ 目录。
 
-# BGE 模式：bge-small-zh-v1.5（中文精准，需先下载一次）
-# Windows cmd:
-set EMBEDDING_MODE=bge && python your_agent.py
+---
 
-# PowerShell:
-$env:EMBEDDING_MODE="bge"; python your_agent.py
-```
-
-### 6.2 环境变量一览
+## 七、环境变量
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
-| `EMBEDDING_MODE` | `default` | `default` 或 `bge` |
-| `CHROMA_DATA_DIR` | `./backend/data/chroma_db` | 向量数据持久化目录 |
-| `TEAM_ALIASES_PATH` | `team_aliases.json` | 球队别名文件路径 |
-
-### 6.3 数据文件依赖
-
-```
-项目根目录/
-├── match_facts.json      ← C 提供，964 条事实（导入到 Chroma）
-├── team_aliases.json     ← C 提供，85 队别名映射（query rewrite 用）
-├── worldcup.db           ← C 提供，结构化数据库（enrich_result 用）
-└── backend/data/chroma_db/  ← D 维护，Chroma 持久化目录
-```
+| `EMBEDDING_MODE` | `default` | `default`（Chroma 内置）/ `bge`（中文精准） |
+| `CHROMA_DATA_DIR` | `./backend/data/chroma_db` | Chroma 持久化目录 |
+| `TEAM_ALIASES_PATH` | 自动搜索 `D/team_aliases.json` | 球队别名文件 |
+| `WORLD_CUP_DB_PATH` | 自动搜索 `worldcup_v2.db` | SQLite 数据库路径 |
 
 ---
 
-## 七、错误处理
+## 八、错误处理
 
-本模块所有公开函数在出现异常时：
-
-- **参数错误**（空 query、非法 k 值等）：抛出 `ValueError`
-- **数据不存在**：返回空列表 `[]` 或 `0`
-- **文件/网络不可用**：通过 logger 输出警告，**不抛出异常**，优雅降级
-- **Reranker 不可用**：自动回退到 Chroma 原始排序
-
-**建议你在调用侧统一包一层 try-except**：
-```python
-try:
-    results = query_top_k(...)
-except ValueError as e:
-    # 参数错误，返回友好提示
-    return {"status": "error", "message": str(e)}
-except Exception as e:
-    # 未知错误，记录日志
-    logger.error(f"Chroma 查询异常: {e}")
-    return {"status": "error", "message": "系统内部错误"}
-```
+| 场景 | 行为 |
+|------|------|
+| 参数错误（空 query、k 越界） | 抛出 `ValueError` |
+| 无检索结果 | `query_structured()` 返回 `status="empty"` |
+| collection 为空 | `query_structured()` 返回 `status="error"` |
+| reranker 不可用 | 返回 `status="degraded"`，自动降级为向量排序 |
+| 文件找不到 | 通过 logger 输出 warning，降级运行（返回空结果） |
 
 ---
 
-## 八、分⼯边界
+## 九、与 B、C 的分工
 
-| 事项 | 谁负责 | 说明 |
-|------|--------|------|
-| Chroma 语义检索 | D（本模块） | 你只管调 `query_top_k()` |
-| 结构化精确查询（SQL） | B（你） | 直接查 `worldcup.db`，如 `SELECT * FROM matches WHERE ...` |
-| Agent 路由/意图识别 | B（你） | 判断走 SQL 还是 Chroma |
-| Prompt 拼装 + LLM 调用 | E | E 用你提供的结果拼 Prompt |
-| 数据提供 | C | match_facts.json / worldcup.db / team_aliases.json |
-
-**重要**：精确的球队信息查询（如"列出德国队所有比赛"）建议直接查 SQLite，Chroma 更适合语义模糊匹配（如"巴西那次惨案是哪场比赛"）。
+| 事项 | 谁负责 |
+|------|--------|
+| Chroma 语义检索 | D（本模块） |
+| 结构化 SQL 精确查询 | B（直接查 worldcup_v2.db） |
+| Agent 路由 / 意图识别 | B |
+| RAG Prompt / LLM 调用 | E |
+| 数据清洗、交付 | C |
+| 检索结果增强（比分/进球） | B/E 通过 SQLite 自行补充，`enrich_result()` 仅调试用 |
 
 ---
 
-## 九、性能参考
+## 十、性能参考
 
 | 指标 | 值 |
 |------|-----|
-| Chroma 数据量 | 964 chunks，512 维向量 |
-| 单次查询延迟（BGE） | ~30-50ms |
-| 含 query expansion 延迟 | ~100ms |
-| 含 Reranker 延迟（待部署） | ~500ms |
-| 首次加载 BGE 模型 | ~10s（仅一次，后续缓存） |
+| Chroma 数据量 | 964 chunks，512 维（BGE） |
+| 单次检索延迟（BGE） | ~30ms |
+| 含 query expansion | ~100ms |
+| 首次加载 BGE 模型 | ~10s（后续缓存） |
+| 幂等导入 | upsert，重复执行 964→964 不变 |
 
 ---
 
-> **有任何问题随时找我（成员 D）联调。**
+> **有任何问题找 D 联调。**
