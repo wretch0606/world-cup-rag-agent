@@ -57,7 +57,8 @@ def _load_stage_mapping() -> dict:
     global _stage_data
     if _stage_data is not None:
         return _stage_data
-    path = Path(__file__).parent.parent / "data" / "stage_mapping.json"
+    # 从 src/services/ 向上两级到项目根目录 (-RAG-/)
+    path = Path(__file__).parent.parent.parent / "data" / "stage_mapping.json"
     with open(path, "r", encoding="utf-8") as f:
         _stage_data = json.load(f)
     return _stage_data
@@ -168,18 +169,20 @@ def normalize_date(
 
     date_str = str(raw_date).strip()
 
-    # 按优先级尝试：明确的 ISO 格式优先，Kaggle 默认格式其次
+    # 按优先级尝试：明确的 ISO 格式优先，斜杠格式其次（Kaggle），横杠格式最后（歧义风险）
+    # 注意：%d-%m-%Y 和 %m-%d-%Y 对 day≤12 的日期存在歧义，
+    # 如 04-05-2018 无法区分 MM-DD 还是 DD-MM，依靠 tournament 范围校验兜底
     priority_formats = [
-        "%Y-%m-%d",     # ISO 8601: 2018-07-15
-        "%Y/%m/%d",     # 2018/07/15
-        "%Y.%m.%d",     # 2018.07.15
-        "%d-%m-%Y",     # 15-07-2018
-        "%m/%d/%Y",     # 7/15/2018 (Kaggle 数据集标准格式)
+        "%Y-%m-%d",     # ISO 8601: 2018-07-15（无歧义）
+        "%Y/%m/%d",     # 2018/07/15（无歧义）
+        "%Y.%m.%d",     # 2018.07.15（无歧义）
+        "%m/%d/%Y",     # 7/15/2018 (Kaggle 数据集标准格式，斜杠无歧义)
         "%Y%m%d",       # 20180715
-        "%d %B %Y",     # 15 July 2018
+        "%d %B %Y",     # 15 July 2018（月份英文，无歧义）
         "%B %d, %Y",    # July 15, 2018
         "%d %b %Y",     # 15 Jul 2018
         "%b %d, %Y",    # Jul 15, 2018
+        "%d-%m-%Y",     # 15-07-2018（⚠️ 最低优先级：与 MM-DD-YYYY 歧义，依赖范围校验）
     ]
 
     parsed = None
@@ -359,7 +362,8 @@ def load_tournament_data() -> dict:
     global _tournament_data
     if _tournament_data is not None:
         return _tournament_data
-    path = Path(__file__).parent.parent / "data" / "tournaments.json"
+    # 从 src/services/ 向上两级到项目根目录 (-RAG-/)
+    path = Path(__file__).parent.parent.parent / "data" / "tournaments.json"
     with open(path, "r", encoding="utf-8") as f:
         _tournament_data = json.load(f)
     return _tournament_data
@@ -382,7 +386,7 @@ def clean_match_record(
     record: dict,
     alias_data: dict,
     source_ids: Optional[list] = None,
-    data_version: str = "v2",
+    data_version: str = "2026-07-16-v2",
 ) -> tuple[Optional[dict], CleaningReport]:
     """
     清洗单条原始比赛记录。
@@ -515,7 +519,7 @@ def clean_match_record(
     # ── 11. 组装清洗后记录 ──
     cleaned = {
         "match_id":        match_id,
-        "tournament_id":   tournament["tournament_id"] if tournament else f"WC-{year}",
+        "tournament_id":   tournament["tournament_id"] if tournament else (f"WC-{year}" if year else "WC-UNKNOWN"),
         "tournament_year": year or _extract_year(date_norm, 0),
         "match_date":      date_norm,
         "raw_match_date":  str(date_raw),
@@ -537,7 +541,7 @@ def clean_match_record(
         "score_display":   score_display,
         "penalty_score":   penalty_score,
         "source_ids":      source_ids or [record.get("source_id", "")],
-        "data_version":    data_version or record.get("data_version", "v2"),
+        "data_version":    data_version or record.get("data_version", "2026-07-16-v2"),
     }
 
     report.valid = 1
@@ -606,7 +610,11 @@ def _determine_winner(record: dict, result_type: str,
     if result_type == "penalties":
         home_pen = _to_int(record.get("home_penalties") or 0)
         away_pen = _to_int(record.get("away_penalties") or 0)
-        return home_id if home_pen > away_pen else away_id
+        if home_pen > away_pen:
+            return home_id
+        if away_pen > home_pen:
+            return away_id
+        return None  # 点球比分相等时无法判定（不应出现）
 
     home_final = _to_int(record.get("home_score_et") or record.get("home_score_90", 0))
     away_final = _to_int(record.get("away_score_et") or record.get("away_score_90", 0))
@@ -654,9 +662,8 @@ def _extract_year_from_any(date_str: str, fallback) -> Optional[int]:
 
 def _generate_match_id(date_str: str, home_id: str, away_id: str,
                         year: int) -> str:
-    """生成 match_id。格式: M-{year}-{序号} 需由批次导入确定序号。"""
-    year_short = str(year)[-2:] if year else "00"
-    return f"M-{year}-{_match_counter():02d}"
+    """生成 match_id。格式: M-{year}-{序号}，按年份独立编号。"""
+    return f"M-{year}-{_match_counter(year):03d}"
 
 
 _match_counters: dict[int, int] = {}

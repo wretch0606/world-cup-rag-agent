@@ -193,7 +193,7 @@ def _dict_to_match(d: dict) -> Match:
         result_type=d.get("result_type", ""),
         score_display=d.get("score_display", ""),
         penalty_score=d.get("penalty_score", ""),
-        data_version=d.get("data_version", "1.0"),
+        data_version=d.get("data_version", "2026-07-16-v2"),
     )
 
 

@@ -72,9 +72,26 @@ def main():
 
     job_start = datetime.now().isoformat()
 
-    # ── 0. 初始化 ──
+    # ── 0. 初始化 & 文件检查 ──
     db_path = args.db
     Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+
+    # 检查必需的数据文件
+    required_files = {
+        "schema": args.schema,
+        "aliases": args.aliases,
+        "tournaments": DEFAULT_TOURNAMENTS,
+        "source_manifest": DEFAULT_SOURCE_MANIFEST,
+    }
+    missing = []
+    for name, path in required_files.items():
+        if not Path(path).exists():
+            missing.append(f"  [{name}] {path}")
+    if missing:
+        print("[错误] 以下必需文件不存在:", file=sys.stderr)
+        for m in missing:
+            print(m, file=sys.stderr)
+        sys.exit(1)
 
     print(f"{'='*60}")
     print(f"  世界杯数据导入 v2")
@@ -190,7 +207,7 @@ def main():
         records_rejected=total_report.rejected,
         started_at=job_start,
         completed_at=datetime.now().isoformat(),
-        data_version="v2",
+        data_version="2026-07-16-v2",
         notes="v2 导入：英文阶段枚举 + tournament 范围校验 + penalty_score 分离",
     )
     from services.db_schema import insert_import_job
@@ -206,7 +223,7 @@ def main():
 
     facts = generate_all_match_facts(
         all_matches, all_teams,
-        source_id=file_source_id,
+        source_ids=[file_source_id, "source-kaggle-001"],
         source_url=source_url,
         source_page=None,
     )
@@ -255,7 +272,7 @@ def _dict_to_match(d: dict) -> Match:
         result_type=d.get("result_type", ""),
         score_display=d.get("score_display", ""),
         penalty_score=d.get("penalty_score", ""),
-        data_version=d.get("data_version", "v2"),
+        data_version=d.get("data_version", "2026-07-16-v2"),
     )
 
 
