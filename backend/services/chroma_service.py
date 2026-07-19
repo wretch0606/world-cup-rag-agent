@@ -32,6 +32,10 @@ from chromadb import Documents, EmbeddingFunction, Embeddings
 
 CHROMA_DATA_DIR = os.environ.get("CHROMA_DATA_DIR", "./backend/data/chroma_db")
 
+# 数据库路径（C→B 交付的 SQLite，D 仅用于调试增强）
+# 正式流程中 B/E 负责 SQLite 查询，D 的 enrich_result() 是可选调试辅助
+WORLD_CUP_DB_PATH = os.environ.get("WORLD_CUP_DB_PATH", "")
+
 # 两个 Collection（见文档 5.3 节）
 COLLECTION_FACTS = "world_cup_match_facts"    # 比赛事实（精确检索）
 COLLECTION_REPORTS = "world_cup_reports"       # 比赛报告/长文本（语义检索）
@@ -292,35 +296,51 @@ def get_reports_collection():
 # ===================================================================
 
 
+def _find_file(filename: str, env_var: Optional[str] = None) -> Optional[str]:
+    """通用文件查找：依次搜索多个可能路径。
+
+    优先级：环境变量 > D/ 文件夹 > 项目根 > backend 相对路径
+    """
+    # 1. 环境变量
+    if env_var:
+        env_path = os.environ.get(env_var)
+        if env_path and os.path.isfile(env_path):
+            return env_path
+
+    # 2. 项目根目录下的常见子目录
+    project_root = os.path.join(os.path.dirname(__file__), "..", "..")
+    candidates = [
+        filename,                                                       # 当前目录
+        os.path.join(project_root, filename),                           # 项目根
+        os.path.join(project_root, "D", filename),                      # D 文件夹（C 交付）
+        os.path.join(project_root, "交付", "B", filename),               # 交付/B 文件夹（C→B 交付）
+        os.path.join(project_root, "交付", "C", filename),               # 交付/C 文件夹
+    ]
+    for p in candidates:
+        if os.path.isfile(p):
+            return p
+    return None
+
+
 def _load_team_aliases() -> dict[str, str]:
     """加载球队别名映射表。
 
-    从 team_aliases.json 读取，建立「中文名/英文名 → team_id」的映射。
+    从 D/team_aliases.json 读取，建立「中文名/英文名 → team_id」的映射。
     例如："法国" → "team_FRA", "France" → "team_FRA", "法兰西" → "team_FRA"
 
     如果文件不存在则返回空字典（降级处理）。
     """
     import json
-    alias_file = os.environ.get("TEAM_ALIASES_PATH", "team_aliases.json")
-    if not os.path.isfile(alias_file):
-        # 尝试在项目根目录找
-        alt_paths = [
-            os.path.join(os.path.dirname(__file__), "..", "..", "team_aliases.json"),
-            "team_aliases.json",
-        ]
-        for p in alt_paths:
-            if os.path.isfile(p):
-                alias_file = p
-                break
-        else:
-            logger.warning(f"未找到 team_aliases.json，球队别名功能暂不可用")
-            return {}
+    alias_file = _find_file("team_aliases.json", "TEAM_ALIASES_PATH")
+    if not alias_file:
+        logger.warning("未找到 team_aliases.json，球队别名功能暂不可用")
+        return {}
 
     try:
         with open(alias_file, "r", encoding="utf-8") as f:
             data = json.load(f)
         aliases = data.get("aliases", {})
-        logger.info(f"已加载 {len(aliases)} 条球队别名")
+        logger.info(f"已加载 {len(aliases)} 条球队别名 ({alias_file})")
         return aliases
     except Exception as e:
         logger.warning(f"加载 team_aliases.json 失败: {e}")
@@ -381,33 +401,38 @@ def extract_filters(query: str) -> dict:
                 logger.info(f"球队匹配: '{alias}' -> {team_id}")
                 break
 
-    # --- 阶段提取 ---
-    # 精确阶段：可以用于 Chroma 的 where 过滤
-    exact_stages = {
-        "小组赛": "小组赛",
-        "1/8决赛": "1/8决赛",
-        "1/4决赛": "1/4决赛",
-        "八强": "1/4决赛",
-        "半决赛": "半决赛",
-        "四强": "半决赛",
-        "三四名决赛": "三四名决赛",
-        "三四名": "三四名决赛",
-        "季军赛": "三四名决赛",
-        "决赛": "决赛",
-        "冠军": "决赛",
-    }
-    # 宽泛阶段：不适用于 Chroma 精确过滤（如"淘汰赛"包含多个具体阶段）
-    broad_stages = {"淘汰赛", "16强", "8强", "4强"}
+    # --- 阶段提取（使用 stage_mapping.json，支持中英文输入） ---
+    sm = get_stage_mapping()
+    d2e = sm.get("display_to_enum", {}) if sm else {}
 
-    for keyword, stage in exact_stages.items():
-        if keyword in query:
-            filters["stage"] = stage
-            break
+    if d2e:
+        # 按 key 长度降序排列，优先匹配长关键词（如"三四名决赛"优先于"决赛"）
+        sorted_keys = sorted(d2e.keys(), key=len, reverse=True)
+        for keyword in sorted_keys:
+            if keyword in query.lower():
+                stage_enum = d2e[keyword]
+                filters["stage"] = stage_enum         # 英文 enum（用于 Chroma 过滤）
+                filters["stage_name"] = sm.get("enum_to_display", {}).get(stage_enum, keyword)
+                logger.info(f"阶段匹配: '{keyword}' -> {stage_enum}")
+                break
+    else:
+        # 降级：硬编码中文阶段（stage_mapping.json 不可用时）
+        exact_stages = {
+            "小组赛": "group", "1/8决赛": "round_of_16", "1/4决赛": "quarter_final",
+            "八强": "quarter_final", "半决赛": "semi_final", "四强": "semi_final",
+            "三四名决赛": "third_place", "三四名": "third_place", "季军赛": "third_place",
+            "决赛": "final", "冠军": "final",
+        }
+        for keyword, stage_enum in exact_stages.items():
+            if keyword in query:
+                filters["stage"] = stage_enum
+                break
 
+    # 宽泛阶段：不适用于 Chroma 精确过滤
+    broad_stages = {"淘汰赛", "16强", "8强", "4强", "quarter", "semi"}
     if "stage" not in filters:
         for keyword in broad_stages:
-            if keyword in query:
-                # 宽泛阶段不做 where 过滤，仅保留在 filters 中供上层使用
+            if keyword in query.lower():
                 filters["stage_hint"] = keyword
                 break
 
@@ -579,40 +604,74 @@ def add_chunks(
     return len(ids)
 
 
+def _load_stage_mapping() -> dict:
+    """加载 D/stage_mapping.json，提供 display→enum 和 enum→display 双向映射。"""
+    import json
+    path = _find_file("stage_mapping.json")
+    if not path:
+        logger.warning("未找到 stage_mapping.json，阶段过滤功能降级")
+        return {}
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        logger.warning(f"加载 stage_mapping.json 失败: {e}")
+        return {}
+
+
+_stage_mapping: Optional[dict] = None
+
+
+def get_stage_mapping() -> dict:
+    """获取阶段映射表（懒加载+缓存）。"""
+    global _stage_mapping
+    if _stage_mapping is None:
+        _stage_mapping = _load_stage_mapping()
+    return _stage_mapping
+
+
+def _display_to_enum(stage_name: str) -> str:
+    """将阶段的中文名（或英文别名）转为标准英文 enum。
+
+    例: "决赛"→"final", "semi-finals"→"semi_final", "quarterfinal"→"quarter_final"
+    """
+    sm = get_stage_mapping()
+    d2e = sm.get("display_to_enum", {})
+    # 1. 精确匹配
+    if stage_name in d2e:
+        return d2e[stage_name]
+    # 2. 小写匹配
+    lower = stage_name.lower().strip()
+    for key, val in d2e.items():
+        if key.lower().strip() == lower:
+            return val
+    # 3. 如果已经是有效 enum，直接返回
+    valid = sm.get("valid_enums", [])
+    if stage_name in valid:
+        return stage_name
+    # 4. 降级：返回原值
+    return stage_name
+
+
 def _build_where_filter(filters: dict) -> Optional[dict]:
     """将我们自己的 filter dict 转为 Chroma 的 where 格式。
 
-    处理数据中的中英文混合阶段名（如 semi-finals ↔ 半决赛）。
+    v2.1 数据使用英文 stage enum（如 "final"、"semi_final"），
+    此函数会将用户输入的中文阶段名转换为英文 enum 后再过滤。
     """
-    # 阶段名对照表（向后兼容旧版英文阶段名）
-    # 新版数据（v1.0）阶段已全部中文化，此映射仅用于处理遗留的英文查询词
-    STAGE_ALIASES = {
-        "半决赛": ["半决赛", "semi-finals"],
-        "1/4决赛": ["1/4决赛", "quarter-finals"],
-        "1/8决赛": ["1/8决赛", "round of 16"],
-        "小组赛": ["小组赛", "group stage"],
-        "决赛": ["决赛", "final"],
-        "三四名决赛": ["三四名决赛", "third-place match"],
-        "决赛轮": ["决赛轮", "final round"],
-        "第二轮小组赛": ["第二轮小组赛", "second group stage"],
-    }
-
     where_parts = []
     if "tournament_year" in filters:
         where_parts.append({"tournament_year": filters["tournament_year"]})
 
     if "stage" in filters:
-        stage = filters["stage"]
-        aliases = STAGE_ALIASES.get(stage, [stage])
-        if len(aliases) == 1:
-            where_parts.append({"stage": aliases[0]})
-        else:
-            # 多条别名用 $or 匹配
-            where_parts.append({"$or": [{"stage": a} for a in aliases]})
+        stage_enum = _display_to_enum(filters["stage"])
+        where_parts.append({"stage": stage_enum})
+    elif "stage_enum" in filters:
+        # 直接传入英文 enum（跳过转换）
+        where_parts.append({"stage": filters["stage_enum"]})
+
     # 优先用 team_id（标准 ID），其次用 team 名称
     if "team_id" in filters:
-        # team_ids 在 metadata 中存储为列表（如 ["team_FRA", "team_CRO"]）
-        # Chroma 的 $contains 可匹配列表中的元素
         where_parts.append({"team_ids": {"$contains": filters["team_id"]}})
     elif "team" in filters:
         where_parts.append({"team_ids": {"$contains": filters["team"]}})
@@ -868,16 +927,19 @@ def import_match_facts(json_path: str = "match_facts.json") -> int:
         logger.info(f"自动检测到 JSONL 文件: {json_path}")
 
     if not os.path.isfile(json_path):
-        alt_paths = [
-            json_path,
-            os.path.join(os.path.dirname(__file__), "..", "..", json_path),
-        ]
-        for p in alt_paths:
-            if os.path.isfile(p):
-                json_path = p
-                break
-        else:
-            raise FileNotFoundError(f"找不到文件: {json_path}")
+        # 使用通用查找（含 D/ 文件夹）
+        found = _find_file(json_path)
+        if found:
+            json_path = found
+        elif not os.path.isfile(json_path + "l"):
+            pass  # 试试 .jsonl 后缀
+        found_l = _find_file(json_path + "l") if not json_path.endswith(".jsonl") else None
+        if found_l:
+            json_path = found_l
+            logger.info(f"在 D/ 中找到: {json_path}")
+
+    if not os.path.isfile(json_path):
+        raise FileNotFoundError(f"找不到文件: {json_path}（也搜索了 D/ 和 交付/ 目录）")
 
     logger.info(f"正在读取: {json_path}")
 
@@ -939,11 +1001,11 @@ def _load_team_info() -> dict[str, dict]:
         return _team_info
 
     import json
-    path = os.environ.get("TEAM_ALIASES_PATH", "team_aliases.json")
-    if not os.path.isfile(path):
-        alt = os.path.join(os.path.dirname(__file__), "..", "..", "team_aliases.json")
-        if os.path.isfile(alt):
-            path = alt
+    path = _find_file("team_aliases.json", "TEAM_ALIASES_PATH")
+    if not path:
+        logger.warning("未找到 team_aliases.json，球队信息不可用")
+        _team_info = {}
+        return _team_info
 
     try:
         with open(path, "r", encoding="utf-8") as f:
@@ -978,14 +1040,17 @@ def _get_match_db_path() -> Optional[str]:
     if _match_db_path is not None:
         return _match_db_path if os.path.isfile(_match_db_path) else None
 
-    candidates = [
-        "worldcup.db",
-        os.path.join(os.path.dirname(__file__), "..", "..", "worldcup.db"),
-    ]
-    for p in candidates:
-        if os.path.isfile(p):
-            _match_db_path = p
-            return p
+    # 优先使用环境变量，其次搜索常见路径
+    db_path = _find_file("worldcup_v2.db", "WORLD_CUP_DB_PATH")
+    if db_path:
+        _match_db_path = db_path
+        return db_path
+    # fallback: 旧版 worldcup.db
+    db_path = _find_file("worldcup.db")
+    if db_path:
+        _match_db_path = db_path
+        return db_path
+    logger.debug("未找到 worldcup_v2.db 或 worldcup.db，SQLite 增强功能不可用")
     return None
 
 
