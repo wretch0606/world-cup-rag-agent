@@ -1,0 +1,50 @@
+[
+  {
+    "category": "exact_match",
+    "prompt_file": "exact_match.md",
+    "question": "2018年世界杯决赛的比分是多少？",
+    "structured_facts": [{"match_id":"M-2018-64","score_display":"4:2","penalty_score":null,"result_type":"regulation","source_id":"src_2018_final"}],
+    "retrieved_chunks": [{"text":"法国在2018年世界杯决赛以4:2击败克罗地亚。","metadata":{"match_id":"M-2018-64","source_id":"src_2018_final","document_name":"FIFA World Cup 2018"}}],
+    "expected_output": {"answer":"2018年世界杯决赛，法国队以4:2战胜克罗地亚队。","facts":[{"match_id":"M-2018-64","score_display":"4:2","penalty_score":null,"result_type":"regulation"}],"sources":[{"source_id":"src_2018_final","title":"FIFA World Cup 2018","url":null,"page":null}],"confidence":0.99,"warnings":[],"generation_meta":{"prompt_version":"exact-match-v1.0"}}
+  },
+  {
+    "category": "relation_query",
+    "prompt_file": "relation_query.md",
+    "question": "2018年法国队在淘汰赛击败过哪些球队？",
+    "structured_facts": [{"match_id":"M-2018-50","opponent_team_id":"team_ARG","score_display":"4:3","result_type":"regulation","source_id":"src_2018_matches"},{"match_id":"M-2018-57","opponent_team_id":"team_URU","score_display":"2:0","result_type":"regulation","source_id":"src_2018_matches"}],
+    "retrieved_chunks": [],
+    "expected_output": {"answer":"已返回的2018年淘汰赛事实中，法国队击败了阿根廷队和乌拉圭队。","facts":[{"match_id":"M-2018-50","opponent_team_id":"team_ARG","score_display":"4:3","penalty_score":null,"result_type":"regulation"},{"match_id":"M-2018-57","opponent_team_id":"team_URU","score_display":"2:0","penalty_score":null,"result_type":"regulation"}],"sources":[{"source_id":"src_2018_matches","title":"FIFA World Cup 2018","url":null,"page":null}],"confidence":0.96,"warnings":[],"generation_meta":{"prompt_version":"relation-query-v1.0"}}
+  },
+  {
+    "category": "penalty_query",
+    "prompt_file": "penalty_query.md",
+    "question": "2022年世界杯决赛阿根廷和法国的正式比分与点球比分分别是多少？",
+    "structured_facts": [{"match_id":"M-2022-64","score_display":"3:3","penalty_score":"4:2","result_type":"penalties","winner_team_id":"team_ARG","source_id":"src_2022_final"}],
+    "retrieved_chunks": [{"text":"双方加时赛后3:3，阿根廷点球大战4:2获胜。","metadata":{"source_id":"src_2022_final","document_name":"FIFA World Cup 2022"}}],
+    "expected_output": {"answer":"双方在加时赛后战成3:3；阿根廷队在点球大战中以4:2获胜。","facts":[{"match_id":"M-2022-64","score_display":"3:3","penalty_score":"4:2","result_type":"penalties"}],"sources":[{"source_id":"src_2022_final","title":"FIFA World Cup 2022","url":null,"page":null}],"confidence":0.99,"warnings":[],"generation_meta":{"prompt_version":"penalty-query-v1.0"}}
+  },
+  {
+    "category": "comparison",
+    "prompt_file": "comparison.md",
+    "question": "比较法国队在2018年和2022年世界杯决赛的结果。",
+    "structured_facts": [{"match_id":"M-2018-64","year":2018,"score_display":"4:2","result_type":"regulation"},{"match_id":"M-2022-64","year":2022,"score_display":"3:3","penalty_score":"2:4","result_type":"penalties"}],
+    "retrieved_chunks": [],
+    "expected_output": {"answer":"在给定的两场决赛中，法国队2018年以4:2在常规时间获胜；2022年加时赛后3:3，并在点球大战中以2:4负于阿根廷。","facts":[{"subject":"team_FRA","metric":"决赛结果","value":1,"match_ids":["M-2018-64","M-2022-64"]}],"sources":[{"source_id":"src_finals","title":"World Cup Finals Dataset","url":null,"page":null}],"confidence":0.95,"warnings":[],"generation_meta":{"prompt_version":"comparison-v1.0"}}
+  },
+  {
+    "category": "summary",
+    "prompt_file": "summary.md",
+    "question": "总结克罗地亚队在2018年世界杯淘汰赛阶段的表现。",
+    "structured_facts": [{"match_id":"M-2018-52","stage":"1/8决赛","result_type":"penalties"},{"match_id":"M-2018-59","stage":"1/4决赛","result_type":"penalties"},{"match_id":"M-2018-62","stage":"半决赛","result_type":"extra_time"},{"match_id":"M-2018-64","stage":"决赛","result_type":"regulation"}],
+    "retrieved_chunks": [{"text":"克罗地亚连续经历加时和点球大战进入决赛。","metadata":{"source_id":"src_croatia_2018","document_name":"Croatia 2018 Review"}}],
+    "expected_output": {"answer":"在给定的2018年淘汰赛数据中，克罗地亚两次通过点球大战晋级，并在半决赛加时获胜进入决赛，最终获得亚军。","facts":[{"summary_scope":"克罗地亚队2018年世界杯淘汰赛","key_match_ids":["M-2018-52","M-2018-59","M-2018-62","M-2018-64"],"statements":["两次点球晋级","半决赛加时获胜","最终获得亚军"]}],"sources":[{"source_id":"src_croatia_2018","title":"Croatia 2018 Review","url":null,"page":null}],"confidence":0.93,"warnings":[],"generation_meta":{"prompt_version":"summary-v1.0"}}
+  },
+  {
+    "category": "fallback",
+    "prompt_file": "fallback.md",
+    "question": "2030年世界杯冠军是谁？",
+    "structured_facts": [],
+    "retrieved_chunks": [],
+    "expected_output": {"answer":"2030年世界杯尚未完成，当前知识库无法提供冠军结果。","facts":[],"sources":[],"confidence":0.0,"warnings":[{"code":"OUT_OF_SCOPE","message":"问题涉及尚未完成的赛事。"}],"generation_meta":{"prompt_version":"fallback-v1.0"}}
+  }
+]

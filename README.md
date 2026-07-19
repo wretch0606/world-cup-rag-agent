@@ -29,10 +29,12 @@ flowchart LR
 ```text
 world-cup-rag-agent/
 ├─ backend/                 # FastAPI、LangGraph、检索与数据访问
+│  └─ rag/prompts/          # RAG 生成与回答格式提示词
 ├─ frontend/                # Vue 3、D3.js 与交互界面
 ├─ data/                    # 数据说明；原始/生成数据默认不提交
 ├─ docs/                    # 架构、数据字典、接口与会议结论
 ├─ tests/                   # 单元、集成、检索评测与端到端测试
+│  └─ evaluation/           # RAG 测试集、模拟数据与校验脚本
 ├─ .github/                 # PR 模板与仓库协作配置
 └─ CONTRIBUTING.md          # 团队协作规范
 ```

@@ -1,0 +1,61 @@
+{
+  "sources": [
+    {
+      "source_id": "source-kaggle-001",
+      "title": "FIFA World Cup 1930-2022 All Match & Goals Dataset",
+      "source_url": "https://www.kaggle.com/datasets/jahaidulislam/fifa-world-cup-1930-2022-all-match-dataset",
+      "source_type": "csv",
+      "publisher": "Kaggle (Jahaidul Islam)",
+      "retrieved_at": "2026-07-16",
+      "license_info": "CC0: Public Domain",
+      "checksum": "9edec907482a6e18e012e7045ff6f8cd",
+      "data_version": "2026-07-16-v2",
+      "description": "Kaggle 公开数据集，包含 964 场比赛和 2720 条进球事件。覆盖 1930-2022 全部 22 届世界杯。已用 goals.match_period 数据交叉修正 61 场加时/点球比赛的比分。",
+      "notes": "同一数据集的 match CSV 和 goals CSV 合并为一个来源。"
+    },
+    {
+      "source_id": "source-fifa-001",
+      "title": "FIFA World Cup Statistics",
+      "source_url": "https://www.fifa.com/en/tournaments/mens/worldcup",
+      "source_type": "web",
+      "publisher": "FIFA",
+      "retrieved_at": "2026-07-16",
+      "license_info": "FIFA 版权所有，仅限学术研究使用",
+      "checksum": "",
+      "data_version": "2026-07-16-v2",
+      "description": "FIFA 官方网站历届世界杯数据，用于交叉校验关键场次。",
+      "notes": ""
+    },
+    {
+      "source_id": "source-wiki-001",
+      "title": "FIFA World Cup — Wikipedia",
+      "source_url": "https://en.wikipedia.org/wiki/FIFA_World_Cup",
+      "source_type": "web",
+      "publisher": "Wikipedia",
+      "retrieved_at": "2026-07-16",
+      "license_info": "CC BY-SA 3.0",
+      "checksum": "",
+      "data_version": "2026-07-16-v2",
+      "description": "Wikipedia 历届世界杯页面，用于核对 tournament 元数据。",
+      "notes": ""
+    },
+    {
+      "source_id": "src_csv_20260716_001",
+      "title": "FIFA World Cup 1930-2022 All Match Dataset (导入副本)",
+      "source_url": "https://www.kaggle.com/datasets/jahaidulislam/fifa-world-cup-1930-2022-all-match-dataset",
+      "source_type": "csv",
+      "publisher": "Kaggle (Jahaidul Islam)",
+      "retrieved_at": "2026-07-16",
+      "license_info": "CC0: Public Domain",
+      "checksum": "9edec907482a6e18e012e7045ff6f8cd",
+      "data_version": "2026-07-16-v2",
+      "description": "导入脚本运行时自动注册的源文件。",
+      "notes": "与 source-kaggle-001 为同一数据源，此 ID 关联到每场比赛的 match_sources。"
+    }
+  ],
+  "_meta": {
+    "total_sources": 4,
+    "last_updated": "2026-07-16",
+    "note": "v2.1: 合并同源数据集，统一 data_version，补全 checksum 和 URL"
+  }
+}

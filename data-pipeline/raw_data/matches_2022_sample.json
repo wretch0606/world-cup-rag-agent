@@ -1,0 +1,83 @@
+{
+  "_comment": "2022 年卡塔尔世界杯淘汰赛阶段样例数据",
+  "matches": [
+    {
+      "match_date": "2022-12-18",
+      "stage": "决赛",
+      "venue": "卢赛尔体育场",
+      "home_team": "阿根廷",
+      "away_team": "法国",
+      "home_score_90": 3,
+      "away_score_90": 3,
+      "home_score_et": 3,
+      "away_score_et": 3,
+      "home_penalties": 4,
+      "away_penalties": 2,
+      "result_type": "penalties",
+      "score_display": "3:3 (点球 4:2)"
+    },
+    {
+      "match_date": "2022-12-13",
+      "stage": "半决赛",
+      "venue": "卢赛尔体育场",
+      "home_team": "阿根廷",
+      "away_team": "克罗地亚",
+      "home_score_90": 3,
+      "away_score_90": 0,
+      "result_type": "regulation",
+      "score_display": "3:0"
+    },
+    {
+      "match_date": "2022-12-14",
+      "stage": "半决赛",
+      "venue": "海湾体育场",
+      "home_team": "法国",
+      "away_team": "摩洛哥",
+      "home_score_90": 2,
+      "away_score_90": 0,
+      "result_type": "regulation",
+      "score_display": "2:0"
+    },
+    {
+      "match_date": "2022-12-09",
+      "stage": "1/4决赛",
+      "venue": "卢赛尔体育场",
+      "home_team": "荷兰",
+      "away_team": "阿根廷",
+      "home_score_90": 2,
+      "away_score_90": 2,
+      "home_score_et": 2,
+      "away_score_et": 2,
+      "home_penalties": 3,
+      "away_penalties": 4,
+      "result_type": "penalties",
+      "score_display": "2:2 (点球 3:4)"
+    },
+    {
+      "match_date": "2022-12-10",
+      "stage": "1/4决赛",
+      "venue": "海湾体育场",
+      "home_team": "英格兰",
+      "away_team": "法国",
+      "home_score_90": 1,
+      "away_score_90": 2,
+      "result_type": "regulation",
+      "score_display": "1:2"
+    },
+    {
+      "match_date": "2022-12-06",
+      "stage": "1/8决赛",
+      "venue": "教育城体育场",
+      "home_team": "摩洛哥",
+      "away_team": "西班牙",
+      "home_score_90": 0,
+      "away_score_90": 0,
+      "home_score_et": 0,
+      "away_score_et": 0,
+      "home_penalties": 3,
+      "away_penalties": 0,
+      "result_type": "penalties",
+      "score_display": "0:0 (点球 3:0)"
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+# 数据工程模块依赖（成员 C）
+pypdf>=5.0.0          # PDF 文字提取
+
+# OCR 可选扩展（成员 C）
+# 需额外安装系统依赖：Tesseract OCR + Poppler
+# pytesseract>=0.3.10
+# pdf2image>=1.16.0
+
+# MinerU 可选（需单独部署 API 服务）
+# requests>=2.31.0
+
+# 后端依赖（成员 B 负责）
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+python-multipart>=0.0.9
+
+# Chroma 向量库（成员 D 负责）
+chromadb>=0.5.0
+
+# Embedding（成员 D 负责）
+sentence-transformers>=3.0.0
+
+# RAG & LLM（成员 E 负责）
+openai>=1.50.0
+
+# LangGraph（成员 B 负责）
+langgraph>=0.2.0
+
+# 测试
+pytest>=8.0.0
