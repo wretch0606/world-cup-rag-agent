@@ -1,48 +1,68 @@
-# Frontend API Contract v1.0
+# A↔B Frontend HTTP API Contract v1.0
 
-> **版本**: v1.0
-> **状态**: 已冻结
-> **日期**: 2026-07-18
-> **适用范围**: Vue 3 前端与 FastAPI 后端之间的 HTTP API 契约
+> **契约版本**: `frontend-api-v1.0`
+> **状态**: A 已按契约完成请求层；B 后端待实现和联调
+> **日期**: 2026-07-19
+> **请求方**: A：Vue 3 + TypeScript + D3.js 前端
+> **提供方**: B：FastAPI + LangGraph/Service 编排层
 > **公共前缀**: `/api`
+> **数据格式**: JSON；UTF-8；字段统一 `snake_case`
+> **冻结原则**: Swagger/OpenAPI 与本文件一致；禁止只靠聊天口头增加字段
+
+本文件定义 A 发给 B 的 HTTP 请求以及 B 返回给 A 的公开响应。它不替代 B→E、E→D、D→E、E→B 的 RAG 内部契约，也不向前端暴露 LangGraph State、Chroma distance、rerank score、Prompt 或数据库内部字段。
 
 ---
 
-## 0. 当前前端状态
+## 1. 与 A 当前前端设计的对应关系
 
-截至本契约冻结时：
-- `frontend/` 目录仅含 README，Vue 3 / D3.js 源码尚未提交
-- 前端页面和 Mock 展示可以先完成，但真实 HTTP API 尚未接入
-- 本契约作为前端开发接口的唯一基准，B 将严格按本文档实现后端
-- 前端读取统一响应中的数据路径为 `response.data.data`
+A 当前页面已完成 Vue 3 + TypeScript + D3.js 静态 Mock 重构，并已能触发真实 HTTP 请求：
+
+| A 当前区域 | 当前代码中的数据 | 正式接口 |
+|---|---|---|
+| 左侧筛选栏 | `filterOptions`、`selectedFilters` | `GET /api/filter-options` |
+| 问答输入与事实表 | `apiResponse.data`、`handleSendQuestion()` | `POST /api/agent/query` |
+| 来源卡片 | `apiResponse.data.sources` | `POST /api/agent/query` 的 `sources` |
+| D3 球队关系图 | `apiResponse.data.graph` | `GET /api/graph` 或问答响应中的小图 |
+| 底部比赛时间线 | `timelineStages` | `GET /api/matches`，A 按 `stage` 分组 |
+| 点击比赛展开详情 | `expandedMatchDetail` | `GET /api/matches/{match_id}` |
+
+A 前端字段映射约定：
+
+1. `selectedFilters.tournamentYears` 请求时映射为 `years`。
+2. `selectedFilters.teamIds` 请求时映射为 `team_ids`。
+3. `selectedFilters.resultTypes` 请求时映射为 `result_types`。
+4. `selectedFilters.hasPenalties` 请求时映射为 `has_penalties`。
+5. 筛选选项中的 `team_id` 映射到复选框使用的 `id`。
+6. 比赛接口返回 `home_team/away_team` 对象，前端展示时读取其 `name`。
+7. `confidence=null` 时显示"未评估"或隐藏该 Badge。
+8. 问答、图和列表共用同一份筛选状态，筛选与问答联动。
 
 ---
 
-## 1. 通用约定
+## 2. 本期接口范围
 
-### 1.1 公共前缀
+### 2.1 A 页面必须接入
 
-所有业务 API 统一使用 `/api` 前缀。本轮不同时维护 `/api/v1` 作为另一套正式路径。
+```text
+GET  /api/health
+GET  /api/filter-options
+GET  /api/matches
+GET  /api/matches/{match_id}
+GET  /api/teams/{team_id}/relations
+GET  /api/graph
+GET  /api/documents
+POST /api/agent/query
+```
 
-### 1.2 JSON 字段命名
+### 2.2 本期不属于 A 页面契约
 
-所有 JSON 字段使用 `snake_case`。
+`POST /api/kb/import` 属于管理/数据导入能力。当前 A 页面没有上传入口，且 C、D 的导入链仍需统一，因此本契约不冻结该接口。
 
-### 1.3 空值规则
+---
 
-| 场景 | 返回值 |
-|---|---|
-| 未知/不存在的对象 | `null` |
-| 没有数据的集合 | `[]` |
-| 没有加时赛 | `after_extra_time: null` |
-| 没有点球大战 | `penalties: null` |
-| 空数组过滤条件 | `[]`（表示不应用该条件） |
+## 3. 通用协议
 
-`0` 不能用来表示"未知"。
-
-### 1.4 统一响应外壳
-
-所有接口（包括错误响应）使用统一外壳：
+### 3.1 成功响应外壳
 
 ```json
 {
@@ -50,129 +70,251 @@
   "code": "OK",
   "message": "查询成功",
   "data": {},
-  "trace_id": "trace-example-001",
-  "timestamp": "2026-07-17T12:00:00Z"
+  "trace_id": "trace-20260719-001",
+  "timestamp": "2026-07-19T12:00:00Z"
 }
 ```
 
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| `success` | boolean | 请求是否成功 |
-| `code` | string | 稳定业务码，前端应依赖此字段判断状态 |
-| `message` | string | 人类可读的描述信息 |
-| `data` | object / null | 业务数据载荷 |
-| `trace_id` | string | 请求链路追踪 ID，由服务端生成 |
-| `timestamp` | string | ISO 8601 UTC 时间戳 |
+前端使用 Axios 时，业务数据读取路径为 `response.data.data`。
 
-错误响应在此固定字段基础上额外包含 `retryable` 和 `details`。
+### 3.2 错误响应外壳
 
-### 1.5 Mock 数据标识
+```json
+{
+  "success": false,
+  "code": "VALIDATION_ERROR",
+  "message": "请求参数不合法。",
+  "data": null,
+  "trace_id": "trace-20260719-002",
+  "timestamp": "2026-07-19T12:00:01Z",
+  "retryable": false,
+  "details": [
+    {
+      "field": "page_size",
+      "reason": "必须小于或等于 100"
+    }
+  ]
+}
+```
 
-所有 Mock 数据必须通过以下方式之一明确标识：
-- 业务数据载荷中包含 `"data_status": "mock"`
-- 响应中包含结构化 `MOCK_DATA` warning
+### 3.3 HTTP、空值和时间约定
 
-Mock 来源不得冒充真实 FIFA 来源，`url` 可以为 `null`。
+- 成功读取使用 `200 OK`。
+- 请求 JSON 使用 `Content-Type: application/json`。
+- 服务端在响应头返回 `X-Trace-ID`，且必须与 JSON 的 `trace_id` 一致。
+- 时间使用 ISO 8601 UTC，例如 `2026-07-19T12:00:00Z`。
+- 日期使用 `YYYY-MM-DD`；未知日期返回 `null`。
+- 数组没有内容时返回 `[]`，不得返回 `null`。
+- 可选对象或标量未知时返回 `null`，不得用空字符串或 `0` 代替未知。
+- 合法筛选没有结果时返回 `200` 和空数组，不返回 `404`。
+- JSON 数值保持数值类型，禁止把比分整数返回为字符串。
+- B 不向 A 返回堆栈、SQL、服务器绝对路径、API Key、Prompt 或模型内部对象。
 
-### 1.6 内部数据隔离
+### 3.4 多选查询参数编码
 
-以下内部字段不得暴露给前端：
-- D 的 `vector_distance`、`rerank_score`、`retrieval_rank`、`rerank_rank`
-- LangGraph 内部 State 对象
-- Prompt 全文、API Key、数据库连接串、服务器绝对路径
+数组查询参数使用"同名参数重复"形式：
 
-### 1.7 图数据约定
+```text
+/api/matches?years=2018&years=2022&team_ids=team_ARG&team_ids=team_FRA&stages=final&page=1&page_size=20
+```
 
-- 所有可点击图边必须包含唯一 `id` 和 `match_id`
-- 边的 `match_id` 必须能成功调用 `GET /api/matches/{match_id}`
-- 一场比赛一条边，同两支球队多次交手不能互相覆盖
-- 方向建议：胜负已决时 `winner_team_id` → 负者；平局时 home → away 且 `winner_team_id = null`
+A 不发送逗号拼接字符串，例如不得发送 `years=2018,2022`。
 
-### 1.8 时间线约定
+### 3.5 数据状态
 
-- 问答接口（`POST /api/agent/query`）**不包含**完整时间线，只返回相关 `match_id`
-- 比赛详情接口（`GET /api/matches/{match_id}`）独立返回完整时间线
-- 缺少逐轮点球数据时 `shootout.available = false`，`shootout.events = []`，禁止伪造
+| 值 | 含义 |
+|---|---|
+| `live` | 来自已配置的真实服务或 SQLite 数据 |
+| `mock` | 仅供 A↔B 页面联调的确定性 Mock |
+| `degraded` | 部分依赖不可用，但返回了安全的有限结果 |
 
-### 1.9 比分对象结构化
-
-比分对象必须区分以下口径：
-
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| `regular_time` | {home, away} / null | 90 分钟常规时间比分 |
-| `after_extra_time` | {home, away} / null | 加时结束累计比分，无加时赛为 null |
-| `penalties` | {home, away} / null | 点球大战比分，无点球为 null |
-| `display` | string | 对用户展示的正式比分，如 `"3:3"` |
-| `penalty_display` | string / null | 点球比分展示，如 `"4:2"`，必须与正式比分分开 |
-
-点球比赛的正式比分和点球比分必须分离，不得把点球比分计入正式比赛进球数。
-
-### 1.10 分页约定
-
-列表接口统一使用：
-
-| 参数 | 默认值 | 最大值 | 说明 |
-|---|---|---|---|
-| `page` | 1 | — | 页码，从 1 开始 |
-| `page_size` | 20 | 100 | 每页条数 |
-
-合法筛选无结果时返回 HTTP 200 和空 `items`，而非 404。非法 `page_size` 返回 422。
+Mock 响应必须同时包含 `data_status="mock"` 或 `MOCK_DATA` 告警。Mock 来源不得伪装成 FIFA 官方来源，URL 应为 `null`。
 
 ---
 
-## 2. 枚举定义
+## 4. 公共枚举
 
-### 2.1 比赛阶段 (stage)
+### 4.1 StageEnum
 
-| 值 | 中文名称 |
-|---|---|
-| `group` | 小组赛 |
-| `round_of_16` | 1/8决赛 |
-| `quarter_final` | 1/4决赛 |
-| `semi_final` | 半决赛 |
-| `third_place` | 三四名决赛 |
-| `final` | 决赛 |
+| value | 中文显示 | 推荐顺序 |
+|---|---|---:|
+| `group` | 小组赛 | 10 |
+| `second_group` | 第二阶段小组赛 | 20 |
+| `round_of_16` | 1/8 决赛 | 30 |
+| `quarter_final` | 1/4 决赛 | 40 |
+| `semi_final` | 半决赛 | 50 |
+| `third_place` | 三四名决赛 | 60 |
+| `final_round` | 决赛循环赛 | 70 |
+| `final` | 决赛 | 80 |
 
-后端契约统一使用英文枚举值，中文名称通过 `stage_name` 或 `label` 返回。
+### 4.2 ResultTypeEnum
 
-### 2.2 结果类型 (result_type)
+```text
+regulation
+extra_time
+penalties
+draw
+```
 
-| 值 | 说明 |
-|---|---|
-| `regulation` | 90 分钟常规时间分出胜负 |
-| `extra_time` | 加时赛后分出胜负 |
-| `penalties` | 点球大战决出晋级 |
-| `draw` | 平局（90 分钟平局且无加时/点球） |
+`has_penalties=true` 的唯一语义是"只返回发生过点球大战的比赛"。是否把点球晋级计为统计胜利属于统计口径，不通过这个字段表达。
 
-### 2.3 球队 ID 编码规则
+### 4.3 AgentStatus
 
-格式：`team_{FIFA_CODE}`。例如：`team_ARG`（阿根廷）、`team_FRA`（法国）、`team_BRA`（巴西）。
+```text
+ok
+empty
+degraded
+clarification_required
+error
+```
+
+### 4.4 IntentEnum
+
+```text
+general_chat
+match_result_query
+match_relation_query
+summary_query
+comparison_query
+role_chat
+out_of_scope
+```
+
+### 4.5 RouteEnum
+
+```text
+general_chat
+structured_query
+rag_query
+hybrid_query
+role_agent
+clarification
+```
 
 ---
 
-## 3. 接口定义
+## 5. 公共数据对象
+
+### 5.1 TeamRef
+
+```json
+{
+  "team_id": "team_ARG",
+  "name": "阿根廷"
+}
+```
+
+### 5.2 ScoreBreakdown
+
+```json
+{
+  "regular_time": {
+    "home": 2,
+    "away": 2
+  },
+  "after_extra_time": {
+    "home": 3,
+    "away": 3
+  },
+  "penalties": {
+    "home": 4,
+    "away": 2
+  },
+  "display": "3:3",
+  "penalty_display": "4:2"
+}
+```
+
+约束：
+
+- `regular_time` 必须存在。
+- 没有加时赛时 `after_extra_time=null`。
+- 没有点球大战时 `penalties=null` 且 `penalty_display=null`。
+- `display` 是正式比赛比分，不包含点球大战比分。
+- 点球大战比赛仍可在正式比分上为平局。
+
+### 5.3 SourceItem
+
+```json
+{
+  "source_id": "source-kaggle-001",
+  "title": "FIFA World Cup match dataset",
+  "url": "https://www.kaggle.com/datasets/jahaidulislam/fifa-world-cup-1930-2022-all-match-dataset",
+  "page": null,
+  "document_id": null,
+  "data_version": "2026-07-16-v2",
+  "used_for_fact_ids": [
+    "fact-M-2022-64-result"
+  ]
+}
+```
+
+`used_for_fact_ids` 在比赛详情接口中允许为空数组；在问答响应中应指出该来源支持哪些事实。
+
+### 5.4 WarningItem
+
+```json
+{
+  "code": "MOCK_DATA",
+  "message": "当前为前端联调 Mock 响应。",
+  "component": "mock_agent_service",
+  "retryable": false
+}
+```
+
+### 5.5 GraphNode 与 GraphEdge
+
+```json
+{
+  "nodes": [
+    {
+      "id": "team_ARG",
+      "name": "阿根廷",
+      "type": "team"
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-M-2022-64",
+      "source": "team_ARG",
+      "target": "team_FRA",
+      "type": "match_result",
+      "match_id": "M-2022-64",
+      "tournament_year": 2022,
+      "stage": "final",
+      "stage_name": "决赛",
+      "result_type": "penalties",
+      "winner_team_id": "team_ARG",
+      "label": "2022 决赛 3:3（点球4:2）"
+    }
+  ]
+}
+```
+
+图规则：
+
+- 一场比赛对应一条边，同一对球队多次交手不得互相覆盖。
+- `edge.id` 和 `match_id` 必须稳定且唯一。
+- 已决胜比赛方向为胜方→负方。
+- 平局方向为主队→客队，同时 `winner_team_id=null`；A 不得仅凭方向推断胜负。
+- 每个 `source/target` 都必须引用 `nodes` 中存在的节点。
+- 每条边的 `match_id` 必须能够调用比赛详情接口。
 
 ---
 
-### 3.1 `GET /api/health`
+## 6. 接口定义
 
-**职责**：表示 FastAPI 进程可用。不表示 C/D/E 或数据库已就绪。
+### 6.1 GET `/api/health`
 
-| 项目 | 内容 |
-|---|---|
-| HTTP 方法 | `GET` |
-| 路径参数 | 无 |
-| 查询参数 | 无 |
-| 成功状态码 | `200` |
+职责：检查 FastAPI 进程是否可访问。它不代表 SQLite、D、E、LLM 或 Chroma 一定就绪。
 
-**成功响应**：
+成功响应：
 
 ```json
 {
   "success": true,
   "code": "OK",
-  "message": "服务正常运行",
+  "message": "服务可用",
   "data": {
     "status": "ok",
     "service": "world-cup-rag-agent-backend",
@@ -180,31 +322,15 @@ Mock 来源不得冒充真实 FIFA 来源，`url` 可以为 `null`。
     "python": "3.12"
   },
   "trace_id": "trace-health-001",
-  "timestamp": "2026-07-17T12:00:00Z"
+  "timestamp": "2026-07-19T12:00:00Z"
 }
 ```
 
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| `data.status` | string | 固定 `"ok"` |
-| `data.service` | string | 服务标识名称 |
-| `data.version` | string | 服务版本号 |
-| `data.python` | string | Python 主版本号 |
+### 6.2 GET `/api/filter-options`
 
----
+职责：返回 A 左侧筛选栏使用的全部可选项。A 不再硬编码年份、球队、阶段和结果类型。
 
-### 3.2 `GET /api/filter-options`
-
-**职责**：返回前端左侧筛选栏所需的年份、球队、阶段和结果类型选项。数据来自 Mock Provider（接入 C 后替换为真实数据）。
-
-| 项目 | 内容 |
-|---|---|
-| HTTP 方法 | `GET` |
-| 路径参数 | 无 |
-| 查询参数 | 无 |
-| 成功状态码 | `200` |
-
-**成功响应**：
+成功响应：
 
 ```json
 {
@@ -212,92 +338,111 @@ Mock 来源不得冒充真实 FIFA 来源，`url` 可以为 `null`。
   "code": "OK",
   "message": "查询成功",
   "data": {
-    "data_status": "mock",
+    "data_status": "live",
     "tournaments": [
-      { "year": 2022, "label": "2022 卡塔尔世界杯", "host": "卡塔尔" },
-      { "year": 2018, "label": "2018 俄罗斯世界杯", "host": "俄罗斯" }
+      {
+        "year": 2022,
+        "label": "2022 卡塔尔世界杯",
+        "host": "卡塔尔"
+      }
     ],
     "teams": [
-      { "team_id": "team_ARG", "name": "阿根廷" },
-      { "team_id": "team_FRA", "name": "法国" },
-      { "team_id": "team_CRO", "name": "克罗地亚" },
-      { "team_id": "team_BRA", "name": "巴西" },
-      { "team_id": "team_GER", "name": "德国" },
-      { "team_id": "team_ENG", "name": "英格兰" },
-      { "team_id": "team_ESP", "name": "西班牙" },
-      { "team_id": "team_NED", "name": "荷兰" },
-      { "team_id": "team_POR", "name": "葡萄牙" },
-      { "team_id": "team_MAR", "name": "摩洛哥" },
-      { "team_id": "team_JPN", "name": "日本" },
-      { "team_id": "team_KOR", "name": "韩国" }
+      {
+        "team_id": "team_ARG",
+        "name": "阿根廷"
+      },
+      {
+        "team_id": "team_FRA",
+        "name": "法国"
+      }
     ],
     "stages": [
-      { "value": "group", "label": "小组赛", "order": 1 },
-      { "value": "round_of_16", "label": "1/8决赛", "order": 2 },
-      { "value": "quarter_final", "label": "1/4决赛", "order": 3 },
-      { "value": "semi_final", "label": "半决赛", "order": 4 },
-      { "value": "third_place", "label": "三四名决赛", "order": 5 },
-      { "value": "final", "label": "决赛", "order": 6 }
+      {
+        "value": "group",
+        "label": "小组赛",
+        "order": 10
+      },
+      {
+        "value": "second_group",
+        "label": "第二阶段小组赛",
+        "order": 20
+      },
+      {
+        "value": "round_of_16",
+        "label": "1/8 决赛",
+        "order": 30
+      },
+      {
+        "value": "quarter_final",
+        "label": "1/4 决赛",
+        "order": 40
+      },
+      {
+        "value": "semi_final",
+        "label": "半决赛",
+        "order": 50
+      },
+      {
+        "value": "third_place",
+        "label": "三四名决赛",
+        "order": 60
+      },
+      {
+        "value": "final_round",
+        "label": "决赛循环赛",
+        "order": 70
+      },
+      {
+        "value": "final",
+        "label": "决赛",
+        "order": 80
+      }
     ],
     "result_types": [
-      { "value": "regulation", "label": "常规时间" },
-      { "value": "extra_time", "label": "加时赛" },
-      { "value": "penalties", "label": "点球大战" },
-      { "value": "draw", "label": "平局" }
+      {
+        "value": "regulation",
+        "label": "常规时间决胜"
+      },
+      {
+        "value": "extra_time",
+        "label": "加时赛决胜"
+      },
+      {
+        "value": "penalties",
+        "label": "点球大战决胜"
+      },
+      {
+        "value": "draw",
+        "label": "平局"
+      }
     ]
   },
   "trace_id": "trace-filter-001",
-  "timestamp": "2026-07-17T12:00:00Z"
+  "timestamp": "2026-07-19T12:00:00Z"
 }
 ```
 
-**字段说明**：
+验收要求：年份倒序；`team_id` 唯一；球队按中文名或约定顺序稳定排序；阶段按 `order` 排序。
 
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| `data.data_status` | string | `"mock"` 表示当前为 Mock 数据 |
-| `data.tournaments` | array | 世界杯届次列表 |
-| `data.tournaments[].year` | integer | 举办年份 |
-| `data.tournaments[].label` | string | 展示标签 |
-| `data.tournaments[].host` | string / null | 主办国，未知时为 null |
-| `data.teams` | array | 球队列表 |
-| `data.teams[].team_id` | string | 规范球队 ID |
-| `data.teams[].name` | string | 球队中文名称 |
-| `data.stages` | array | 阶段列表，按 order 升序 |
-| `data.stages[].value` | string | 阶段枚举值 |
-| `data.stages[].label` | string | 中文显示名称 |
-| `data.stages[].order` | integer | 排序序号 |
-| `data.result_types` | array | 结果类型列表 |
-| `data.result_types[].value` | string | 结果类型枚举值 |
-| `data.result_types[].label` | string | 中文显示名称 |
+### 6.3 GET `/api/matches`
 
----
+职责：按筛选条件返回比赛摘要，驱动 A 的底部时间线。返回平铺 `items`，由 A 按 `stage` 分组。
 
-### 3.3 `GET /api/matches`
+查询参数：
 
-**职责**：支持多选筛选和分页的比赛列表，驱动前端时间线摘要。
+| 参数 | 类型 | 默认值 | 说明 |
+|---|---|---:|---|
+| `years` | integer[] | `[]` | 多届年份 |
+| `team_ids` | string[] | `[]` | 主队或客队命中任一球队 |
+| `stages` | StageEnum[] | `[]` | 多阶段 |
+| `result_types` | ResultTypeEnum[] | `[]` | 多结果类型 |
+| `has_penalties` | boolean / null | `null` | `true` 仅看点球大战；`null` 不限制 |
+| `page` | integer | `1` | 最小 1 |
+| `page_size` | integer | `20` | 1—100 |
 
-| 项目 | 内容 |
-|---|---|
-| HTTP 方法 | `GET` |
-| 路径参数 | 无 |
-| 查询参数 | `years`, `team_ids`, `stages`, `result_types`, `include_penalties`, `page`, `page_size` |
-| 成功状态码 | `200` |
-| 错误状态码 | `422`（参数校验失败） |
+同一字段内使用 OR，不同字段之间使用 AND。
 
-**查询参数**：
-
-| 参数 | 类型 | 必填 | 默认值 | 说明 |
-|---|---|---|---|---|
-| `years` | integer[] | 否 | `[]` | 世界杯年份，多选 |
-| `team_ids` | string[] | 否 | `[]` | 球队 ID，多选 |
-| `stages` | string[] | 否 | `[]` | 阶段枚举值，多选 |
-| `result_types` | string[] | 否 | `[]` | 结果类型，多选 |
-| `include_penalties` | boolean | 否 | `true` | 是否包含点球决胜的比赛 |
-| `page` | integer | 否 | `1` | 页码 |
-| `page_size` | integer | 否 | `20` | 每页条数，最大 100 |
-
-**成功响应**：
+成功响应：
 
 ```json
 {
@@ -305,7 +450,7 @@ Mock 来源不得冒充真实 FIFA 来源，`url` 可以为 `null`。
   "code": "OK",
   "message": "查询成功",
   "data": {
-    "data_status": "mock",
+    "data_status": "live",
     "items": [
       {
         "match_id": "M-2022-64",
@@ -329,10 +474,7 @@ Mock 来源不得冒充真实 FIFA 来源，`url` 可以为 `null`。
           "penalty_display": "4:2"
         },
         "result_type": "penalties",
-        "winner_team": {
-          "team_id": "team_ARG",
-          "name": "阿根廷"
-        }
+        "winner_team": { "team_id": "team_ARG", "name": "阿根廷" }
       }
     ],
     "total": 1,
@@ -343,15 +485,15 @@ Mock 来源不得冒充真实 FIFA 来源，`url` 可以为 `null`。
       "team_ids": [],
       "stages": ["final"],
       "result_types": [],
-      "include_penalties": true
+      "has_penalties": null
     }
   },
   "trace_id": "trace-matches-001",
-  "timestamp": "2026-07-17T12:00:00Z"
+  "timestamp": "2026-07-19T12:00:00Z"
 }
 ```
 
-**空结果响应**（合法筛选无结果返回 200）：
+空结果仍返回 `200`：
 
 ```json
 {
@@ -359,61 +501,33 @@ Mock 来源不得冒充真实 FIFA 来源，`url` 可以为 `null`。
   "code": "OK",
   "message": "查询成功",
   "data": {
-    "data_status": "mock",
+    "data_status": "live",
     "items": [],
     "total": 0,
     "page": 1,
     "page_size": 20,
     "applied_filters": {
-      "years": [1930],
+      "years": [2099],
       "team_ids": [],
-      "stages": ["final"],
+      "stages": [],
       "result_types": [],
-      "include_penalties": true
+      "has_penalties": null
     }
   },
-  "trace_id": "trace-matches-002",
-  "timestamp": "2026-07-17T12:00:00Z"
+  "trace_id": "trace-matches-empty-001",
+  "timestamp": "2026-07-19T12:00:00Z"
 }
 ```
 
-**字段说明**：
+固定排序：`tournament_year DESC`、`match_date ASC`、阶段顺序 ASC、`match_id ASC`，保证分页稳定。
 
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| `data.items` | array | 比赛摘要列表 |
-| `data.items[].match_id` | string | 比赛唯一标识 |
-| `data.items[].tournament_year` | integer | 世界杯年份 |
-| `data.items[].match_date` | string | 比赛日期 YYYY-MM-DD |
-| `data.items[].stage` | string | 阶段枚举值 |
-| `data.items[].stage_name` | string | 阶段中文名称 |
-| `data.items[].home_team` | object | 主队简要信息 |
-| `data.items[].home_team.team_id` | string | 球队 ID |
-| `data.items[].home_team.name` | string | 球队中文名 |
-| `data.items[].away_team` | object | 客队简要信息 |
-| `data.items[].score` | object | 结构化比分（见 1.9） |
-| `data.items[].result_type` | string | 结果类型枚举值 |
-| `data.items[].winner_team` | object / null | 胜者信息，平局时为 null |
-| `data.total` | integer | 符合条件的总数 |
-| `data.page` | integer | 当前页码 |
-| `data.page_size` | integer | 每页条数 |
-| `data.applied_filters` | object | 实际生效的筛选条件回显 |
+### 6.4 GET `/api/matches/{match_id}`
 
----
+职责：返回单场比赛比分、事件、来源，驱动 A 点击时间线卡片后的展开详情。
 
-### 3.4 `GET /api/matches/{match_id}`
+路径参数：`match_id`，例如 `M-2022-64`。
 
-**职责**：返回单场比赛的完整详情和时间线，驱动前端底部比赛详情面板。
-
-| 项目 | 内容 |
-|---|---|
-| HTTP 方法 | `GET` |
-| 路径参数 | `match_id`（string，比赛唯一标识） |
-| 查询参数 | 无 |
-| 成功状态码 | `200` |
-| 错误状态码 | `404`（`MATCH_NOT_FOUND`） |
-
-**成功响应**：
+成功响应：
 
 ```json
 {
@@ -421,21 +535,16 @@ Mock 来源不得冒充真实 FIFA 来源，`url` 可以为 `null`。
   "code": "OK",
   "message": "查询成功",
   "data": {
-    "data_status": "mock",
+    "data_status": "live",
     "match_id": "M-2022-64",
     "tournament_year": 2022,
     "match_date": "2022-12-18",
     "stage": "final",
     "stage_name": "决赛",
-    "venue": "卢塞尔体育场",
-    "home_team": {
-      "team_id": "team_ARG",
-      "name": "阿根廷"
-    },
-    "away_team": {
-      "team_id": "team_FRA",
-      "name": "法国"
-    },
+    "venue": "Lusail Stadium",
+    "city": "Lusail",
+    "home_team": { "team_id": "team_ARG", "name": "阿根廷" },
+    "away_team": { "team_id": "team_FRA", "name": "法国" },
     "score": {
       "regular_time": { "home": 2, "away": 2 },
       "after_extra_time": { "home": 3, "away": 3 },
@@ -444,175 +553,71 @@ Mock 来源不得冒充真实 FIFA 来源，`url` 可以为 `null`。
       "penalty_display": "4:2"
     },
     "result_type": "penalties",
-    "winner_team": {
-      "team_id": "team_ARG",
-      "name": "阿根廷"
-    },
+    "winner_team": { "team_id": "team_ARG", "name": "阿根廷" },
     "timeline": {
-      "regular_time": [
-        {
-          "event_id": "evt-001",
-          "minute": 23,
-          "minute_label": "23'",
-          "period": "first_half",
-          "team_id": "team_ARG",
-          "player": "Lionel Messi",
-          "event_type": "goal_penalty",
-          "score_after_event": { "home": 1, "away": 0 },
-          "source_ids": ["source-001"]
-        },
-        {
-          "event_id": "evt-002",
-          "minute": 36,
-          "minute_label": "36'",
-          "period": "first_half",
-          "team_id": "team_ARG",
-          "player": "Angel Di Maria",
-          "event_type": "goal",
-          "score_after_event": { "home": 2, "away": 0 },
-          "source_ids": ["source-001"]
-        },
-        {
-          "event_id": "evt-003",
-          "minute": 80,
-          "minute_label": "80'",
-          "period": "second_half",
-          "team_id": "team_FRA",
-          "player": "Kylian Mbappe",
-          "event_type": "goal_penalty",
-          "score_after_event": { "home": 2, "away": 1 },
-          "source_ids": ["source-001"]
-        },
-        {
-          "event_id": "evt-004",
-          "minute": 81,
-          "minute_label": "81'",
-          "period": "second_half",
-          "team_id": "team_FRA",
-          "player": "Kylian Mbappe",
-          "event_type": "goal",
-          "score_after_event": { "home": 2, "away": 2 },
-          "source_ids": ["source-001"]
-        }
-      ],
-      "extra_time": [
-        {
-          "event_id": "evt-005",
-          "minute": 108,
-          "minute_label": "108'",
-          "period": "extra_time",
-          "team_id": "team_ARG",
-          "player": "Lionel Messi",
-          "event_type": "goal",
-          "score_after_event": { "home": 3, "away": 2 },
-          "source_ids": ["source-001"]
-        },
-        {
-          "event_id": "evt-006",
-          "minute": 118,
-          "minute_label": "118'",
-          "period": "extra_time",
-          "team_id": "team_FRA",
-          "player": "Kylian Mbappe",
-          "event_type": "goal_penalty",
-          "score_after_event": { "home": 3, "away": 3 },
-          "source_ids": ["source-001"]
-        }
-      ],
+      "regular_time": [],
+      "extra_time": [],
       "shootout": {
         "available": false,
         "home_score": 4,
         "away_score": 2,
         "events": [],
-        "message": "当前仅提供点球大战总比分，逐轮点球数据暂不可用。"
+        "message": "当前数据仅包含点球大战总比分，暂无逐轮罚球顺序。"
       }
     },
     "sources": [
       {
-        "source_id": "source-001",
-        "title": "FIFA World Cup 2022 Official Report",
-        "url": null,
-        "source_type": "mock",
-        "data_version": "2026-07-16-v1"
+        "source_id": "source-kaggle-001",
+        "title": "FIFA World Cup match dataset",
+        "url": "https://www.kaggle.com/datasets/jahaidulislam/fifa-world-cup-1930-2022-all-match-dataset",
+        "page": null,
+        "document_id": null,
+        "data_version": "2026-07-16-v2",
+        "used_for_fact_ids": []
       }
     ]
   },
-  "trace_id": "trace-detail-001",
-  "timestamp": "2026-07-17T12:00:00Z"
+  "trace_id": "trace-match-detail-001",
+  "timestamp": "2026-07-19T12:00:00Z"
 }
 ```
 
-**404 响应**：
+事件对象预留结构：
 
 ```json
 {
-  "success": false,
-  "code": "MATCH_NOT_FOUND",
-  "message": "未找到 match_id 为 M-9999-99 的比赛",
-  "data": null,
-  "trace_id": "trace-detail-404",
-  "timestamp": "2026-07-17T12:00:00Z"
+  "event_id": "G-00001",
+  "minute": 23,
+  "minute_label": "23'",
+  "period": "regular_time",
+  "team_id": "team_ARG",
+  "player": "Lionel Messi",
+  "event_type": "penalty_goal",
+  "score_after_event": { "home": 1, "away": 0 },
+  "source_ids": ["source-kaggle-001"]
 }
 ```
 
-**字段说明**：
+若没有逐轮点球数据，必须 `shootout.available=false` 且 `events=[]`，禁止使用大模型补全罚球顺序。未知比赛返回 `404 MATCH_NOT_FOUND`。
 
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| `data.match_id` | string | 比赛唯一标识 |
-| `data.venue` | string / null | 比赛场地 |
-| `data.timeline` | object | 结构化时间线 |
-| `data.timeline.regular_time` | array | 常规时间事件列表 |
-| `data.timeline.extra_time` | array | 加时赛事件列表 |
-| `data.timeline.shootout` | object | 点球大战信息 |
-| `data.timeline.shootout.available` | boolean | 是否有逐轮数据 |
-| `data.timeline.shootout.events` | array | 逐轮点球事件，不可用时为空 |
-| `data.timeline.shootout.message` | string | 点球数据可用性说明 |
-| `data.sources` | array | 数据来源列表 |
-| `data.sources[].source_id` | string | 来源唯一标识 |
-| `data.sources[].title` | string | 来源名称 |
-| `data.sources[].url` | string / null | 来源 URL，Mock 时为 null |
-| `data.sources[].source_type` | string | 来源类型，Mock 时为 `"mock"` |
+### 6.5 GET `/api/teams/{team_id}/relations`
 
-**Event 对象**：
+职责：返回指定球队的交手、胜负和比分关系。
 
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| `event_id` | string | 事件唯一标识 |
-| `minute` | integer | 比赛分钟数 |
-| `minute_label` | string | 分钟展示标签，如 `"23'"`, `"45+2'"` |
-| `period` | string | 比赛时段：`first_half` / `second_half` / `extra_time` |
-| `team_id` | string | 事件所属球队 ID |
-| `player` | string | 球员姓名 |
-| `event_type` | string | 事件类型：`goal` / `goal_penalty` / `goal_own` / `yellow_card` / `red_card` / `substitution` |
-| `score_after_event` | object / null | 事件后的比分，不可用时为 null |
-| `source_ids` | array | 事件来源 ID 列表 |
+查询参数：
 
----
+| 参数 | 类型 | 默认值 | 说明 |
+|---|---|---:|---|
+| `year_from` | integer / null | `null` | 起始年份 |
+| `year_to` | integer / null | `null` | 结束年份 |
+| `opponent_id` | string / null | `null` | 指定对手 |
+| `stages` | StageEnum[] | `[]` | 阶段筛选 |
+| `result_types` | ResultTypeEnum[] | `[]` | 结果筛选 |
+| `has_penalties` | boolean / null | `null` | 仅看点球大战 |
+| `page` | integer | `1` | 最小 1 |
+| `page_size` | integer | `20` | 1—100 |
 
-### 3.5 `GET /api/graph`
-
-**职责**：为 D3.js 提供可筛选的比赛关系图数据。图数据从比赛数据派生，与 `/api/matches` 保持一致。
-
-| 项目 | 内容 |
-|---|---|
-| HTTP 方法 | `GET` |
-| 路径参数 | 无 |
-| 查询参数 | `years`, `team_ids`, `stages`, `result_types`, `include_penalties`, `limit` |
-| 成功状态码 | `200` |
-
-**查询参数**：
-
-| 参数 | 类型 | 必填 | 默认值 | 说明 |
-|---|---|---|---|---|
-| `years` | integer[] | 否 | `[]` | 世界杯年份 |
-| `team_ids` | string[] | 否 | `[]` | 球队 ID |
-| `stages` | string[] | 否 | `[]` | 阶段枚举值 |
-| `result_types` | string[] | 否 | `[]` | 结果类型 |
-| `include_penalties` | boolean | 否 | `true` | 是否包含点球比赛 |
-| `limit` | integer | 否 | `100` | 最大边数，防止前端渲染过载 |
-
-**成功响应**：
+成功响应：
 
 ```json
 {
@@ -620,86 +625,101 @@ Mock 来源不得冒充真实 FIFA 来源，`url` 可以为 `null`。
   "code": "OK",
   "message": "查询成功",
   "data": {
-    "data_status": "mock",
+    "data_status": "live",
+    "team": { "team_id": "team_ARG", "name": "阿根廷" },
+    "stats": {
+      "matches": 3,
+      "regulation_or_extra_time_wins": 1,
+      "draws": 2,
+      "penalty_advances": 2,
+      "losses": 0
+    },
+    "matches": [],
+    "graph": { "scope": "team_relations", "nodes": [], "edges": [] },
+    "total": 3,
+    "page": 1,
+    "page_size": 20,
+    "applied_filters": {
+      "year_from": 1990,
+      "year_to": 2022,
+      "opponent_id": null,
+      "stages": [],
+      "result_types": [],
+      "has_penalties": null
+    }
+  },
+  "trace_id": "trace-relations-001",
+  "timestamp": "2026-07-19T12:00:00Z"
+}
+```
+
+统计口径：点球大战晋级单列为 `penalty_advances`，不直接混入 `regulation_or_extra_time_wins`。未知球队返回 `404 TEAM_NOT_FOUND`。
+
+### 6.6 GET `/api/graph`
+
+职责：按与比赛列表相同的筛选条件返回 D3.js 图数据。
+
+查询参数：`years`、`team_ids`、`stages`、`result_types`、`has_penalties` 与 `/api/matches` 一致；另有 `limit`，默认 100，范围 1—500，限制边数。
+
+成功响应：
+
+```json
+{
+  "success": true,
+  "code": "OK",
+  "message": "查询成功",
+  "data": {
+    "data_status": "live",
     "scope": "filtered_matches",
     "nodes": [
       { "id": "team_ARG", "name": "阿根廷", "type": "team" },
-      { "id": "team_FRA", "name": "法国", "type": "team" },
-      { "id": "team_CRO", "name": "克罗地亚", "type": "team" },
-      { "id": "team_MAR", "name": "摩洛哥", "type": "team" }
+      { "id": "team_FRA", "name": "法国", "type": "team" }
     ],
     "edges": [
       {
         "id": "edge-M-2022-64",
         "source": "team_ARG",
         "target": "team_FRA",
-        "type": "match",
+        "type": "match_result",
         "match_id": "M-2022-64",
         "tournament_year": 2022,
         "stage": "final",
         "stage_name": "决赛",
         "result_type": "penalties",
         "winner_team_id": "team_ARG",
-        "label": "决赛 3:3 (4:2)"
-      },
-      {
-        "id": "edge-M-2022-63",
-        "source": "team_CRO",
-        "target": "team_MAR",
-        "type": "match",
-        "match_id": "M-2022-63",
-        "tournament_year": 2022,
-        "stage": "third_place",
-        "stage_name": "三四名决赛",
-        "result_type": "regulation",
-        "winner_team_id": "team_CRO",
-        "label": "三四名决赛 2:1"
-      },
-      {
-        "id": "edge-M-2022-62",
-        "source": "team_ARG",
-        "target": "team_CRO",
-        "type": "match",
-        "match_id": "M-2022-62",
-        "tournament_year": 2022,
-        "stage": "semi_final",
-        "stage_name": "半决赛",
-        "result_type": "regulation",
-        "winner_team_id": "team_ARG",
-        "label": "半决赛 3:0"
-      },
-      {
-        "id": "edge-M-2022-61",
-        "source": "team_FRA",
-        "target": "team_MAR",
-        "type": "match",
-        "match_id": "M-2022-61",
-        "tournament_year": 2022,
-        "stage": "semi_final",
-        "stage_name": "半决赛",
-        "result_type": "regulation",
-        "winner_team_id": "team_FRA",
-        "label": "半决赛 2:0"
+        "label": "2022 决赛 3:3（点球4:2）"
       }
     ],
-    "stats": {
-      "total_nodes": 4,
-      "total_edges": 4
-    },
+    "stats": { "node_count": 2, "edge_count": 1, "truncated": false },
     "applied_filters": {
       "years": [2022],
       "team_ids": [],
-      "stages": [],
+      "stages": ["final"],
       "result_types": [],
-      "include_penalties": true
+      "has_penalties": null
     }
   },
   "trace_id": "trace-graph-001",
-  "timestamp": "2026-07-17T12:00:00Z"
+  "timestamp": "2026-07-19T12:00:00Z"
 }
 ```
 
-**空结果响应**：
+合法空图返回空 `nodes/edges` 和零统计。`truncated=true` 时 A 应显示"图数据已截断，请缩小筛选范围"。
+
+### 6.7 GET `/api/documents`
+
+职责：查看已经登记或索引的来源文档及处理状态。
+
+查询参数：
+
+| 参数 | 类型 | 默认值 | 说明 |
+|---|---|---:|---|
+| `status` | string / null | `null` | `pending`、`parsed`、`failed` |
+| `data_version` | string / null | `null` | 数据版本 |
+| `page` | integer | `1` | 最小 1 |
+| `page_size` | integer | `20` | 1—100 |
+
+空结果示例：
 
 ```json
 {
@@ -707,66 +727,25 @@ Mock 来源不得冒充真实 FIFA 来源，`url` 可以为 `null`。
   "code": "OK",
   "message": "查询成功",
   "data": {
-    "data_status": "mock",
-    "scope": "filtered_matches",
-    "nodes": [],
-    "edges": [],
-    "stats": {
-      "total_nodes": 0,
-      "total_edges": 0
-    },
-    "applied_filters": {
-      "years": [1930],
-      "team_ids": [],
-      "stages": ["final"],
-      "result_types": [],
-      "include_penalties": true
-    }
+    "data_status": "live",
+    "items": [],
+    "total": 0,
+    "page": 1,
+    "page_size": 20,
+    "applied_filters": { "status": null, "data_version": null }
   },
-  "trace_id": "trace-graph-002",
-  "timestamp": "2026-07-17T12:00:00Z"
+  "trace_id": "trace-documents-001",
+  "timestamp": "2026-07-19T12:00:00Z"
 }
 ```
 
-**字段说明**：
+文档存在时，每项至少包含：`document_id`、`title`、`source_id`、`file_type`、`parse_status`、`chunk_count`、`parsed_at`、`data_version`。不得把服务器本地绝对 `file_path` 暴露给 A。
 
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| `data.scope` | string | 图数据范围，`"filtered_matches"` 表示筛选后的比赛 |
-| `data.nodes` | array | 节点列表 |
-| `data.nodes[].id` | string | 节点唯一标识（team_id） |
-| `data.nodes[].name` | string | 球队中文名称 |
-| `data.nodes[].type` | string | 固定 `"team"` |
-| `data.edges` | array | 边列表 |
-| `data.edges[].id` | string | 边唯一标识，格式 `edge-{match_id}` |
-| `data.edges[].source` | string | 起始节点 ID |
-| `data.edges[].target` | string | 目标节点 ID |
-| `data.edges[].type` | string | 固定 `"match"` |
-| `data.edges[].match_id` | string | 关联比赛 ID，可用于调用详情接口 |
-| `data.edges[].tournament_year` | integer | 赛事年份 |
-| `data.edges[].stage` | string | 阶段枚举值 |
-| `data.edges[].stage_name` | string | 阶段中文名称 |
-| `data.edges[].result_type` | string | 结果类型 |
-| `data.edges[].winner_team_id` | string / null | 胜者 team_id，平局为 null |
-| `data.edges[].label` | string | 边展示标签 |
-| `data.stats` | object | 图统计信息 |
-| `data.applied_filters` | object | 实际生效的筛选条件回显 |
+### 6.8 POST `/api/agent/query`
 
----
+职责：A 的唯一自然语言问答入口。B 负责验证筛选、生成 `trace_id`、路由精确事实/语义/混合问题并组装前端响应。
 
-### 3.6 `POST /api/agent/query`
-
-**职责**：接收用户自然语言问题，返回答案、事实、来源和与答案直接相关的图数据。当前为 Mock 闭环，不接入真实 LangGraph / LLM / C / D / E。
-
-| 项目 | 内容 |
-|---|---|
-| HTTP 方法 | `POST` |
-| 路径参数 | 无 |
-| 请求体 Content-Type | `application/json` |
-| 成功状态码 | `200` |
-| 错误状态码 | `422`（参数校验失败） |
-
-**请求体**：
+请求体：
 
 ```json
 {
@@ -778,28 +757,21 @@ Mock 来源不得冒充真实 FIFA 来源，`url` 可以为 `null`。
     "stages": ["final"],
     "result_types": ["penalties"],
     "match_ids": [],
-    "include_penalties": true
+    "has_penalties": true
   },
   "debug": false
 }
 ```
 
-**请求字段说明**：
+请求约束：
 
-| 字段 | 类型 | 必填 | 默认值 | 说明 |
-|---|---|---|---|---|
-| `question` | string | 是 | — | 用户问题，去除首尾空白后非空，≤2000 字符 |
-| `session_id` | string / null | 否 | `null` | 会话 ID，本轮不持久化会话 |
-| `filters` | object | 否 | `{}` | 前端筛选条件 |
-| `filters.years` | integer[] | 否 | `[]` | 世界杯年份 |
-| `filters.team_ids` | string[] | 否 | `[]` | 球队 ID |
-| `filters.stages` | string[] | 否 | `[]` | 阶段枚举值 |
-| `filters.result_types` | string[] | 否 | `[]` | 结果类型 |
-| `filters.match_ids` | string[] | 否 | `[]` | 指定比赛 ID |
-| `filters.include_penalties` | boolean | 否 | `true` | 是否包含点球比赛 |
-| `debug` | boolean | 否 | `false` | 调试模式，默认关闭，不得泄露内部对象 |
+- `question` 去除首尾空白后长度 1—2000。
+- `session_id` 可空；当前版本不承诺会话持久化。
+- `filters` 可省略；省略等价于全部空数组和 `has_penalties=null`。
+- `debug=false` 为默认值；普通 A 页面不得通过 debug 获取内部 State。
+- 未定义字段返回 `422 VALIDATION_ERROR`。
 
-**成功响应 — 已知事实问题（status: ok）**：
+成功响应：
 
 ```json
 {
@@ -807,11 +779,11 @@ Mock 来源不得冒充真实 FIFA 来源，`url` 可以为 `null`。
   "code": "OK",
   "message": "查询成功",
   "data": {
-    "data_status": "mock",
+    "data_status": "live",
     "status": "ok",
-    "intent": "exact_fact",
-    "route": "sql_exact",
-    "answer": "2022年世界杯决赛，阿根廷与法国在90分钟内战成2:2，加时赛结束后为3:3。阿根廷最终在点球大战中以4:2获胜，夺得2022年卡塔尔世界杯冠军。",
+    "intent": "match_result_query",
+    "route": "structured_query",
+    "answer": "2022年世界杯决赛，阿根廷与法国在90分钟内战成2:2，加时赛后为3:3；阿根廷在点球大战中以4:2获胜。",
     "needs_clarification": false,
     "clarification_question": null,
     "facts": [
@@ -822,25 +794,29 @@ Mock 来源不得冒充真实 FIFA 来源，`url` 可以为 `null`。
         "tournament_year": 2022,
         "stage": "final",
         "stage_name": "决赛",
-        "home_team_id": "team_ARG",
-        "home_team_name": "阿根廷",
-        "away_team_id": "team_FRA",
-        "away_team_name": "法国",
-        "score_display": "3:3",
-        "penalty_score": "4:2",
+        "home_team": { "team_id": "team_ARG", "name": "阿根廷" },
+        "away_team": { "team_id": "team_FRA", "name": "法国" },
+        "score": {
+          "regular_time": { "home": 2, "away": 2 },
+          "after_extra_time": { "home": 3, "away": 3 },
+          "penalties": { "home": 4, "away": 2 },
+          "display": "3:3",
+          "penalty_display": "4:2"
+        },
         "result_type": "penalties",
-        "winner_team_id": "team_ARG",
+        "winner_team": { "team_id": "team_ARG", "name": "阿根廷" },
         "text": "双方加时赛后战成3:3，阿根廷点球大战4:2获胜。",
-        "source_ids": ["source-001"]
+        "source_ids": ["source-kaggle-001"]
       }
     ],
     "sources": [
       {
-        "source_id": "source-001",
-        "title": "FIFA World Cup 2022 Official Report",
-        "url": null,
-        "source_type": "mock",
-        "data_version": "2026-07-16-v1",
+        "source_id": "source-kaggle-001",
+        "title": "FIFA World Cup match dataset",
+        "url": "https://www.kaggle.com/datasets/jahaidulislam/fifa-world-cup-1930-2022-all-match-dataset",
+        "page": null,
+        "document_id": null,
+        "data_version": "2026-07-16-v2",
         "used_for_fact_ids": ["fact-M-2022-64-result"]
       }
     ],
@@ -855,14 +831,14 @@ Mock 来源不得冒充真实 FIFA 来源，`url` 可以为 `null`。
           "id": "edge-M-2022-64",
           "source": "team_ARG",
           "target": "team_FRA",
-          "type": "match",
+          "type": "match_result",
           "match_id": "M-2022-64",
           "tournament_year": 2022,
           "stage": "final",
           "stage_name": "决赛",
           "result_type": "penalties",
           "winner_team_id": "team_ARG",
-          "label": "决赛 3:3 (4:2)"
+          "label": "2022 决赛 3:3（点球4:2）"
         }
       ]
     },
@@ -872,299 +848,169 @@ Mock 来源不得冒充真实 FIFA 来源，`url` 可以为 `null`。
       "stages": ["final"],
       "result_types": ["penalties"],
       "match_ids": [],
-      "include_penalties": true
+      "has_penalties": true
     },
     "confidence": null,
-    "warnings": [
-      {
-        "code": "MOCK_DATA",
-        "message": "当前为前端联调Mock响应，尚未接入真实C/D/E与LangGraph",
-        "component": "mock_agent_service"
-      }
-    ],
+    "warnings": [],
     "timing": {
-      "total_ms": 15
-    }
-  },
-  "trace_id": "trace-query-001",
-  "timestamp": "2026-07-17T12:00:00Z"
-}
-```
-
-**成功响应 — 需要澄清（status: clarification_required）**：
-
-```json
-{
-  "success": true,
-  "code": "OK",
-  "message": "查询成功",
-  "data": {
-    "data_status": "mock",
-    "status": "clarification_required",
-    "intent": "exact_fact",
-    "route": "clarification",
-    "answer": "请补充信息：您想查询哪一届世界杯的决赛结果？",
-    "needs_clarification": true,
-    "clarification_question": "请选择世界杯年份。",
-    "facts": [],
-    "sources": [],
-    "graph": {
-      "scope": "answer_facts",
-      "nodes": [],
-      "edges": []
-    },
-    "applied_filters": {
-      "years": [],
-      "team_ids": [],
-      "stages": [],
-      "result_types": [],
-      "match_ids": [],
-      "include_penalties": true
-    },
-    "confidence": null,
-    "warnings": [
-      {
-        "code": "MOCK_DATA",
-        "message": "当前为前端联调Mock响应，尚未接入真实C/D/E与LangGraph",
-        "component": "mock_agent_service"
-      }
-    ],
-    "timing": {
-      "total_ms": 8
-    }
-  },
-  "trace_id": "trace-query-002",
-  "timestamp": "2026-07-17T12:00:00Z"
-}
-```
-
-**成功响应 — 空结果（status: empty）**：
-
-```json
-{
-  "success": true,
-  "code": "OK",
-  "message": "查询成功",
-  "data": {
-    "data_status": "mock",
-    "status": "empty",
-    "intent": "exact_fact",
-    "route": "not_found",
-    "answer": "当前知识库中没有足够信息回答您的问题。",
-    "needs_clarification": false,
-    "clarification_question": null,
-    "facts": [],
-    "sources": [],
-    "graph": {
-      "scope": "answer_facts",
-      "nodes": [],
-      "edges": []
-    },
-    "applied_filters": {
-      "years": [],
-      "team_ids": [],
-      "stages": [],
-      "result_types": [],
-      "match_ids": [],
-      "include_penalties": true
-    },
-    "confidence": null,
-    "warnings": [
-      {
-        "code": "MOCK_DATA",
-        "message": "当前为前端联调Mock响应，尚未接入真实C/D/E与LangGraph",
-        "component": "mock_agent_service"
-      },
-      {
-        "code": "NO_RESULT",
-        "message": "没有可靠事实或证据回答该问题。",
-        "component": "mock_agent_service"
-      }
-    ],
-    "timing": {
+      "routing_ms": 2,
+      "sql_ms": 4,
+      "retrieval_ms": 0,
+      "generation_ms": 0,
       "total_ms": 6
     }
   },
-  "trace_id": "trace-query-003",
-  "timestamp": "2026-07-17T12:00:00Z"
+  "trace_id": "trace-agent-001",
+  "timestamp": "2026-07-19T12:00:00Z"
 }
 ```
 
-**成功响应 — 普通聊天（intent: general_chat）**：
+问答图只包含答案直接使用的事实，完整筛选图由 A 单独调用 `/api/graph`。问答响应不返回完整比赛时间线；A 从 `fact.match_id` 调用比赛详情。
+
+澄清状态仍返回 HTTP 200：
 
 ```json
 {
   "success": true,
   "code": "OK",
-  "message": "查询成功",
+  "message": "需要补充条件",
   "data": {
-    "data_status": "mock",
-    "status": "ok",
-    "intent": "general_chat",
-    "route": "general_chat",
-    "answer": "你好！我是世界杯知识问答助手，可以回答关于世界杯比赛、比分、球队和晋级关系的问题。请告诉我你想了解什么。",
-    "needs_clarification": false,
-    "clarification_question": null,
+    "data_status": "live",
+    "status": "clarification_required",
+    "intent": "match_result_query",
+    "route": "clarification",
+    "answer": "请补充世界杯年份。",
+    "needs_clarification": true,
+    "clarification_question": "你想查询哪一届世界杯决赛？",
     "facts": [],
     "sources": [],
-    "graph": {
-      "scope": "answer_facts",
-      "nodes": [],
-      "edges": []
-    },
+    "graph": { "scope": "answer_facts", "nodes": [], "edges": [] },
     "applied_filters": {
       "years": [],
       "team_ids": [],
-      "stages": [],
+      "stages": ["final"],
       "result_types": [],
       "match_ids": [],
-      "include_penalties": true
+      "has_penalties": null
     },
     "confidence": null,
     "warnings": [
       {
-        "code": "MOCK_DATA",
-        "message": "当前为前端联调Mock响应，尚未接入真实C/D/E与LangGraph",
-        "component": "mock_agent_service"
+        "code": "NEED_CLARIFICATION",
+        "message": "年份条件不足。",
+        "component": "routing",
+        "retryable": false
       }
     ],
     "timing": {
-      "total_ms": 5
+      "routing_ms": 2,
+      "sql_ms": 0,
+      "retrieval_ms": 0,
+      "generation_ms": 0,
+      "total_ms": 2
     }
   },
-  "trace_id": "trace-query-004",
-  "timestamp": "2026-07-17T12:00:00Z"
+  "trace_id": "trace-agent-clarify-001",
+  "timestamp": "2026-07-19T12:00:00Z"
 }
 ```
 
-**422 响应 — 空问题**：
-
-```json
-{
-  "success": false,
-  "code": "VALIDATION_ERROR",
-  "message": "question 字段不能为空",
-  "data": null,
-  "trace_id": "trace-query-422",
-  "timestamp": "2026-07-17T12:00:00Z",
-  "retryable": false,
-  "details": [
-    {
-      "field": "question",
-      "error": "question 去除首尾空白后不能为空"
-    }
-  ]
-}
-```
-
-**Agent Query 响应字段说明**：
-
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| `data.data_status` | string | `"mock"` 表示当前为 Mock 数据 |
-| `data.status` | string | `ok` / `clarification_required` / `empty` / `error` |
-| `data.intent` | string | 意图分类：`exact_fact` / `general_chat` 等 |
-| `data.route` | string | 路由路径：`sql_exact` / `clarification` / `not_found` / `general_chat` |
-| `data.answer` | string | 对用户的最终回答文本 |
-| `data.needs_clarification` | boolean | 是否需要用户补充信息 |
-| `data.clarification_question` | string / null | 需要澄清时的追问 |
-| `data.facts` | array | 答案采用的结构化事实列表 |
-| `data.sources` | array | 答案采用并去重后的来源列表 |
-| `data.graph` | object | 与答案直接相关的图数据（仅含相关比赛） |
-| `data.graph.scope` | string | 图数据范围：`"answer_facts"` |
-| `data.applied_filters` | object | 实际生效的筛选条件回显 |
-| `data.confidence` | number / null | 置信度，未校准前为 null |
-| `data.warnings` | array | 结构化告警信息 |
-| `data.timing` | object | 全链路耗时 |
-| `data.timing.total_ms` | integer | 总耗时（毫秒），非负数 |
-
-**Fact 对象**：
-
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| `fact_type` | string | 事实类型：`match_result` / `relation` / `summary` |
-| `fact_id` | string | 事实唯一标识 |
-| `match_id` | string / null | 关联比赛 ID，非比赛事实可为 null |
-| `tournament_year` | integer | 赛事年份（match_result 类型时） |
-| `stage` | string | 阶段枚举值（match_result 类型时） |
-| `stage_name` | string | 阶段中文名称（match_result 类型时） |
-| `home_team_id` | string | 主队 ID（match_result 类型时） |
-| `home_team_name` | string | 主队中文名（match_result 类型时） |
-| `away_team_id` | string | 客队 ID（match_result 类型时） |
-| `away_team_name` | string | 客队中文名（match_result 类型时） |
-| `score_display` | string | 正式比分展示 |
-| `penalty_score` | string / null | 点球比分展示 |
-| `result_type` | string | 结果类型 |
-| `winner_team_id` | string / null | 胜者 ID |
-| `text` | string | 事实陈述文本 |
-| `source_ids` | array | 来源 ID 列表 |
-
-**Source 对象**：
-
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| `source_id` | string | 来源唯一标识 |
-| `title` | string | 来源名称 |
-| `url` | string / null | 来源 URL，Mock 时为 null |
-| `source_type` | string | 来源类型，Mock 时为 `"mock"` |
-| `data_version` | string | 数据版本号 |
-| `used_for_fact_ids` | array | 该来源支持的事实 ID 列表 |
-
-**Warning 对象**：
-
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| `code` | string | 告警代码 |
-| `message` | string | 告警说明 |
-| `component` | string | 产生告警的组件 |
+无可靠结果时使用 `status=empty`，`facts/sources/nodes/edges` 均为空，不得编造比分或来源。
 
 ---
 
-## 4. 错误码汇总
+## 7. 错误码和 HTTP 状态
 
-| 业务码 | HTTP 状态码 | 说明 |
-|---|---|---|
-| `OK` | 200 | 成功 |
-| `VALIDATION_ERROR` | 422 | 请求参数校验失败 |
-| `MATCH_NOT_FOUND` | 404 | 比赛 ID 不存在 |
-| `NOT_FOUND` | 404 | 通用资源未找到 |
-| `INTERNAL_ERROR` | 500 | 服务内部未捕获异常 |
+| HTTP | code | 场景 | retryable |
+|---:|---|---|---:|
+| 400 | `BAD_REQUEST` | 无法解析的请求 | false |
+| 404 | `MATCH_NOT_FOUND` | 比赛不存在 | false |
+| 404 | `TEAM_NOT_FOUND` | 球队不存在 | false |
+| 404 | `NOT_FOUND` | 其他路径不存在 | false |
+| 422 | `VALIDATION_ERROR` | 参数、枚举或请求体校验失败 | false |
+| 503 | `DATA_SOURCE_UNAVAILABLE` | SQLite/Provider 不可用且无法安全降级 | true |
+| 504 | `UPSTREAM_TIMEOUT` | E/D/LLM 上游超时且无安全结果 | true |
+| 500 | `INTERNAL_ERROR` | 未处理的服务端错误 | true |
 
----
-
-## 5. 分页约定汇总
-
-| 规则 | 说明 |
-|---|---|
-| `page` 默认值 | `1` |
-| `page_size` 默认值 | `20` |
-| `page_size` 最大值 | `100` |
-| 非法 `page_size` | 返回 422 |
-| 合法筛选无结果 | 返回 200，`items: []`, `total: 0` |
-| 空筛选条件 | 等于不应用该条件（`[]`） |
+业务上的 `empty`、`degraded`、`clarification_required` 不是 HTTP 错误，正常返回 200，并由 A 根据 `data.status` 展示。
 
 ---
 
-## 6. 前端调用流程建议
+## 8. A 的调用与状态更新约定
+
+### 8.1 页面初始化
 
 ```text
-页面初始化             → GET /api/filter-options
-用户选择筛选条件       → GET /api/matches 或 GET /api/graph
-用户点击比赛           → GET /api/matches/{match_id}（展示详情和时间线）
-用户提问               → POST /api/agent/query
-从 fact/edge 获取 match_id → GET /api/matches/{match_id}（查看详情）
+1. GET /api/filter-options
+2. GET /api/matches?page=1&page_size=20
+3. GET /api/graph?limit=100
 ```
+
+三次请求可并行；任何一个失败不得让整个页面白屏。A 应在对应区域显示错误和 `trace_id`。
+
+### 8.2 筛选变化
+
+```text
+selectedFilters
+  → 统一序列化为 query/filter DTO
+  → 刷新 /api/matches
+  → 刷新 /api/graph
+  → 提问时复用同一 filters
+```
+
+### 8.3 提问
+
+```text
+输入 question
+  → POST /api/agent/query
+  → 更新意图、答案、事实、来源和 answer_facts 图
+  → 点击 fact 或 edge
+  → GET /api/matches/{match_id}
+```
+
+### 8.4 加载与竞态
+
+- 发送请求期间禁用重复提交或取消前一次问答请求。
+- 筛选快速变化时取消旧的列表/图请求，避免旧响应覆盖新筛选。
+- 每个页面区域分别维护 `loading/error/data`。
+- A 记录失败响应的 `trace_id`，联调时把它发给 B 定位。
 
 ---
 
-## 7. 当前 Mock 边界声明
+## 9. A、B 冻结确认清单
 
-本契约冻结的接口在步骤 02-08 中将以 **Mock Provider** 实现，所有 Mock 响应通过 `data_status: "mock"` 或 `MOCK_DATA` warning 明确标识。
+### A 确认
 
-以下能力在本轮**不实现**，将在下一阶段"真实 C/D/E Adapter 与 LangGraph 集成"中接入：
+- [ ] 接受公共前缀 `/api`，不同时维护 `/api/v1`。
+- [ ] 接受统一响应外壳，并按 `data` 读取业务数据。
+- [ ] 多选参数采用同名参数重复编码。
+- [ ] 接受 `home_team/away_team` 对象，不要求后端重复返回扁平名称。
+- [ ] 使用 `has_penalties`，不再使用含义模糊的 `include_penalties`。
+- [ ] 支持 `second_group` 和 `final_round`。
+- [ ] `confidence=null` 时不显示伪造百分比。
+- [ ] edge/fact 点击后使用 `match_id` 调用详情接口。
+- [ ] 当前静态 Mock URL 和固定 FIFA 来源会被移除。
 
-- FastAPI → C 的正式 SQLite 数据库
-- FastAPI → D 的 Chroma 向量检索与 Reranker
-- FastAPI → E 的 RAG 答案生成与事实融合
-- FastAPI → LangGraph 意图路由与编排
-- 登录注册、后台管理、数据上传、SSE、WebSocket、会话持久化
+### B 确认
+
+- [ ] OpenAPI 模型与本文件字段一致，核心 DTO 不使用无约束 `dict`。
+- [ ] `penalty_score=""` 对外规范化为 `null`。
+- [ ] 不根据 `result_type=extra_time` 强行推断胜者；以 `winner_team_id` 为准。
+- [ ] 图由统一比赛数据派生，不维护与比赛列表矛盾的独立常量。
+- [ ] 每个 fact/source/edge 可追溯到稳定 ID。
+- [ ] Mock 和 live 数据明确区分。
+- [ ] 未校准前 `confidence=null`。
+- [ ] 不暴露 D/E 内部检索分数和 LangGraph State。
+
+### 共同确认
+
+- [ ] A 使用实际页面完成正常、空结果、澄清、错误、点球和无来源场景验收。
+- [ ] Swagger 示例与实际返回 JSON 一致。
+- [ ] 字段变更必须修改契约版本、Pydantic 模型、TypeScript 类型和自动化测试。
+- [ ] A、B 在文档中记录确认日期与确认人后，状态改为 `frontend-api-v1.0-frozen`。
+
+---
+
+## 10. 冻结后的变更规则
+
+兼容性新增字段可以升级补丁版本；删除字段、重命名字段、改变类型、改变空值语义或改变图方向属于破坏性变更，必须升级主/次版本并由 A、B 重新确认。B、C、D、E 内部实现可以替换，但只要本契约未升级，A 不应被迫同步修改。
