@@ -21,6 +21,7 @@ from backend.config import settings
 from backend.middleware.logging import LoggingMiddleware
 from backend.middleware.trace import TraceMiddleware, get_trace_id
 from backend.schemas.response import ErrorDetail, error
+from backend.schemas.responses import ErrorResponse
 
 # ---------------------------------------------------------------------------
 # Structured logging setup
@@ -42,6 +43,12 @@ def create_app() -> FastAPI:
         title=settings.app_name,
         version=settings.app_version,
         description=settings.app_description,
+        responses={
+            422: {
+                "model": ErrorResponse,
+                "description": "Validation Error — unified error envelope",
+            }
+        },
     )
 
     # ---- Middleware (order: outermost first → innermost last) ----

@@ -8,11 +8,12 @@ from backend.dependencies import get_provider
 from backend.repositories.protocols import FrontendDataProvider
 from backend.schemas.common import DocumentFilters
 from backend.schemas.response import ApiResponse, ok
+from backend.schemas.responses import DocumentsData
 
 router = APIRouter(tags=["documents"])
 
 
-@router.get("/documents", response_model=ApiResponse[dict])
+@router.get("/documents", response_model=ApiResponse[DocumentsData])
 async def list_documents(
     status: str | None = Query(default=None, description="pending / parsed / failed"),
     data_version: str | None = Query(default=None, description="数据版本"),

@@ -8,11 +8,12 @@ from backend.dependencies import get_provider
 from backend.repositories.protocols import FrontendDataProvider
 from backend.schemas.common import RelationFilters
 from backend.schemas.response import ApiResponse, error, ok
+from backend.schemas.responses import TeamRelationsData
 
 router = APIRouter(tags=["teams"])
 
 
-@router.get("/teams/{team_id}/relations", response_model=ApiResponse[dict])
+@router.get("/teams/{team_id}/relations", response_model=ApiResponse[TeamRelationsData])
 async def get_team_relations(
     team_id: str,
     year_from: int | None = Query(default=None, description="起始年份"),

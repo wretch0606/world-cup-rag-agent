@@ -7,11 +7,12 @@ from fastapi import APIRouter, Depends
 from backend.dependencies import get_provider
 from backend.repositories.protocols import FrontendDataProvider
 from backend.schemas.response import ApiResponse, ok
+from backend.schemas.responses import FilterOptionsData
 
 router = APIRouter(tags=["filters"])
 
 
-@router.get("/filter-options", response_model=ApiResponse[dict])
+@router.get("/filter-options", response_model=ApiResponse[FilterOptionsData])
 async def get_filter_options(
     provider: FrontendDataProvider = Depends(get_provider),
 ) -> ApiResponse[dict]:

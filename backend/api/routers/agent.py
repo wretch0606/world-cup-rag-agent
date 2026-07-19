@@ -8,11 +8,12 @@ from backend.dependencies import get_agent_service
 from backend.middleware.trace import get_trace_id
 from backend.schemas.agent import AgentQueryRequest
 from backend.schemas.response import ApiResponse, ok
+from backend.schemas.responses import AgentQueryData
 
 router = APIRouter(tags=["agent"])
 
 
-@router.post("/agent/query", response_model=ApiResponse[dict])
+@router.post("/agent/query", response_model=ApiResponse[AgentQueryData])
 async def agent_query(
     request: Request,
     body: AgentQueryRequest,

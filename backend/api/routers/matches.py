@@ -8,11 +8,12 @@ from backend.dependencies import get_provider
 from backend.repositories.protocols import FrontendDataProvider
 from backend.schemas.common import MatchFilters, ResultTypeEnum, StageEnum
 from backend.schemas.response import ApiResponse, error, ok
+from backend.schemas.responses import MatchesData, MatchDetailData
 
 router = APIRouter(tags=["matches"])
 
 
-@router.get("/matches", response_model=ApiResponse[dict])
+@router.get("/matches", response_model=ApiResponse[MatchesData])
 async def list_matches(
     years: list[int] = Query(default_factory=list, description="世界杯年份"),
     team_ids: list[str] = Query(default_factory=list, description="球队 ID"),
@@ -58,7 +59,7 @@ async def list_matches(
     return ok(data=response_data)
 
 
-@router.get("/matches/{match_id}", response_model=ApiResponse[dict])
+@router.get("/matches/{match_id}", response_model=ApiResponse[MatchDetailData])
 async def get_match(
     match_id: str,
     provider: FrontendDataProvider = Depends(get_provider),

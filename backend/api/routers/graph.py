@@ -8,11 +8,12 @@ from backend.dependencies import get_provider
 from backend.repositories.protocols import FrontendDataProvider
 from backend.schemas.common import MatchFilters, ResultTypeEnum, StageEnum
 from backend.schemas.response import ApiResponse, ok
+from backend.schemas.responses import GraphData
 
 router = APIRouter(tags=["graph"])
 
 
-@router.get("/graph", response_model=ApiResponse[dict])
+@router.get("/graph", response_model=ApiResponse[GraphData])
 async def get_graph(
     years: list[int] = Query(default_factory=list, description="世界杯年份"),
     team_ids: list[str] = Query(default_factory=list, description="球队 ID"),
