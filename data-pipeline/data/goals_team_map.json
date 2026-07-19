@@ -1,0 +1,411 @@
+{
+  "mapping": {
+    "T-01": {
+      "new_team_id": "team_ALG",
+      "team_name": "Algeria",
+      "match_method": "exact"
+    },
+    "T-02": {
+      "new_team_id": "team_ANG",
+      "team_name": "Angola",
+      "match_method": "exact"
+    },
+    "T-03": {
+      "new_team_id": "team_ARG",
+      "team_name": "Argentina",
+      "match_method": "exact"
+    },
+    "T-04": {
+      "new_team_id": "team_AUS",
+      "team_name": "Australia",
+      "match_method": "exact"
+    },
+    "T-05": {
+      "new_team_id": "team_AUT",
+      "team_name": "Austria",
+      "match_method": "exact"
+    },
+    "T-06": {
+      "new_team_id": "team_BEL",
+      "team_name": "Belgium",
+      "match_method": "exact"
+    },
+    "T-07": {
+      "new_team_id": "team_BOL",
+      "team_name": "Bolivia",
+      "match_method": "exact"
+    },
+    "T-08": {
+      "new_team_id": "team_BIH",
+      "team_name": "Bosnia and Herzegovina",
+      "match_method": "exact"
+    },
+    "T-09": {
+      "new_team_id": "team_BRA",
+      "team_name": "Brazil",
+      "match_method": "exact"
+    },
+    "T-10": {
+      "new_team_id": "team_BUL",
+      "team_name": "Bulgaria",
+      "match_method": "exact"
+    },
+    "T-11": {
+      "new_team_id": "team_CMR",
+      "team_name": "Cameroon",
+      "match_method": "exact"
+    },
+    "T-12": {
+      "new_team_id": "team_CAN",
+      "team_name": "Canada",
+      "match_method": "exact"
+    },
+    "T-13": {
+      "new_team_id": "team_CHI",
+      "team_name": "Chile",
+      "match_method": "exact"
+    },
+    "T-15": {
+      "new_team_id": "team_COL",
+      "team_name": "Colombia",
+      "match_method": "exact"
+    },
+    "T-16": {
+      "new_team_id": "team_CRC",
+      "team_name": "Costa Rica",
+      "match_method": "exact"
+    },
+    "T-17": {
+      "new_team_id": "team_CRO",
+      "team_name": "Croatia",
+      "match_method": "exact"
+    },
+    "T-18": {
+      "new_team_id": "team_CUB",
+      "team_name": "Cuba",
+      "match_method": "exact"
+    },
+    "T-19": {
+      "new_team_id": "team_CZE",
+      "team_name": "Czech Republic",
+      "match_method": "exact"
+    },
+    "T-20": {
+      "new_team_id": "team_TCH",
+      "team_name": "Czechoslovakia",
+      "match_method": "exact"
+    },
+    "T-21": {
+      "new_team_id": "team_DEN",
+      "team_name": "Denmark",
+      "match_method": "exact"
+    },
+    "T-23": {
+      "new_team_id": "team_GDR",
+      "team_name": "East Germany",
+      "match_method": "exact"
+    },
+    "T-24": {
+      "new_team_id": "team_ECU",
+      "team_name": "Ecuador",
+      "match_method": "exact"
+    },
+    "T-25": {
+      "new_team_id": "team_EGY",
+      "team_name": "Egypt",
+      "match_method": "exact"
+    },
+    "T-26": {
+      "new_team_id": "team_SLV",
+      "team_name": "El Salvador",
+      "match_method": "exact"
+    },
+    "T-27": {
+      "new_team_id": "team_ENG",
+      "team_name": "England",
+      "match_method": "exact"
+    },
+    "T-28": {
+      "new_team_id": "team_FRA",
+      "team_name": "France",
+      "match_method": "exact"
+    },
+    "T-29": {
+      "new_team_id": "team_GER",
+      "team_name": "Germany",
+      "match_method": "exact"
+    },
+    "T-30": {
+      "new_team_id": "team_GHA",
+      "team_name": "Ghana",
+      "match_method": "exact"
+    },
+    "T-31": {
+      "new_team_id": "team_GRE",
+      "team_name": "Greece",
+      "match_method": "exact"
+    },
+    "T-32": {
+      "new_team_id": "team_HAI",
+      "team_name": "Haiti",
+      "match_method": "exact"
+    },
+    "T-33": {
+      "new_team_id": "team_HON",
+      "team_name": "Honduras",
+      "match_method": "exact"
+    },
+    "T-34": {
+      "new_team_id": "team_HUN",
+      "team_name": "Hungary",
+      "match_method": "exact"
+    },
+    "T-35": {
+      "new_team_id": "team_ISL",
+      "team_name": "Iceland",
+      "match_method": "exact"
+    },
+    "T-36": {
+      "new_team_id": "team_IRN",
+      "team_name": "Iran",
+      "match_method": "exact"
+    },
+    "T-37": {
+      "new_team_id": "team_IRQ",
+      "team_name": "Iraq",
+      "match_method": "exact"
+    },
+    "T-38": {
+      "new_team_id": "team_ISR",
+      "team_name": "Israel",
+      "match_method": "exact"
+    },
+    "T-39": {
+      "new_team_id": "team_ITA",
+      "team_name": "Italy",
+      "match_method": "exact"
+    },
+    "T-40": {
+      "new_team_id": "team_CIV",
+      "team_name": "Ivory Coast",
+      "match_method": "exact"
+    },
+    "T-41": {
+      "new_team_id": "team_JAM",
+      "team_name": "Jamaica",
+      "match_method": "exact"
+    },
+    "T-42": {
+      "new_team_id": "team_JPN",
+      "team_name": "Japan",
+      "match_method": "exact"
+    },
+    "T-43": {
+      "new_team_id": "team_KUW",
+      "team_name": "Kuwait",
+      "match_method": "exact"
+    },
+    "T-44": {
+      "new_team_id": "team_MEX",
+      "team_name": "Mexico",
+      "match_method": "exact"
+    },
+    "T-45": {
+      "new_team_id": "team_MAR",
+      "team_name": "Morocco",
+      "match_method": "exact"
+    },
+    "T-46": {
+      "new_team_id": "team_NED",
+      "team_name": "Netherlands",
+      "match_method": "exact"
+    },
+    "T-47": {
+      "new_team_id": "team_NZL",
+      "team_name": "New Zealand",
+      "match_method": "exact"
+    },
+    "T-48": {
+      "new_team_id": "team_NGA",
+      "team_name": "Nigeria",
+      "match_method": "exact"
+    },
+    "T-49": {
+      "new_team_id": "team_PRK",
+      "team_name": "North Korea",
+      "match_method": "exact"
+    },
+    "T-50": {
+      "new_team_id": "team_NIR",
+      "team_name": "Northern Ireland",
+      "match_method": "exact"
+    },
+    "T-51": {
+      "new_team_id": "team_NOR",
+      "team_name": "Norway",
+      "match_method": "exact"
+    },
+    "T-52": {
+      "new_team_id": "team_PAN",
+      "team_name": "Panama",
+      "match_method": "exact"
+    },
+    "T-53": {
+      "new_team_id": "team_PAR",
+      "team_name": "Paraguay",
+      "match_method": "exact"
+    },
+    "T-54": {
+      "new_team_id": "team_PER",
+      "team_name": "Peru",
+      "match_method": "exact"
+    },
+    "T-55": {
+      "new_team_id": "team_POL",
+      "team_name": "Poland",
+      "match_method": "exact"
+    },
+    "T-56": {
+      "new_team_id": "team_POR",
+      "team_name": "Portugal",
+      "match_method": "exact"
+    },
+    "T-57": {
+      "new_team_id": "team_QAT",
+      "team_name": "Qatar",
+      "match_method": "exact"
+    },
+    "T-58": {
+      "new_team_id": "team_IRL",
+      "team_name": "Republic of Ireland",
+      "match_method": "exact"
+    },
+    "T-59": {
+      "new_team_id": "team_ROU",
+      "team_name": "Romania",
+      "match_method": "exact"
+    },
+    "T-60": {
+      "new_team_id": "team_RUS",
+      "team_name": "Russia",
+      "match_method": "exact"
+    },
+    "T-61": {
+      "new_team_id": "team_KSA",
+      "team_name": "Saudi Arabia",
+      "match_method": "exact"
+    },
+    "T-62": {
+      "new_team_id": "team_SCO",
+      "team_name": "Scotland",
+      "match_method": "exact"
+    },
+    "T-63": {
+      "new_team_id": "team_SEN",
+      "team_name": "Senegal",
+      "match_method": "exact"
+    },
+    "T-64": {
+      "new_team_id": "team_SRB",
+      "team_name": "Serbia",
+      "match_method": "exact"
+    },
+    "T-65": {
+      "new_team_id": "team_SCG",
+      "team_name": "Serbia and Montenegro",
+      "match_method": "exact"
+    },
+    "T-66": {
+      "new_team_id": "team_SVK",
+      "team_name": "Slovakia",
+      "match_method": "exact"
+    },
+    "T-67": {
+      "new_team_id": "team_SVN",
+      "team_name": "Slovenia",
+      "match_method": "exact"
+    },
+    "T-68": {
+      "new_team_id": "team_RSA",
+      "team_name": "South Africa",
+      "match_method": "exact"
+    },
+    "T-69": {
+      "new_team_id": "team_KOR",
+      "team_name": "South Korea",
+      "match_method": "exact"
+    },
+    "T-70": {
+      "new_team_id": "team_URS",
+      "team_name": "Soviet Union",
+      "match_method": "exact"
+    },
+    "T-71": {
+      "new_team_id": "team_ESP",
+      "team_name": "Spain",
+      "match_method": "exact"
+    },
+    "T-72": {
+      "new_team_id": "team_SWE",
+      "team_name": "Sweden",
+      "match_method": "exact"
+    },
+    "T-73": {
+      "new_team_id": "team_SUI",
+      "team_name": "Switzerland",
+      "match_method": "exact"
+    },
+    "T-74": {
+      "new_team_id": "team_TOG",
+      "team_name": "Togo",
+      "match_method": "exact"
+    },
+    "T-76": {
+      "new_team_id": "team_TUN",
+      "team_name": "Tunisia",
+      "match_method": "exact"
+    },
+    "T-77": {
+      "new_team_id": "team_TUR",
+      "team_name": "Turkey",
+      "match_method": "exact"
+    },
+    "T-78": {
+      "new_team_id": "team_UKR",
+      "team_name": "Ukraine",
+      "match_method": "exact"
+    },
+    "T-79": {
+      "new_team_id": "team_UAE",
+      "team_name": "United Arab Emirates",
+      "match_method": "exact"
+    },
+    "T-80": {
+      "new_team_id": "team_USA",
+      "team_name": "United States",
+      "match_method": "exact"
+    },
+    "T-81": {
+      "new_team_id": "team_URU",
+      "team_name": "Uruguay",
+      "match_method": "exact"
+    },
+    "T-82": {
+      "new_team_id": "team_WAL",
+      "team_name": "Wales",
+      "match_method": "exact"
+    },
+    "T-83": {
+      "new_team_id": "team_FRG",
+      "team_name": "West Germany",
+      "match_method": "exact"
+    },
+    "T-84": {
+      "new_team_id": "team_YUG",
+      "team_name": "Yugoslavia",
+      "match_method": "exact"
+    }
+  },
+  "unmatched": [],
+  "_note": "旧 T-XX → 新 team_XXX 映射，用于 goals.team_id 统一"
+}
