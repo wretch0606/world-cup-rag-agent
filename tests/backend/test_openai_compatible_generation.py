@@ -1274,3 +1274,465 @@ def test_build_messages_produces_strings():
     assert isinstance(system, str)
     assert isinstance(user, str)
     assert "Q?" in user
+
+
+# ====================================================================
+# 43. Hybrid: model returns empty facts, structured_facts preserved
+# ====================================================================
+def test_structured_facts_preserved_when_model_facts_empty():
+    """When model returns no facts, SQLite structured_facts become output."""
+    from backend.rag.openai_compatible_generation import _build_rag_result
+
+    sf = StructuredFact(
+        match_id="M-2022-64", tournament_year=2022,
+        stage="final", stage_name="决赛",
+        home_team_id="team_ARG", home_team_name="阿根廷",
+        away_team_id="team_FRA", away_team_name="法国",
+        score_display="2:2", penalty_score="4:2",
+        result_type="penalties", winner_team_id="team_ARG",
+        source_ids=["src-csv-001"],
+    )
+    sc = SourceItem(source_id="src-csv-001", title="Test Source")
+
+    payload = _ModelGenerationPayload(
+        status="ok",
+        answer="2022年世界杯决赛阿根廷对法国。",
+        facts=[],  # model returned NO facts
+        used_source_ids=[],
+        used_chunk_ids=[],
+        warnings=[],
+    )
+
+    result = _build_rag_result(
+        request=RAGRequest(
+            contract_version=RAG_CONTRACT_VERSION,
+            trace_id="trace-fb-001",
+            question="test",
+            original_question="test",
+            query_type="hybrid",
+            filters=RetrievalFilters(),
+            structured_facts=[sf],
+            source_catalog=[sc],
+            options=RAGOptions(),
+        ),
+        retrieval=RetrievalResult(
+            contract_version=RAG_CONTRACT_VERSION,
+            trace_id="trace-fb-001",
+            status=RAGStatus.ok,
+            original_query="test",
+            items=[EvidenceItem(
+                chunk_id="c1", document_id="d1", source_id="src-csv-001",
+                document_name="D", text="evidence", data_version="v1",
+            )],
+            applied_filters=RetrievalFilters(),
+            timing=RetrievalTiming(),
+        ),
+        payload=payload,
+        prompt_name="test",
+        prompt_version="v1",
+        generation_ms=100,
+        model_name="test-model",
+    )
+
+    # Facts preserved from structured_facts
+    assert len(result.facts) >= 1
+    f0 = result.facts[0]
+    assert f0.match_id == "M-2022-64"
+    assert f0.home_team_name == "阿根廷"
+    assert f0.away_team_name == "法国"
+    assert f0.score_display == "2:2"
+    assert f0.penalty_score == "4:2"
+    assert f0.winner_team_id == "team_ARG"
+
+    # Sources populated from source_catalog via structured_facts source_ids
+    assert len(result.sources) >= 1
+    assert any(s.source_id == "src-csv-001" for s in result.sources)
+
+    # Evidence from retrieval
+    assert len(result.evidence) >= 1
+
+    # Warning about degraded
+    codes = {w.code for w in result.warnings}
+    assert "GENERATION_DEGRADED" in codes
+
+
+# ====================================================================
+# 44. Hybrid: invalid model SummaryFact dropped, structured_facts kept
+# ====================================================================
+def test_invalid_model_summary_fact_dropped_structured_kept():
+    """Model returns SummaryFact with invalid fields → dropped, SQLite kept."""
+    from backend.rag.openai_compatible_generation import _build_rag_result
+
+    sf = StructuredFact(
+        match_id="M-2022-64", tournament_year=2022,
+        stage="final", stage_name="决赛",
+        home_team_id="team_ARG", home_team_name="阿根廷",
+        away_team_id="team_FRA", away_team_name="法国",
+        score_display="2:2", penalty_score="4:2",
+        result_type="penalties", winner_team_id="team_ARG",
+        source_ids=["src-csv-001"],
+    )
+    sc = SourceItem(source_id="src-csv-001", title="Test Source")
+
+    # Model returns a "summary" fact with fields that don't match SummaryFact
+    payload = _ModelGenerationPayload(
+        status="ok",
+        answer="决赛概要。",
+        facts=[{
+            "fact_type": "summary",
+            "summary_scope": "2022世界杯决赛",
+            "key_match_ids": ["M-2022-64"],
+            "statements": ["阿根廷对法国，2:2后点球获胜"],
+            # missing: fact_id, match_ids, tournament_years, text, source_ids
+        }],
+        used_source_ids=[],
+        used_chunk_ids=[],
+        warnings=[],
+    )
+
+    result = _build_rag_result(
+        request=RAGRequest(
+            contract_version=RAG_CONTRACT_VERSION,
+            trace_id="trace-fb-002",
+            question="test",
+            original_question="test",
+            query_type="hybrid",
+            filters=RetrievalFilters(),
+            structured_facts=[sf],
+            source_catalog=[sc],
+            options=RAGOptions(),
+        ),
+        retrieval=RetrievalResult(
+            contract_version=RAG_CONTRACT_VERSION,
+            trace_id="trace-fb-002",
+            status=RAGStatus.ok,
+            original_query="test",
+            items=[],
+            applied_filters=RetrievalFilters(),
+            timing=RetrievalTiming(),
+        ),
+        payload=payload,
+        prompt_name="test",
+        prompt_version="v1",
+        generation_ms=100,
+        model_name="test-model",
+    )
+
+    # Structured fact preserved despite invalid model fact
+    assert len(result.facts) >= 1
+    f0 = result.facts[0]
+    assert f0.match_id == "M-2022-64"
+    assert f0.fact_type == "match_result"
+    assert f0.home_team_name == "阿根廷"
+
+    # Not error — degraded with warning
+    assert result.status != RAGStatus.error
+
+
+# ====================================================================
+# 45. Model score conflict → SQLite wins
+# ====================================================================
+def test_model_score_conflict_sqlite_wins():
+    """Model claims different score; code enforces structured_fact values."""
+    from backend.rag.openai_compatible_generation import _build_rag_result
+
+    sf = StructuredFact(
+        match_id="M-1", tournament_year=2022,
+        stage="final", stage_name="决赛",
+        home_team_id="t1", home_team_name="A",
+        away_team_id="t2", away_team_name="B",
+        score_display="2:2", penalty_score="4:2",
+        result_type="penalties", winner_team_id="t1",
+    )
+
+    payload = _ModelGenerationPayload(
+        status="ok",
+        answer="A wins.",
+        facts=[{
+            "fact_type": "match_result",
+            "fact_id": "f1",
+            "match_id": "M-1",
+            "tournament_year": 2022,
+            "stage": "final",
+            "stage_name": "决赛",
+            "home_team_id": "t1",
+            "home_team_name": "A",
+            "away_team_id": "t2",
+            "away_team_name": "B",
+            "score_display": "5:0",  # WRONG — model hallucinates
+            "result_type": "regulation",  # WRONG
+            "text": "A wins 5-0.",
+        }],
+        used_source_ids=[],
+        used_chunk_ids=[],
+        warnings=[],
+    )
+
+    result = _build_rag_result(
+        request=RAGRequest(
+            contract_version=RAG_CONTRACT_VERSION,
+            trace_id="trace-fb-003",
+            question="test",
+            original_question="test",
+            query_type="hybrid",
+            filters=RetrievalFilters(),
+            structured_facts=[sf],
+            source_catalog=[],
+            options=RAGOptions(),
+        ),
+        retrieval=RetrievalResult(
+            contract_version=RAG_CONTRACT_VERSION,
+            trace_id="trace-fb-003",
+            status=RAGStatus.ok,
+            original_query="test",
+            items=[],
+            applied_filters=RetrievalFilters(),
+            timing=RetrievalTiming(),
+        ),
+        payload=payload,
+        prompt_name="test",
+        prompt_version="v1",
+        generation_ms=100,
+        model_name="test-model",
+    )
+
+    assert len(result.facts) == 1
+    f0 = result.facts[0]
+    # SQLite score overrides model hallucination
+    assert f0.score_display == "2:2"
+    assert f0.penalty_score == "4:2"
+    assert f0.result_type.value == "penalties"
+    # SOURCE_CONFLICT warning
+    codes = {w.code for w in result.warnings}
+    assert "SOURCE_CONFLICT" in codes
+
+
+# ====================================================================
+# 46. Model fake source_id removed
+# ====================================================================
+def test_model_fake_source_id_removed():
+    """Model references a source_id not in source_catalog → removed."""
+    from backend.rag.openai_compatible_generation import _build_rag_result
+
+    real_src = SourceItem(source_id="real-src", title="Real Source")
+    sf = StructuredFact(
+        match_id="M-1", tournament_year=2022,
+        stage="final", stage_name="决赛",
+        home_team_id="t1", home_team_name="A",
+        away_team_id="t2", away_team_name="B",
+        score_display="1:0", result_type="regulation",
+        winner_team_id="t1",
+        source_ids=["real-src"],
+    )
+
+    payload = _ModelGenerationPayload(
+        status="ok",
+        answer="A wins.",
+        facts=[{
+            "fact_type": "match_result",
+            "fact_id": "f1",
+            "match_id": "M-1",
+            "tournament_year": 2022,
+            "stage": "final",
+            "stage_name": "决赛",
+            "home_team_id": "t1",
+            "home_team_name": "A",
+            "away_team_id": "t2",
+            "away_team_name": "B",
+            "score_display": "1:0",
+            "result_type": "regulation",
+            "text": "A wins.",
+            "source_ids": ["fake-src-999"],  # fabricated!
+        }],
+        used_source_ids=["fake-src-999"],  # fabricated!
+        used_chunk_ids=[],
+        warnings=[],
+    )
+
+    result = _build_rag_result(
+        request=RAGRequest(
+            contract_version=RAG_CONTRACT_VERSION,
+            trace_id="trace-fb-004",
+            question="test",
+            original_question="test",
+            query_type="hybrid",
+            filters=RetrievalFilters(),
+            structured_facts=[sf],
+            source_catalog=[real_src],
+            options=RAGOptions(),
+        ),
+        retrieval=RetrievalResult(
+            contract_version=RAG_CONTRACT_VERSION,
+            trace_id="trace-fb-004",
+            status=RAGStatus.ok,
+            original_query="test",
+            items=[],
+            applied_filters=RetrievalFilters(),
+            timing=RetrievalTiming(),
+        ),
+        payload=payload,
+        prompt_name="test",
+        prompt_version="v1",
+        generation_ms=100,
+        model_name="test-model",
+    )
+
+    # Fake source NOT in output
+    for s in result.sources:
+        assert s.source_id != "fake-src-999", "Fabricated source must be removed"
+    # Real source IS in output (from structured_facts source_ids)
+    assert any(s.source_id == "real-src" for s in result.sources), (
+        "Real source from structured_facts must be preserved")
+    # LOW_CONFIDENCE warning about fabricated source
+    codes = {w.code for w in result.warnings}
+    assert "LOW_CONFIDENCE" in codes
+
+
+# ====================================================================
+# 47. Pure rag_query without structured_facts: no fabrication
+# ====================================================================
+def test_pure_rag_query_no_structured_no_fabrication():
+    """Without structured_facts, do NOT fabricate match facts."""
+    from backend.rag.openai_compatible_generation import _build_rag_result
+
+    payload = _ModelGenerationPayload(
+        status="ok",
+        answer="足球比赛很精彩。",
+        facts=[{
+            "fact_type": "summary",
+            "fact_id": "sum-1",
+            "match_ids": [],
+            "tournament_years": [],
+            "text": "football is exciting",
+            "source_ids": [],
+        }],
+        used_source_ids=[],
+        used_chunk_ids=[],
+        warnings=[],
+    )
+
+    result = _build_rag_result(
+        request=RAGRequest(
+            contract_version=RAG_CONTRACT_VERSION,
+            trace_id="trace-fb-005",
+            question="为什么足球激动人心？",
+            original_question="test",
+            query_type="semantic",
+            filters=RetrievalFilters(),
+            structured_facts=[],  # no SQLite facts
+            source_catalog=[],
+            options=RAGOptions(),
+        ),
+        retrieval=RetrievalResult(
+            contract_version=RAG_CONTRACT_VERSION,
+            trace_id="trace-fb-005",
+            status=RAGStatus.ok,
+            original_query="test",
+            items=[],
+            applied_filters=RetrievalFilters(),
+            timing=RetrievalTiming(),
+        ),
+        payload=payload,
+        prompt_name="test",
+        prompt_version="v1",
+        generation_ms=100,
+        model_name="test-model",
+    )
+
+    # SummaryFact is valid in this case (has required fields)
+    assert len(result.facts) == 1
+    assert result.facts[0].fact_type == "summary"
+    # No fabricated match_result facts
+    for f in result.facts:
+        if hasattr(f, "fact_type"):
+            assert f.fact_type != "match_result"
+
+
+# ====================================================================
+# 48. Fake client call count stays 1, no retry on fact issues
+# ====================================================================
+def test_fact_type_mismatch_no_json_retry():
+    """Invalid model fact types do NOT trigger JSON retry — call_count=1."""
+    call_count = [0]
+
+    class _FakeResponse:
+        def __init__(self, content):
+            self.choices = [
+                type("_C", (), {
+                    "message": type("_M", (), {"content": content})()
+                })()
+            ]
+
+    class _FakeAsyncOpenAI:
+        def __init__(self):
+            self.chat = type("_Chat", (), {
+                "completions": type("_Compl", (), {
+                    "create": self._fake_create
+                })()
+            })()
+
+        async def _fake_create(self, **kwargs):
+            call_count[0] += 1
+            import json as _json
+            payload = {
+                "status": "ok",
+                "answer": "决赛很精彩。",
+                "facts": [{
+                    "fact_type": "summary",
+                    "summary_scope": "2022 final",
+                    "statements": ["ARG beat FRA"],
+                }],
+                "used_source_ids": [],
+                "used_chunk_ids": [],
+                "warnings": [],
+            }
+            return _FakeResponse(_json.dumps(payload))
+
+    sf = StructuredFact(
+        match_id="M-2022-64", tournament_year=2022,
+        stage="final", stage_name="决赛",
+        home_team_id="team_ARG", home_team_name="阿根廷",
+        away_team_id="team_FRA", away_team_name="法国",
+        score_display="2:2", penalty_score="4:2",
+        result_type="penalties", winner_team_id="team_ARG",
+    )
+    sc = SourceItem(source_id="src-1", title="T")
+
+    client = OpenAICompatibleGenerationClient(
+        client=_FakeAsyncOpenAI(),
+        api_key="sk-test",
+        model="test-model",
+    )
+
+    async def _test():
+        return await client.generate(
+            RAGRequest(
+                contract_version=RAG_CONTRACT_VERSION,
+                trace_id="trace-fb-006",
+                question="介绍一下决赛",
+                original_question="test",
+                query_type="hybrid",
+                filters=RetrievalFilters(),
+                structured_facts=[sf],
+                source_catalog=[sc],
+                options=RAGOptions(),
+            ),
+            RetrievalResult(
+                contract_version=RAG_CONTRACT_VERSION,
+                trace_id="trace-fb-006",
+                status=RAGStatus.ok,
+                original_query="test",
+                items=[],
+                applied_filters=RetrievalFilters(),
+                timing=RetrievalTiming(),
+            ),
+        )
+
+    result = asyncio.run(_test())
+
+    # call count is exactly 1 — no retry
+    assert call_count[0] == 1, f"Expected 1 call, got {call_count[0]}"
+    # Facts preserved from structured_facts
+    assert len(result.facts) >= 1
+    assert any(f.match_id == "M-2022-64" for f in result.facts
+               if hasattr(f, "match_id"))

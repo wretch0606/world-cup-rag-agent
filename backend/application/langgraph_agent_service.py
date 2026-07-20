@@ -826,6 +826,7 @@ def _build_rag_graph(
         source_id = wid if wid else hid
         target_id = aid if (wid and wid == hid) else (hid if (wid and wid != hid) else aid)
 
+        stage_name = getattr(f, "stage_name", "") or ""
         edges.append({
             "id": f"edge-{mid}",
             "source": source_id,
@@ -838,13 +839,14 @@ def _build_rag_graph(
                 if hasattr(getattr(f, "stage", ""), "value")
                 else getattr(f, "stage", "")
             ),
-            "stage_name": getattr(f, "stage_name", ""),
+            "stage_name": stage_name,
             "result_type": (
                 getattr(f, "result_type", "").value
                 if hasattr(getattr(f, "result_type", ""), "value")
                 else getattr(f, "result_type", "")
             ),
             "winner_team_id": wid,
+            "label": stage_name,
         })
 
     return {"scope": "answer_facts", "nodes": list(nodes.values()), "edges": edges}

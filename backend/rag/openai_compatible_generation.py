@@ -480,6 +480,11 @@ def _build_rag_result(
         for sid in fact_dict.get("source_ids", []):
             if sid in source_by_id:
                 used_source_ids_all.add(sid)
+    # Also pull source_ids from trusted structured_facts
+    for sf in request.structured_facts:
+        for sid in sf.source_ids:
+            if sid in source_by_id:
+                used_source_ids_all.add(sid)
 
     for sid in used_source_ids_all:
         src = source_by_id[sid]
@@ -528,17 +533,27 @@ def _build_rag_result(
 
         # Build fact object
         fact_id = fact_dict.get("fact_id", f"fact-{i}")
+        ftype = fact_dict.get("fact_type", "match_result")
+
+        # Shared fields for all fact types
         fact_dict.setdefault("fact_id", fact_id)
         fact_dict.setdefault("text", fact_dict.get("answer", ""))
         fact_dict.setdefault("source_ids", list(valid_source_ids))
-        fact_dict.setdefault("tournament_year", sf.tournament_year if sf else 0)
-        fact_dict.setdefault("stage", sf.stage.value if sf and sf.stage else "")
-        fact_dict.setdefault("stage_name", sf.stage_name if sf else "")
-        fact_dict.setdefault("home_team_id", sf.home_team_id if sf else "")
-        fact_dict.setdefault("home_team_name", sf.home_team_name if sf else "")
-        fact_dict.setdefault("away_team_id", sf.away_team_id if sf else "")
-        fact_dict.setdefault("away_team_name", sf.away_team_name if sf else "")
-        fact_dict.setdefault("result_type", sf.result_type.value if sf else "regulation")
+
+        # MatchResultFact-specific defaults — only when structured_fact
+        # lookup succeeded.  Never inject these into summary/relation facts.
+        if ftype == "match_result" and sf:
+            fact_dict.setdefault("tournament_year", sf.tournament_year)
+            fact_dict.setdefault("stage", sf.stage.value if sf.stage else "")
+            fact_dict.setdefault("stage_name", sf.stage_name)
+            fact_dict.setdefault("home_team_id", sf.home_team_id)
+            fact_dict.setdefault("home_team_name", sf.home_team_name)
+            fact_dict.setdefault("away_team_id", sf.away_team_id)
+            fact_dict.setdefault("away_team_name", sf.away_team_name)
+            fact_dict.setdefault("result_type", sf.result_type.value)
+        elif ftype == "match_result":
+            # No structured_fact — model must provide all required fields
+            pass
 
         try:
             ftype = fact_dict.get("fact_type", "match_result")
@@ -550,6 +565,70 @@ def _build_rag_result(
                 fact_objects.append(MatchResultFact(**fact_dict))
         except Exception:
             logger.warning("Fact validation failed for fact %d", i, exc_info=True)
+
+    # -- Fallback: when model facts are all dropped, preserve trusted ----
+    # structured_facts from SQLite.  These are built by the LangGraph
+    # agent from the exact-query path and are the highest-authority data.
+    if not fact_objects and request.structured_facts:
+        for sf in request.structured_facts:
+            text_parts = [
+                f"{sf.home_team_name} vs {sf.away_team_name}",
+                f"比分 {sf.score_display}",
+            ]
+            if sf.penalty_score:
+                text_parts.append(f"点球 {sf.penalty_score}")
+            text = "，".join(text_parts) + "。"
+
+            fact_objects.append(
+                MatchResultFact(
+                    fact_id=f"fact-{sf.match_id}-result",
+                    match_id=sf.match_id,
+                    tournament_year=sf.tournament_year,
+                    stage=sf.stage,
+                    stage_name=sf.stage_name,
+                    home_team_id=sf.home_team_id,
+                    home_team_name=sf.home_team_name,
+                    away_team_id=sf.away_team_id,
+                    away_team_name=sf.away_team_name,
+                    score_display=sf.score_display,
+                    penalty_score=sf.penalty_score,
+                    result_type=sf.result_type,
+                    winner_team_id=sf.winner_team_id,
+                    text=text,
+                    source_ids=list(sf.source_ids),
+                )
+            )
+
+        # Extend source IDs from structured_facts
+        for sf in request.structured_facts:
+            for sid in sf.source_ids:
+                if sid in source_by_id:
+                    used_source_ids_all.add(sid)
+
+        # Rebuild sources with expanded set
+        sources.clear()
+        for sid in used_source_ids_all:
+            if sid in source_by_id:
+                sources.append(source_by_id[sid])
+
+        # Rebuild evidence from all retrieval items
+        evidence.clear()
+        for ev in retrieval.items:
+            evidence.append(ev)
+
+        # Update cross-linked fact_ids
+        fact_ids = [f.fact_id for f in fact_objects]
+        for src in sources:
+            src.used_for_fact_ids = fact_ids
+
+        warnings.append(
+            WarningItem(
+                code="GENERATION_DEGRADED",
+                message="模型未返回有效事实，已使用系统可信结构化事实。",
+                component="generation",
+                retryable=False,
+            )
+        )
 
     if has_conflict:
         warnings.append(
