@@ -14,6 +14,7 @@ from backend.rag.chroma_gateway import (
     _build_filter_dicts,
     _deduplicate_by_chunk_id,
     _map_to_evidence,
+    _normalize_source_id,
     _post_filter_raw,
     _sort_items,
 )
@@ -1023,3 +1024,228 @@ def test_post_filter_non_matching_items_excluded():
     assert len(result.items) == 1
     assert result.items[0].chunk_id == "c1"
     assert result.items[0].match_id == "M-1"
+
+
+# ====================================================================
+# _normalize_source_id — source_ids array compatibility tests
+# ====================================================================
+
+# --- 39. source_id scalar passed through ---------------------------------
+def test_normalize_source_id_scalar():
+    """source_id as a plain string is returned verbatim."""
+    result = _normalize_source_id({"source_id": "src-abc-123"})
+    assert result == "src-abc-123"
+
+
+# --- 40. source_id takes priority over source ----------------------------
+def test_normalize_source_id_priority_over_source():
+    """source_id wins even when source is also present."""
+    result = _normalize_source_id({
+        "source_id": "primary",
+        "source": "fallback",
+    })
+    assert result == "primary"
+
+
+# --- 41. source takes priority over source_ids ---------------------------
+def test_normalize_source_priority_over_source_ids():
+    """source (second priority) wins over source_ids array."""
+    result = _normalize_source_id({
+        "source": "from-source",
+        "source_ids": ["from-array-1", "from-array-2"],
+    })
+    assert result == "from-source"
+
+
+# --- 42. source_ids single-element array ---------------------------------
+def test_normalize_source_ids_single_element():
+    result = _normalize_source_id({
+        "source_ids": ["only-one"],
+    })
+    assert result == "only-one"
+
+
+# --- 43. source_ids multi-element array → first non-empty ----------------
+def test_normalize_source_ids_multi_element_first_wins():
+    result = _normalize_source_id({
+        "source_ids": ["first", "second", "third"],
+    })
+    assert result == "first"
+
+
+# --- 44. source_ids array with None, empty string, numbers ---------------
+def test_normalize_source_ids_array_with_junk():
+    """None, empty strings, and non-strings are skipped."""
+    result = _normalize_source_id({
+        "source_ids": [None, "", 123, "valid-one", "valid-two"],
+    })
+    assert result == "valid-one"
+
+
+# --- 45. source_ids as plain string --------------------------------------
+def test_normalize_source_ids_plain_string():
+    result = _normalize_source_id({
+        "source_ids": "single-string-id",
+    })
+    assert result == "single-string-id"
+
+
+# --- 46. source_ids empty array → None -----------------------------------
+def test_normalize_source_ids_empty_array():
+    result = _normalize_source_id({"source_ids": []})
+    assert result is None
+
+
+# --- 47. All source fields missing → None --------------------------------
+def test_normalize_all_missing():
+    result = _normalize_source_id({
+        "document_id": "d1",
+        "document_name": "T",
+    })
+    assert result is None
+
+
+# --- 48. Original metadata not mutated -----------------------------------
+def test_normalize_source_id_does_not_mutate_metadata():
+    original = {
+        "source_ids": ["alpha", "beta"],
+        "document_id": "d1",
+    }
+    import copy
+    before = copy.deepcopy(original)
+    _normalize_source_id(original)
+    assert original == before
+
+
+# --- 49. Real E2E sample -------------------------------------------------
+def test_normalize_source_ids_real_e2e_sample():
+    """Exact metadata shape from Chroma E2E ingest."""
+    result = _normalize_source_id({
+        "source_ids": [
+            "src_csv_20260719_001",
+            "source-kaggle-001",
+        ],
+    })
+    assert result == "src_csv_20260719_001"
+
+
+# --- 50. chunk_id / rank / text unaffected -------------------------------
+def test_normalize_source_id_other_fields_unaffected():
+    """Verify _map_to_evidence still maps all non-source fields correctly."""
+    raw = _fake_d_item(
+        "chunk-42",
+        distance=0.15,
+        metadata={
+            "source_ids": ["src-csv", "src-kaggle"],
+            "document_id": "doc-99",
+            "document_name": "World Cup Report",
+            "data_version": "2026-07-v2",
+            "match_id": "M-2022-64",
+            "tournament_year": 2022,
+            "stage": "final",
+            "result_type": "penalties",
+            "language": "zh",
+            "chunk_index": 0,
+        },
+        document="阿根廷点球获胜。",
+    )
+    ev, missing = _map_to_evidence(raw)
+    assert ev is not None
+    assert missing == []
+    assert ev.chunk_id == "chunk-42"
+    assert ev.document_id == "doc-99"
+    assert ev.document_name == "World Cup Report"
+    assert ev.data_version == "2026-07-v2"
+    assert ev.match_id == "M-2022-64"
+    assert ev.text == "阿根廷点球获胜。"
+    assert ev.source_id == "src-csv"  # first element of source_ids array
+    assert ev.language == "zh"
+    assert ev.chunk_index == 0
+    assert ev.vector_distance == 0.15
+
+
+# --- 51. source_id via source_ids passed through gateway -----------------
+def test_source_ids_array_through_gateway():
+    """Gateway retrieve() maps source_ids array → scalar source_id."""
+    _m = {
+        "source_ids": ["src-from-array", "src-secondary"],
+        "document_id": "doc-1",
+        "document_name": "Test Doc",
+        "data_version": "v1",
+    }
+    captured: list[dict] = []
+    gw = ChromaRetrievalGateway(
+        query_top_k_fn=_fake_top_k(
+            captured=captured,
+            items=[_fake_d_item("c1", metadata=_m)],
+        ),
+        query_with_rerank_fn=_fake_rerank(),
+    )
+
+    async def _test():
+        return await gw.retrieve(_make_request())
+
+    result = _run(_test())
+    assert result.status == RAGStatus.ok
+    assert len(result.items) == 1
+    assert result.items[0].source_id == "src-from-array"
+    assert isinstance(result.items[0].source_id, str)
+
+
+# --- 52. source_id via source (scalar alias) still works -----------------
+def test_source_alias_still_works():
+    """Legacy 'source' key in metadata is still resolved."""
+    _m = {
+        "source": "legacy-source-key",
+        "document_id": "doc-1",
+        "document_name": "Test Doc",
+        "data_version": "v1",
+    }
+    captured: list[dict] = []
+    gw = ChromaRetrievalGateway(
+        query_top_k_fn=_fake_top_k(
+            captured=captured,
+            items=[_fake_d_item("c1", metadata=_m)],
+        ),
+        query_with_rerank_fn=_fake_rerank(),
+    )
+
+    async def _test():
+        return await gw.retrieve(_make_request())
+
+    result = _run(_test())
+    assert result.status == RAGStatus.ok
+    assert result.items[0].source_id == "legacy-source-key"
+
+
+# --- 53. Missing all source keys → candidate dropped ---------------------
+def test_all_source_keys_missing_drops_candidate():
+    """When no source key is in metadata, candidate is dropped."""
+    _m = {
+        "document_id": "doc-1",
+        "document_name": "Test Doc",
+        "data_version": "v1",
+    }
+    captured: list[dict] = []
+    gw = ChromaRetrievalGateway(
+        query_top_k_fn=_fake_top_k(
+            captured=captured,
+            items=[_fake_d_item("c1", metadata=_m)],
+        ),
+        query_with_rerank_fn=_fake_rerank(),
+    )
+
+    async def _test():
+        return await gw.retrieve(_make_request())
+
+    result = _run(_test())
+    assert result.status == RAGStatus.empty
+    assert len(result.items) == 0
+
+
+# --- 54. source_ids tuple works same as list -----------------------------
+def test_normalize_source_ids_tuple():
+    result = _normalize_source_id({
+        "source_ids": ("tuple-first", "tuple-second"),
+    })
+    assert result == "tuple-first"

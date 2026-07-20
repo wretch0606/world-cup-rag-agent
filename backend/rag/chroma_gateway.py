@@ -43,7 +43,7 @@ _REQUIRED_METADATA: tuple[str, ...] = (
 
 # Aliases the adapter accepts when looking for metadata values — avoids
 # guessing field names scattered across the codebase.
-_SOURCE_ID_KEYS: tuple[str, ...] = ("source_id", "source")
+_SOURCE_ID_KEYS: tuple[str, ...] = ("source_id", "source", "source_ids")
 _DOCUMENT_ID_KEYS: tuple[str, ...] = ("document_id", "document_name")
 _DOCUMENT_NAME_KEYS: tuple[str, ...] = ("document_name", "title")
 _SOURCE_URL_KEYS: tuple[str, ...] = ("source_url", "url")
@@ -426,6 +426,40 @@ def _build_filter_dicts(
     return combos, warnings
 
 
+def _normalize_source_id(metadata: dict) -> str | None:
+    """Normalize a source identifier from Chroma metadata into a scalar string.
+
+    Priority (deterministic, no sorting, no JSON encoding):
+    1. ``metadata["source_id"]`` — non-empty string
+    2. ``metadata["source"]``  — non-empty string
+    3. ``metadata["source_ids"]`` — if string, use verbatim;
+       if list/tuple, pick the **first** non-empty string element.
+
+    Returns ``None`` when no valid source can be resolved.  The original
+    *metadata* dict is never mutated.
+    """
+    # 1. source_id (scalar string)
+    v = metadata.get("source_id")
+    if isinstance(v, str) and v:
+        return v
+
+    # 2. source (scalar string)
+    v = metadata.get("source")
+    if isinstance(v, str) and v:
+        return v
+
+    # 3. source_ids (string, or list/tuple → first non-empty string)
+    v = metadata.get("source_ids")
+    if isinstance(v, str) and v:
+        return v
+    if isinstance(v, (list, tuple)):
+        for item in v:
+            if isinstance(item, str) and item:
+                return item
+
+    return None
+
+
 def _map_to_evidence(raw: dict) -> tuple[EvidenceItem | None, list[str]]:
     """Map a raw D item dict → EvidenceItem.  Returns (None, [missing]) on failure."""
     metadata: dict = raw.get("metadata", {}) or {}
@@ -438,7 +472,14 @@ def _map_to_evidence(raw: dict) -> tuple[EvidenceItem | None, list[str]]:
                 return v
         return raw.get(keys[0]) if isinstance(raw.get(keys[0]), str) else None
 
-    source_id = _get(_SOURCE_ID_KEYS)
+    source_id = _normalize_source_id(metadata)
+    if not source_id:
+        # Legacy fallback: try raw top-level keys (backward compat)
+        for k in _SOURCE_ID_KEYS:
+            raw_val = raw.get(k)
+            if isinstance(raw_val, str) and raw_val:
+                source_id = raw_val
+                break
     document_id = _get(_DOCUMENT_ID_KEYS)
     document_name = _get(_DOCUMENT_NAME_KEYS)
     data_version = metadata.get("data_version") or raw.get("data_version")
