@@ -8,6 +8,8 @@ Verifies the full HTTP stack handles missing RAG_LLM_API_KEY gracefully:
 """
 from __future__ import annotations
 
+from unittest.mock import patch
+
 from fastapi.testclient import TestClient
 
 
@@ -58,6 +60,7 @@ def test_exact_query_returns_200_without_key():
 # 4. No crash on any question without API key
 # ====================================================================
 def test_no_crash_on_varied_questions():
+    """Mock mode: all questions return 200, no crash."""
     from backend.main import app
     client = TestClient(app)
     for q in [
@@ -68,6 +71,59 @@ def test_no_crash_on_varied_questions():
     ]:
         resp = _http_post(client, q)
         assert resp.status_code == 200
+
+
+# ====================================================================
+# 4b. LangGraph mode: 503 and 504 tests
+# ====================================================================
+@patch("backend.application.langgraph_agent_service._get_rag_service")
+def test_semantic_no_service_returns_503(_mock_rag):
+    _mock_rag.return_value = None
+    """Pure rag_query without RAG service -> HTTP 503 via RAGFatalError."""
+    from backend.application.langgraph_agent_service import LangGraphAgentService
+    from backend.dependencies import get_agent_service
+    from backend.main import app
+
+    app.dependency_overrides[get_agent_service] = lambda: LangGraphAgentService()
+    client = TestClient(app)
+    resp = _http_post(client, "足球比赛为什么激动人心？")
+    assert resp.status_code == 503
+    data = resp.json()
+    assert data["success"] is False
+    assert data["code"] == "DATA_SOURCE_UNAVAILABLE"
+    assert data["retryable"] is True
+    assert data["data"] is None
+    assert "trace_id" in data
+    assert "timestamp" in data
+
+
+@patch("backend.application.langgraph_agent_service._get_rag_service")
+def test_semantic_retrieval_error_returns_503(_mock_rag):
+    """Pure rag_query with retrieval error -> HTTP 503."""
+    from backend.application.langgraph_agent_service import LangGraphAgentService
+    from backend.dependencies import get_agent_service
+    from backend.main import app
+    from backend.rag.service import RagService
+
+    class _FailingGateway:
+        async def retrieve(self, request):
+            raise RuntimeError("boom")
+
+    _mock_rag.return_value = RagService(
+        retrieval=_FailingGateway(),
+        generation=None,
+    )
+
+    app.dependency_overrides[get_agent_service] = lambda: LangGraphAgentService()
+    client = TestClient(app)
+    resp = _http_post(client, "为什么世界杯比赛很经典？")
+    assert resp.status_code == 503
+    data = resp.json()
+    assert data["success"] is False
+    # code can be DATA_SOURCE_UNAVAILABLE (retrieval error mapped)
+    assert data["code"] in ("DATA_SOURCE_UNAVAILABLE", "RETRIEVAL_ERROR")
+    assert data["retryable"] is True
+    assert data["data"] is None
 
 
 # ====================================================================

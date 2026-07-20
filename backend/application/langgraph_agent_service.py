@@ -1,7 +1,4 @@
-"""LangGraphAgentService — exact-fact queries backed by SQLite, routed via LangGraph.
-
-No E, D, Chroma, LLM, or external network calls.
-"""
+"""LangGraphAgentService - exact-fact + RAG queries, routed via LangGraph."""
 
 from __future__ import annotations
 
@@ -13,6 +10,17 @@ from backend.application.extractor import extract
 from backend.dependencies import get_provider
 from backend.repositories.protocols import FrontendDataProvider
 from backend.schemas.common import MatchFilters, RelationFilters
+
+
+class RAGFatalError(Exception):
+    """Fatal RAG error mapped to HTTP error status by the agent router."""
+
+    def __init__(self, code: str, message: str, status_code: int, retryable: bool = True):
+        super().__init__(message)
+        self.code = code
+        self.message = message
+        self.status_code = status_code
+        self.retryable = retryable
 
 
 # ---------------------------------------------------------------------------
@@ -395,16 +403,12 @@ def _handle_rag_unavailable(
     state["status"] = "error"
     state["answer"] = "RAG 语义检索服务暂不可用，请稍后重试。"
     state["facts"] = []
-    state["sources"] = []
-    state["graph"] = {"scope": "answer_facts", "nodes": [], "edges": []}
-    state["confidence"] = None
-    state["warnings"].append({
-        "code": "DATA_SOURCE_UNAVAILABLE",
-        "message": "RAG 语义检索服务未配置或初始化失败。",
-        "component": "rag_query",
-        "retryable": True,
-    })
-    return state
+    raise RAGFatalError(
+        code="DATA_SOURCE_UNAVAILABLE",
+        message="RAG 语义检索服务未配置或初始化失败。",
+        status_code=503,
+        retryable=True,
+    )
 
 
 def _build_agent_fact_from_structured(sf: dict) -> dict:
@@ -628,23 +632,35 @@ def _rag_query(state: AgentState) -> AgentState:
         # For hybrid queries with trusted facts, degrade instead of error
         if route == "hybrid_query" and structured_facts:
             return _handle_rag_unavailable(state, structured_facts, source_catalog)
-        state["status"] = "error"
-        state["answer"] = "RAG 查询处理失败。"
-        state["warnings"].append({
-            "code": "UPSTREAM_TIMEOUT",
-            "message": "RAG 查询超时或失败。",
-            "component": "rag_query",
-            "retryable": True,
-        })
-        return state
+        raise RAGFatalError(
+            code="UPSTREAM_TIMEOUT",
+            message="RAG 查询超时或失败。",
+            status_code=504,
+            retryable=True,
+        )
 
     # --- Check RAGResult for error with hybrid fallback -----------------
     rag_status = getattr(rag_result, "status", None)
     rag_status_str = rag_status.value if hasattr(rag_status, "value") else str(rag_status or "")
 
-    if rag_status_str == "error" and route == "hybrid_query" and structured_facts:
-        # RAG returned error but we have trusted facts → degrade
-        return _handle_rag_unavailable(state, structured_facts, source_catalog)
+    if rag_status_str == "error":
+        if route == "hybrid_query" and structured_facts:
+            return _handle_rag_unavailable(state, structured_facts, source_catalog)
+        err = getattr(rag_result, "error", None)
+        err_code = getattr(err, "code", None) if err else None
+        if err_code == "TIMEOUT":
+            raise RAGFatalError(
+                code="UPSTREAM_TIMEOUT",
+                message="检索超时，请稍后重试。",
+                status_code=504,
+                retryable=True,
+            )
+        raise RAGFatalError(
+            code="DATA_SOURCE_UNAVAILABLE",
+            message="知识库检索服务暂不可用。",
+            status_code=503,
+            retryable=True,
+        )
 
     # --- Map RAGResult → state -------------------------------------------
     _apply_rag_result(state, rag_result)

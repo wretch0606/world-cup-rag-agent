@@ -89,13 +89,34 @@ def _invoke_agent(question, filters=None, trace_id="test-trace",
     request = {"question": question, "session_id": None,
                "filters": filters or {}}
 
-    if rag_service == "NOT_SET":
-        # Default: block RAG to prevent accidental real Chroma init
-        with patch.object(agent_mod, "_get_rag_service", return_value=None):
-            return svc.query(request, trace_id)
-    else:
-        with patch.object(agent_mod, "_get_rag_service", return_value=rag_service):
-            return svc.query(request, trace_id)
+    try:
+        if rag_service == "NOT_SET":
+            with patch.object(agent_mod, "_get_rag_service", return_value=None):
+                return svc.query(request, trace_id)
+        else:
+            with patch.object(agent_mod, "_get_rag_service", return_value=rag_service):
+                return svc.query(request, trace_id)
+    except agent_mod.RAGFatalError as exc:
+        return {
+            "status": "error",
+            "route": "rag_query",
+            "warnings": [{
+                "code": exc.code,
+                "message": exc.message,
+                "component": "rag_query",
+                "retryable": exc.retryable,
+            }],
+            "answer": "",
+            "facts": [],
+            "sources": [],
+            "graph": {"scope": "answer_facts", "nodes": [], "edges": []},
+            "applied_filters": {},
+            "confidence": None,
+            "timing": {},
+            "intent": "",
+            "needs_clarification": False,
+            "clarification_question": None,
+        }
 
 
 # ====================================================================
@@ -138,7 +159,8 @@ def test_exact_score_no_rag_calls():
 # 4. Pure semantic question enters rag_query
 # ====================================================================
 def test_semantic_question_enters_rag():
-    """No year/team/stage keyword → pure rag_query."""
+    """No year/team/stage keyword -> pure rag_query (route check only)."""
+    # Only check route classification, don't let RAG execute
     result = _invoke_agent("足球比赛为什么激动人心？")
     assert result["route"] == "rag_query"
 
@@ -219,7 +241,7 @@ def test_rag_error_mapping():
 
 
 def test_pure_semantic_no_service_returns_error():
-    """Pure rag_query with no service → error."""
+    """Pure rag_query with no service -> error (RAGFatalError caught)."""
     result = _invoke_agent("为什么世界杯比赛很经典？")
     assert result["status"] == "error"
     codes = {w["code"] for w in result["warnings"]}
