@@ -54,6 +54,15 @@ export interface QueryFilters {
   hasPenalties?: boolean
 }
 
+/** UI 端的筛选状态（数组始终存在，空数组表示不筛选） */
+export interface FiltersState {
+  years: number[]
+  teamIds: string[]
+  stages: string[]
+  resultTypes: string[]
+  hasPenalties: boolean
+}
+
 // ---- GET /api/filter-options ----
 export interface FilterOptionTeam {
   id: string
@@ -107,6 +116,9 @@ export interface MatchItem {
 
 export interface MatchesResponse {
   matches: MatchItem[]
+  total: number
+  page: number
+  page_size: number
 }
 
 // ---- GET /api/graph ----
@@ -196,15 +208,23 @@ export async function fetchFilterOptions(): Promise<FilterOptionsResponse | null
   return api.get('/filter-options') as unknown as Promise<FilterOptionsResponse | null>
 }
 
-/** 获取比赛列表（支持多选筛选） */
-export async function fetchMatches(filters?: QueryFilters): Promise<MatchesResponse | null> {
-  const params = filters
-    ? Object.fromEntries(
-        Object.entries(filters).filter(([, v]) =>
-          v !== undefined && v !== null && (Array.isArray(v) ? v.length > 0 : true),
-        ),
-      )
-    : {}
+/** 获取比赛列表（支持多选筛选 + 分页） */
+export async function fetchMatches(
+  filters?: QueryFilters,
+  page?: number,
+  pageSize?: number,
+): Promise<MatchesResponse | null> {
+  const params: Record<string, unknown> = {}
+  if (filters) {
+    for (const [k, v] of Object.entries(filters)) {
+      if (v !== undefined && v !== null && (Array.isArray(v) ? v.length > 0 : true)) {
+        params[k] = v
+      }
+    }
+  }
+  if (page !== undefined) params.page = page
+  if (pageSize !== undefined) params.page_size = pageSize
+
   return api.get('/matches', {
     params,
     paramsSerializer: { serialize: buildParams },
