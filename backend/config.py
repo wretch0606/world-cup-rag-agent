@@ -42,5 +42,15 @@ class Settings(BaseSettings):
     # Logging
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
 
+    # ------------------------------------------------------------------
+    # RAG LLM — DeepSeek / OpenAI-compatible generation
+    # ------------------------------------------------------------------
+    rag_llm_base_url: str = "https://api.deepseek.com"
+    rag_llm_api_key: str = ""
+    rag_llm_model: str = "deepseek-v4-flash"
+    rag_llm_timeout_ms: int = 30000
+    rag_llm_max_tokens: int = 4096
+    rag_llm_thinking: bool = False
+
 
 settings = Settings()

@@ -29,3 +29,10 @@ The runtime ownership and schemas are defined in [`docs/rag-contract-v1-draft.md
   Chroma retrieval functions (`query_top_k`, `query_with_rerank`) to the async
   `RetrievalGateway` protocol.  Uses `asyncio.to_thread()` for sync→async bridging.
   Never loads Chroma/BGE/Reranker at import time.
+
+- `backend/rag/openai_compatible_generation.py::OpenAICompatibleGenerationClient` —
+  OpenAI-compatible Chat Completions client (DeepSeek by default).  Implements
+  `GenerationClient` protocol.  Calls LLM with `response_format={"type": "json_object"}`,
+  validates output against a trusted schema, and reconstructs sources/evidence from
+  original data so the model can never fabricate references.  Configured via
+  `RAG_LLM_*` env vars.
