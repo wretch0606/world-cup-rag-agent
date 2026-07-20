@@ -92,6 +92,20 @@ class ChromaRetrievalGateway:
         )
         warnings.extend(filter_warnings)
 
+        # Empty list (not [None]) signals combination limit exceeded →
+        # abort with VALIDATION_ERROR before any D call.
+        if not filter_dicts:
+            return _error_result(
+                request,
+                ErrorItem(
+                    code="VALIDATION_ERROR",
+                    message="过滤条件组合数超过安全上限，无法执行检索。",
+                    component="retrieval",
+                    retryable=False,
+                ),
+                timing=RetrievalTiming(total_ms=_elapsed_ms(t0)),
+            )
+
         # --- 2. Determine retrieval strategy -----------------------------
         use_reranker = opts.use_reranker
         use_rewrite = opts.use_query_rewrite
@@ -155,7 +169,27 @@ class ChromaRetrievalGateway:
             )
 
         # --- 4. Post-filter raw items (result_types, match_ids) ---------
+        # D does not natively support result_types / match_ids in its
+        # Chroma where filter.  Post-filtering is applied here but MUST
+        # be flagged as degraded — never claim native filtering.
+        _has_post_filter = bool(
+            request.filters.result_types or request.filters.match_ids
+        )
+        post_filter_degraded = False
         all_raw, pf_dropped = _post_filter_raw(all_raw, request.filters)
+        if _has_post_filter:
+            post_filter_degraded = True
+            warnings.append(
+                WarningItem(
+                    code="RETRIEVAL_DEGRADED",
+                    message=(
+                        "result_types / match_ids 当前仅支持后置过滤，"
+                        "非 Chroma 原生能力，检索可能不完整。"
+                    ),
+                    component="retrieval",
+                    retryable=False,
+                )
+            )
         if pf_dropped > 0:
             logger.info("Post-filter dropped %d raw candidates", pf_dropped)
 
@@ -217,6 +251,7 @@ class ChromaRetrievalGateway:
             rerank_applied=rerank_applied,
             had_dropped_candidates=(dropped > 0),
             rewrite_degraded=rewrite_degraded,
+            post_filter_degraded=post_filter_degraded,
         )
 
         if status == RAGStatus.empty:
@@ -383,20 +418,10 @@ def _build_filter_dicts(
     if not combos:
         combos = [{}]
 
-    # Cap combinations to prevent explosion
+    # Reject when combinations exceed safety limit — never truncate silently.
+    # Returning an empty list signals to the caller that retrieval must abort.
     if len(combos) > max_combinations:
-        warnings.append(
-            WarningItem(
-                code="RETRIEVAL_DEGRADED",
-                message=(
-                    f"过滤条件组合数 ({len(combos)}) 超过安全上限 "
-                    f"({max_combinations})，已截断。"
-                ),
-                component="retrieval",
-                retryable=False,
-            )
-        )
-        combos = combos[:max_combinations]
+        return [], warnings
 
     return combos, warnings
 
@@ -586,6 +611,7 @@ def _determine_status(
     rerank_applied: bool,
     had_dropped_candidates: bool,
     rewrite_degraded: bool = False,
+    post_filter_degraded: bool = False,
 ) -> RAGStatus:
     if not items:
         return RAGStatus.empty
@@ -594,6 +620,8 @@ def _determine_status(
     if use_reranker and not rerank_applied:
         return RAGStatus.degraded
     if had_dropped_candidates:
+        return RAGStatus.degraded
+    if post_filter_degraded:
         return RAGStatus.degraded
     return RAGStatus.ok
 

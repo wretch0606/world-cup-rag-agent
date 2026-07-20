@@ -361,7 +361,7 @@ def test_multi_value_combination():
 # 13. Combination limit exceeded
 # ====================================================================
 def test_combination_limit_exceeded():
-    """Too many filter combos → capped at max_combinations with warning."""
+    """Too many filter combos → empty list, no truncation."""
     dicts, warnings = _build_filter_dicts(
         RetrievalFilters(
             years=[2014, 2018, 2022],
@@ -369,8 +369,84 @@ def test_combination_limit_exceeded():
         ),
         max_combinations=5,
     )
-    assert len(dicts) == 5
-    assert any("截断" in w.message for w in warnings)
+    assert dicts == []  # not truncated — aborted
+
+
+def test_combination_limit_exceeded_error_code():
+    """Gateway returns VALIDATION_ERROR, does not call D."""
+    captured: list[dict] = []
+    gw = ChromaRetrievalGateway(
+        query_top_k_fn=_fake_top_k(captured=captured),
+        query_with_rerank_fn=_fake_rerank(),
+        max_filter_combinations=3,
+    )
+
+    async def _test():
+        return await gw.retrieve(
+            _make_request(
+                filters=RetrievalFilters(
+                    years=[2014, 2018, 2022],
+                    team_ids=["t1", "t2", "t3"],
+                )
+            )
+        )
+
+    result = _run(_test())
+    assert result.status == RAGStatus.error
+    assert result.error is not None
+    assert result.error.code == "VALIDATION_ERROR"
+    assert result.error.component == "retrieval"
+    assert result.error.retryable is False
+    assert len(captured) == 0  # D was never called
+
+
+def test_combination_limit_exceeded_no_d_call():
+    """When combos exceed limit, no D function is ever invoked."""
+    captured: list[dict] = []
+    gw = ChromaRetrievalGateway(
+        query_top_k_fn=_fake_top_k(captured=captured),
+        query_with_rerank_fn=_fake_rerank(),
+        max_filter_combinations=2,
+    )
+
+    async def _test():
+        return await gw.retrieve(
+            _make_request(
+                filters=RetrievalFilters(
+                    years=[2018, 2022],
+                    stages=["final", "semi_final"],
+                )
+            )
+        )
+
+    result = _run(_test())
+    assert result.status == RAGStatus.error
+    assert len(captured) == 0
+
+
+def test_combination_limit_exceeded_applied_filters_preserved():
+    """applied_filters must match request even on error."""
+    gw = ChromaRetrievalGateway(
+        query_top_k_fn=_fake_top_k(),
+        query_with_rerank_fn=_fake_rerank(),
+        max_filter_combinations=2,
+    )
+
+    async def _test():
+        return await gw.retrieve(
+            _make_request(
+                filters=RetrievalFilters(
+                    years=[2014, 2018, 2022],
+                    stages=["final"],
+                    team_ids=["team_ARG"],
+                )
+            )
+        )
+
+    result = _run(_test())
+    assert result.applied_filters.years == [2014, 2018, 2022]
+    assert result.applied_filters.stages == ["final"]
+    assert result.applied_filters.team_ids == ["team_ARG"]
 
 
 # ====================================================================
@@ -854,3 +930,96 @@ def test_deduplicate_keeps_best_rerank():
     result = _deduplicate_by_chunk_id([e1, e2])
     assert len(result) == 1
     assert result[0].rerank_score == 0.9  # best rerank kept
+
+
+# ====================================================================
+# 36. Post-filter degraded status (match_ids)
+# ====================================================================
+def test_match_ids_post_filter_sets_degraded():
+    """When match_ids are used, status must be degraded."""
+    _m = _required_meta
+    captured: list[dict] = []
+    gw = ChromaRetrievalGateway(
+        query_top_k_fn=_fake_top_k(
+            captured=captured,
+            items=[_fake_d_item("c1", metadata={**_m, "match_id": "M-1"})],
+        ),
+        query_with_rerank_fn=_fake_rerank(),
+    )
+
+    async def _test():
+        return await gw.retrieve(
+            _make_request(
+                filters=RetrievalFilters(match_ids=["M-1"])
+            )
+        )
+
+    result = _run(_test())
+    assert result.status == RAGStatus.degraded
+    codes = {w.code for w in result.warnings}
+    assert "RETRIEVAL_DEGRADED" in codes
+    assert len(result.items) == 1
+    assert result.items[0].match_id == "M-1"
+
+
+# ====================================================================
+# 37. Post-filter degraded status (result_types)
+# ====================================================================
+def test_result_types_post_filter_sets_degraded():
+    """When result_types are used, status must be degraded."""
+    _m = _required_meta
+    captured: list[dict] = []
+    gw = ChromaRetrievalGateway(
+        query_top_k_fn=_fake_top_k(
+            captured=captured,
+            items=[_fake_d_item("c1", metadata={**_m, "result_type": "penalties"})],
+        ),
+        query_with_rerank_fn=_fake_rerank(),
+    )
+
+    async def _test():
+        return await gw.retrieve(
+            _make_request(
+                filters=RetrievalFilters(result_types=["penalties"])
+            )
+        )
+
+    result = _run(_test())
+    assert result.status == RAGStatus.degraded
+    codes = {w.code for w in result.warnings}
+    assert "RETRIEVAL_DEGRADED" in codes
+    assert len(result.items) == 1
+
+
+# ====================================================================
+# 38. Post-filter excludes non-matching items
+# ====================================================================
+def test_post_filter_non_matching_items_excluded():
+    """Items not matching result_types/match_ids must not appear."""
+    _m = _required_meta
+    captured: list[dict] = []
+    gw = ChromaRetrievalGateway(
+        query_top_k_fn=_fake_top_k(
+            captured=captured,
+            items=[
+                _fake_d_item("c1", metadata={**_m, "match_id": "M-1", "result_type": "regulation"}),
+                _fake_d_item("c2", metadata={**_m, "match_id": "M-2", "result_type": "penalties"}),
+            ],
+        ),
+        query_with_rerank_fn=_fake_rerank(),
+    )
+
+    async def _test():
+        return await gw.retrieve(
+            _make_request(
+                filters=RetrievalFilters(
+                    match_ids=["M-1"],
+                    result_types=["regulation"],
+                )
+            )
+        )
+
+    result = _run(_test())
+    assert len(result.items) == 1
+    assert result.items[0].chunk_id == "c1"
+    assert result.items[0].match_id == "M-1"
