@@ -74,7 +74,7 @@ class _ModelGenerationPayload(BaseModel):
     used_chunk_ids: list[str] = Field(default_factory=list)
     warnings: list[dict] = Field(default_factory=list)
 
-    model_config = {"extra": "forbid"}
+    model_config = {"extra": "ignore"}
 
 
 # ===================================================================

@@ -1109,12 +1109,142 @@ def test_error_no_api_key_leak():
 
 
 # ====================================================================
-# 41. _ModelGenerationPayload rejects unknown fields
+# 41. _ModelGenerationPayload silently ignores unknown fields
 # ====================================================================
-def test_model_payload_rejects_unknown():
-    from pydantic import ValidationError
-    with __import__("pytest").raises(ValidationError):
-        _ModelGenerationPayload(**{"status": "ok", "answer": "", "unknown": "x"})
+def test_model_payload_ignores_unknown():
+    """extra="ignore": unknown fields are silently dropped, no crash."""
+    payload = _ModelGenerationPayload(
+        status="ok", answer="test", unknown_field="x"
+    )
+    assert payload.status == "ok"
+    assert payload.answer == "test"
+    assert not hasattr(payload, "unknown_field")
+
+
+# 41b. sources / confidence / generation_meta from model are ignored
+def test_model_payload_ignores_oversharing_fields():
+    """Model returns extra sources, confidence, generation_meta — ignored."""
+    payload = _ModelGenerationPayload(
+        status="ok",
+        answer="answer text",
+        facts=[{"fact_id": "f1", "text": "fact"}],
+        used_source_ids=["src-1"],
+        used_chunk_ids=["c1"],
+        warnings=[],
+        sources=[{"source_id": "evil", "title": "fabricated"}],
+        confidence=0.99,
+        generation_meta={"model_name": "evil-model"},
+        unknown_random_field=42,
+    )
+    assert payload.status == "ok"
+    assert payload.answer == "answer text"
+    assert len(payload.facts) == 1
+    assert payload.used_source_ids == ["src-1"]
+    assert payload.used_chunk_ids == ["c1"]
+    # These MUST NOT be present
+    assert not hasattr(payload, "sources")
+    assert not hasattr(payload, "confidence")
+    assert not hasattr(payload, "generation_meta")
+    assert not hasattr(payload, "unknown_random_field")
+
+
+# 41c. E2E: model extra fields do NOT trigger JSON retry
+def test_model_extras_no_retry():
+    """When model returns extra fields, no retry — just strip and proceed."""
+    call_count = [0]
+
+    class _FakeResponse:
+        def __init__(self, content):
+            self.choices = [
+                type("_C", (), {
+                    "message": type("_M", (), {"content": content})()
+                })()
+            ]
+
+    class _FakeAsyncOpenAI:
+        def __init__(self):
+            self.chat = type("_Chat", (), {
+                "completions": type("_Compl", (), {
+                    "create": self._fake_create
+                })()
+            })()
+
+        async def _fake_create(self, **kwargs):
+            call_count[0] += 1
+            import json
+            payload = {
+                "status": "ok",
+                "answer": "test answer with extras.",
+                "facts": [],
+                "used_source_ids": [],
+                "used_chunk_ids": [],
+                "warnings": [],
+                "sources": [{"source_id": "fake-src"}],
+                "confidence": 0.99,
+                "generation_meta": {"model_name": "fake-model"},
+                "unknown_field": "should-be-gone",
+            }
+            return _FakeResponse(json.dumps(payload))
+
+    client = OpenAICompatibleGenerationClient(
+        client=_FakeAsyncOpenAI(),
+        api_key="sk-test",
+        model="test-model",
+    )
+
+    async def _test():
+        return await client.generate(
+            RAGRequest(
+                contract_version=RAG_CONTRACT_VERSION,
+                trace_id="trace-extras-001",
+                question="test",
+                original_question="test",
+                query_type="semantic",
+                filters=RetrievalFilters(),
+                options=RAGOptions(),
+                structured_facts=[],
+                source_catalog=[],
+            ),
+            RetrievalResult(
+                contract_version=RAG_CONTRACT_VERSION,
+                trace_id="trace-extras-001",
+                status=RAGStatus.ok,
+                original_query="test",
+                items=[
+                    EvidenceItem(
+                        chunk_id="c1", document_id="d1",
+                        source_id="src-1", document_name="D",
+                        text="evidence text", data_version="v1",
+                    )
+                ],
+                applied_filters=RetrievalFilters(),
+                timing=RetrievalTiming(),
+            ),
+        )
+
+    result = asyncio.run(_test())
+
+    # 1. No retry — call_count is exactly 1
+    assert call_count[0] == 1, f"Expected 1 call, got {call_count[0]}"
+
+    # 2. Model provided fake sources → ignored, real sources from code
+    assert result.status == RAGStatus.ok
+    assert result.answer == "test answer with extras."
+    # sources NOT from model
+    for s in result.sources:
+        assert s.source_id != "fake-src", "Fabricated source should not appear"
+
+    # 3. confidence must be null (code-enforced)
+    assert result.confidence is None
+
+    # 4. generation_meta uses real config
+    assert result.generation_meta.model_name == "test-model"
+
+    # 5. trace_id from request, not model
+    assert result.trace_id == "trace-extras-001"
+
+    # 6. Extra unknown fields not in RAGResult
+    assert not hasattr(result, "unknown_field")
 
 
 # ====================================================================
