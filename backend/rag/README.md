@@ -24,3 +24,8 @@ The runtime ownership and schemas are defined in [`docs/rag-contract-v1-draft.md
 
 - `backend/schemas/rag_contract.py` — Shared Pydantic v2 models for the full
   B→E→D→E→B chain.  Contract version `rag-v1.1-draft`.
+
+- `backend/rag/chroma_gateway.py::ChromaRetrievalGateway` — Adapts D's synchronous
+  Chroma retrieval functions (`query_top_k`, `query_with_rerank`) to the async
+  `RetrievalGateway` protocol.  Uses `asyncio.to_thread()` for sync→async bridging.
+  Never loads Chroma/BGE/Reranker at import time.
