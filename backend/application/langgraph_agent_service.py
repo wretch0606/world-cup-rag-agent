@@ -60,7 +60,11 @@ def _normalise(state: AgentState) -> AgentState:
     state.setdefault("applied_filters", state.get("filters", {}))
     state.setdefault("confidence", None)
     state.setdefault("warnings", [])
-    state.setdefault("timing", {"routing_ms": 0, "sql_ms": 0, "retrieval_ms": 0, "generation_ms": 0, "total_ms": 0})
+    state.setdefault(
+        "timing",
+        {"routing_ms": 0, "sql_ms": 0, "retrieval_ms": 0,
+         "generation_ms": 0, "total_ms": 0},
+    )
     return state
 
 
@@ -84,10 +88,13 @@ def _classify(state: AgentState) -> AgentState:
     has_stages = bool(extracted.get("stages"))
     has_match_ids = bool(extracted.get("match_ids"))
     has_penalties = extracted.get("has_penalties") is True
-    ask_about_score = any(kw in question for kw in ["比分", "结果", "谁赢", "获胜", "战胜", "击败", "几比几"])
-    ask_about_matches = any(kw in question for kw in ["哪些比赛", "什么比赛", "有哪些比赛", "比赛列表", "交手", "交锋", "对", "交手过", "击败过", "战胜过"])
-    ask_about_detail = any(kw in question for kw in ["详情", "细节", "情况", "介绍"])
-
+    _score_kw = ["比分", "结果", "谁赢", "获胜", "战胜", "击败", "几比几"]
+    ask_about_score = any(kw in question for kw in _score_kw)
+    _match_kw = [
+        "哪些比赛", "什么比赛", "有哪些比赛", "比赛列表",
+        "交手", "交锋", "对", "交手过", "击败过", "战胜过",
+    ]
+    ask_about_matches = any(kw in question for kw in _match_kw)
     # Semantic / hybrid intent keywords
     _semantic_kw = [
         "介绍", "过程", "原因", "总结", "比较", "重要情节",
@@ -238,8 +245,10 @@ def _exact_query(state: AgentState) -> AgentState:
     if not items:
         state["status"] = "empty"
         state["answer"] = "未找到符合条件的比赛。"
-        af = {"years": years, "team_ids": team_ids, "stages": stages, "has_penalties": has_penalties}
-        state["applied_filters"] = af
+        state["applied_filters"] = {
+            "years": years, "team_ids": team_ids,
+            "stages": stages, "has_penalties": has_penalties,
+        }
         state["warnings"].append({
             "code": "NO_RESULT",
             "message": "没有可靠事实或证据回答该问题。",
@@ -249,7 +258,8 @@ def _exact_query(state: AgentState) -> AgentState:
         return state
 
     # If exactly one match and question asks for score → return detail
-    ask_score = any(kw in state.get("question", "") for kw in ["比分", "结果", "谁赢", "获胜", "几比几"])
+    _score_kw2 = ["比分", "结果", "谁赢", "获胜", "几比几"]
+    ask_score = any(kw in state.get("question", "") for kw in _score_kw2)
     if len(items) == 1 and ask_score:
         match = provider.get_match(items[0]["match_id"]) if provider else None
         if match:
@@ -257,7 +267,10 @@ def _exact_query(state: AgentState) -> AgentState:
             state["sources"] = match.get("sources", [])
             state["graph"] = _build_answer_graph(match)
             state["answer"] = _build_answer_text(match)
-            state["applied_filters"] = {"years": years, "team_ids": team_ids, "stages": stages, "has_penalties": has_penalties}
+            state["applied_filters"] = {
+                "years": years, "team_ids": team_ids,
+                "stages": stages, "has_penalties": has_penalties,
+            }
             return state
 
     # Multiple matches → return list as facts
@@ -270,17 +283,29 @@ def _exact_query(state: AgentState) -> AgentState:
         state["answer"] = f"{h} vs {a}，比分 {s}。"
     else:
         teams_str = ", ".join(dict.fromkeys(
-            m.get("home_team", {}).get("name", "") or m.get("away_team", {}).get("name", "")
+            m.get("home_team", {}).get("name", "")
+            or m.get("away_team", {}).get("name", "")
             for m in items
         ))
-        state["answer"] = f"共找到 {len(items)} 场比赛{('（涉及 ' + teams_str + '）') if teams_str else ''}。"
+        state["answer"] = (
+            f"共找到 {len(items)} 场比赛"
+            f"{'（涉及 ' + teams_str + '）' if teams_str else ''}。"
+        )
     state["graph"] = _build_list_graph(items)
-    state["applied_filters"] = {"years": years, "team_ids": team_ids, "stages": stages, "has_penalties": has_penalties}
+    state["applied_filters"] = {
+        "years": years, "team_ids": team_ids,
+        "stages": stages, "has_penalties": has_penalties,
+    }
 
     return state
 
 
-def _run_relation_query(state: AgentState, provider: FrontendDataProvider, team_ids: list[str], years: list[int]) -> AgentState:
+def _run_relation_query(
+    state: AgentState,
+    provider: FrontendDataProvider,
+    team_ids: list[str],
+    years: list[int],
+) -> AgentState:
     """Run a team-relations query for head-to-head."""
     rf = RelationFilters()
     if years:
@@ -292,9 +317,12 @@ def _run_relation_query(state: AgentState, provider: FrontendDataProvider, team_
         state["answer"] = "未找到该球队的交手记录。"
         return state
 
-    state["facts"] = [
-        {"fact_type": "relation", "fact_id": f"rel-{team_ids[0]}", "text": f"{team_ids[0]} 历史交手统计", "source_ids": []}
-    ]
+    state["facts"] = [{
+        "fact_type": "relation",
+        "fact_id": f"rel-{team_ids[0]}",
+        "text": f"{team_ids[0]} 历史交手统计",
+        "source_ids": [],
+    }]
     state["sources"] = []
     state["graph"] = rel.get("graph", {"scope": "answer_facts", "nodes": [], "edges": []})
     stats = rel.get("stats", {})
@@ -533,7 +561,8 @@ def _apply_rag_result(state: AgentState, rag_result: object) -> None:
         if hasattr(f, "penalty_score"):
             fd["penalty_score"] = f.penalty_score
         if hasattr(f, "result_type"):
-            fd["result_type"] = f.result_type.value if hasattr(f.result_type, "value") else f.result_type
+            rt = f.result_type
+            fd["result_type"] = rt.value if hasattr(rt, "value") else rt
         if hasattr(f, "winner_team_id"):
             fd["winner_team_id"] = f.winner_team_id
         state["facts"].append(fd)
@@ -628,9 +657,17 @@ def _build_rag_graph(
             "type": "match_result",
             "match_id": mid,
             "tournament_year": getattr(f, "tournament_year", None),
-            "stage": getattr(f, "stage", "").value if hasattr(getattr(f, "stage", ""), "value") else getattr(f, "stage", ""),
+            "stage": (
+                getattr(f, "stage", "").value
+                if hasattr(getattr(f, "stage", ""), "value")
+                else getattr(f, "stage", "")
+            ),
             "stage_name": getattr(f, "stage_name", ""),
-            "result_type": getattr(f, "result_type", "").value if hasattr(getattr(f, "result_type", ""), "value") else getattr(f, "result_type", ""),
+            "result_type": (
+                getattr(f, "result_type", "").value
+                if hasattr(getattr(f, "result_type", ""), "value")
+                else getattr(f, "result_type", "")
+            ),
             "winner_team_id": wid,
         })
 
@@ -718,8 +755,15 @@ def _build_answer_graph(match: dict) -> dict:
         ],
         "edges": [{
             "id": f"edge-{match['match_id']}",
-            "source": w["team_id"] if (w and w.get("team_id")) else h.get("team_id", ""),
-            "target": a.get("team_id", "") if (w and w.get("team_id", "") == h.get("team_id", "")) else h.get("team_id", ""),
+            "source": (
+                w["team_id"] if (w and w.get("team_id"))
+                else h.get("team_id", "")
+            ),
+            "target": (
+                a.get("team_id", "")
+                if (w and w.get("team_id", "") == h.get("team_id", ""))
+                else h.get("team_id", "")
+            ),
             "type": "match_result",
             "match_id": match["match_id"],
             "tournament_year": match.get("tournament_year"),
@@ -727,7 +771,11 @@ def _build_answer_graph(match: dict) -> dict:
             "stage_name": match.get("stage_name", ""),
             "result_type": match.get("result_type", ""),
             "winner_team_id": w["team_id"] if w else None,
-            "label": f"{match.get('tournament_year','')} {match.get('stage_name','')} {match.get('score',{}).get('display','')}",
+            "label": (
+                f"{match.get('tournament_year','')} "
+                f"{match.get('stage_name','')} "
+                f"{match.get('score',{}).get('display','')}"
+            ),
         }],
     }
 
@@ -744,9 +792,13 @@ def _build_list_graph(items: list[dict]) -> dict:
         aid = m.get("away_team", {}).get("team_id", "")
         edges.append({
             "id": f"edge-{m['match_id']}",
-            "source": w["team_id"] if (w and w.get("team_id")) else hid,
-            "target": aid if (w and w.get("team_id") and w["team_id"] == hid) else (
-                hid if (w and w.get("team_id") and w["team_id"] != hid) else aid
+            "source": (
+                w["team_id"] if (w and w.get("team_id")) else hid
+            ),
+            "target": (
+                aid if (w and w.get("team_id") and w["team_id"] == hid)
+                else (hid if (w and w.get("team_id") and w["team_id"] != hid)
+                      else aid)
             ),
             "type": "match_result",
             "match_id": m["match_id"],
@@ -755,7 +807,11 @@ def _build_list_graph(items: list[dict]) -> dict:
             "stage_name": m.get("stage_name", ""),
             "result_type": m.get("result_type", ""),
             "winner_team_id": w["team_id"] if w else None,
-            "label": f"{m.get('tournament_year','')} {m.get('stage_name','')} {m.get('score',{}).get('display','')}",
+            "label": (
+                f"{m.get('tournament_year','')} "
+                f"{m.get('stage_name','')} "
+                f"{m.get('score',{}).get('display','')}"
+            ),
         })
     return {"scope": "answer_facts", "nodes": list(nodes.values()), "edges": edges}
 
@@ -829,5 +885,9 @@ class LangGraphAgentService:
             "applied_filters": result.get("applied_filters", {}),
             "confidence": result.get("confidence"),
             "warnings": result.get("warnings", []),
-            "timing": result.get("timing", {"routing_ms": 0, "sql_ms": 0, "retrieval_ms": 0, "generation_ms": 0, "total_ms": 0}),
+            "timing": result.get(
+                "timing",
+                {"routing_ms": 0, "sql_ms": 0, "retrieval_ms": 0,
+                 "generation_ms": 0, "total_ms": 0},
+            ),
         }
