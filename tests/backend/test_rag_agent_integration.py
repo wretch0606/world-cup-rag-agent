@@ -206,13 +206,24 @@ def test_rag_status_degraded_mapping():
 
 
 def test_rag_error_mapping():
+    """Hybrid with facts + RAG error → degraded (safe fallback)."""
     ret = FakeRetrievalGateway(status=RAGStatus.error,
                                error=ErrorItem(code="RETRIEVAL_ERROR",
                                message="f", component="retrieval"))
     rag_svc = _make_fake_rag_service(retrieval=ret)
     result = _invoke_agent("介绍2022年世界杯决赛的重要情节",
                            rag_service=rag_svc)
+    assert result["status"] == "degraded"
+    codes = {w["code"] for w in result["warnings"]}
+    assert "GENERATION_DEGRADED" in codes
+
+
+def test_pure_semantic_no_service_returns_error():
+    """Pure rag_query with no service → error."""
+    result = _invoke_agent("为什么世界杯比赛很经典？")
     assert result["status"] == "error"
+    codes = {w["code"] for w in result["warnings"]}
+    assert "DATA_SOURCE_UNAVAILABLE" in codes
 
 
 # ====================================================================
@@ -258,10 +269,13 @@ def test_missing_api_key_exact_query_works():
 # ====================================================================
 # 16. RAG service None returns error for semantic
 # ====================================================================
-def test_rag_service_none_semantic_returns_error():
+def test_rag_service_none_hybrid_degraded():
+    """Hybrid with facts + no RAG service → degraded, facts preserved."""
     result = _invoke_agent("介绍2022年世界杯决赛的重要情节")
-    assert result["status"] == "error"
-    assert any("RAG" in w.get("message", "") for w in result["warnings"])
+    assert result["status"] == "degraded"
+    codes = {w["code"] for w in result["warnings"]}
+    assert "GENERATION_DEGRADED" in codes
+    assert len(result.get("facts", [])) > 0  # facts preserved
 
 
 # ====================================================================

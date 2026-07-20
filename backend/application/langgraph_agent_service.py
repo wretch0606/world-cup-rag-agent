@@ -364,6 +364,150 @@ def _get_rag_service() -> object | None:
         return None
 
 
+def _handle_rag_unavailable(
+    state: AgentState,
+    structured_facts: list[dict],
+    source_catalog: list[dict],
+) -> AgentState:
+    """Handle missing RAG service — degraded for hybrid, error for semantic."""
+    route = state.get("route", "")
+
+    if route == "hybrid_query" and structured_facts:
+        # We have trusted SQLite facts → return degraded limited answer
+        state["status"] = "degraded"
+        state["facts"] = [
+            _build_agent_fact_from_structured(sf)
+            for sf in structured_facts
+        ]
+        state["sources"] = source_catalog
+        state["graph"] = _build_hybrid_degraded_graph(structured_facts)
+        state["answer"] = _build_hybrid_degraded_answer(structured_facts)
+        state["confidence"] = None
+        state["warnings"].append({
+            "code": "GENERATION_DEGRADED",
+            "message": "语义生成服务暂不可用，已返回结构化事实结果。",
+            "component": "generation",
+            "retryable": True,
+        })
+        return state
+
+    # Pure semantic — no facts to fall back on
+    state["status"] = "error"
+    state["answer"] = "RAG 语义检索服务暂不可用，请稍后重试。"
+    state["facts"] = []
+    state["sources"] = []
+    state["graph"] = {"scope": "answer_facts", "nodes": [], "edges": []}
+    state["confidence"] = None
+    state["warnings"].append({
+        "code": "DATA_SOURCE_UNAVAILABLE",
+        "message": "RAG 语义检索服务未配置或初始化失败。",
+        "component": "rag_query",
+        "retryable": True,
+    })
+    return state
+
+
+def _build_agent_fact_from_structured(sf: dict) -> dict:
+    """Convert a structured fact dict to frontend AgentFact shape."""
+    return {
+        "fact_type": "match_result",
+        "fact_id": f"fact-{sf.get('match_id', '')}-structured",
+        "match_id": sf.get("match_id", ""),
+        "tournament_year": sf.get("tournament_year"),
+        "stage": sf.get("stage"),
+        "stage_name": sf.get("stage_name", ""),
+        "home_team": {
+            "team_id": sf.get("home_team_id", ""),
+            "name": sf.get("home_team_name", ""),
+        },
+        "away_team": {
+            "team_id": sf.get("away_team_id", ""),
+            "name": sf.get("away_team_name", ""),
+        },
+        "score": {
+            "regular_time": {
+                "home": sf.get("home_score_90") or 0,
+                "away": sf.get("away_score_90") or 0,
+            },
+            "display": sf.get("score_display", ""),
+            "penalty_display": sf.get("penalty_score"),
+        },
+        "result_type": sf.get("result_type"),
+        "winner_team": (
+            {"team_id": sf.get("winner_team_id", ""),
+             "name": sf.get("home_team_name", "")
+             if sf.get("winner_team_id") == sf.get("home_team_id")
+             else sf.get("away_team_name", "")}
+            if sf.get("winner_team_id") else None
+        ),
+        "text": _build_structured_answer_text(sf),
+        "source_ids": sf.get("source_ids", []),
+    }
+
+
+def _build_structured_answer_text(sf: dict) -> str:
+    """Deterministic answer from structured fact (no LLM)."""
+    h = sf.get("home_team_name", "")
+    a = sf.get("away_team_name", "")
+    year = sf.get("tournament_year", "")
+    stage = sf.get("stage_name", "")
+    display = sf.get("score_display", "?")
+    pd = sf.get("penalty_score")
+    if pd:
+        return f"{year}年世界杯{stage}，{h} vs {a}，加时赛后 {display}，点球大战 {pd}。"
+    return f"{year}年世界杯{stage}，{h} vs {a}，比分 {display}。"
+
+
+def _build_hybrid_degraded_graph(structured_facts: list[dict]) -> dict:
+    """Build a minimal graph from structured facts for degraded mode."""
+    nodes: dict[str, dict] = {}
+    edges: list[dict] = []
+    seen: set[str] = set()
+    for sf in structured_facts:
+        mid = sf.get("match_id", "")
+        if not mid or mid in seen:
+            continue
+        seen.add(mid)
+        hid = sf.get("home_team_id", "")
+        aid = sf.get("away_team_id", "")
+        hname = sf.get("home_team_name", "")
+        aname = sf.get("away_team_name", "")
+        wid = sf.get("winner_team_id")
+        if hid:
+            nodes[hid] = {"id": hid, "name": hname, "type": "team"}
+        if aid:
+            nodes[aid] = {"id": aid, "name": aname, "type": "team"}
+        edges.append({
+            "id": f"edge-{mid}",
+            "source": wid if wid else hid,
+            "target": aid if (wid and wid == hid) else (hid if wid and wid != aid else aid),
+            "type": "match_result",
+            "match_id": mid,
+            "tournament_year": sf.get("tournament_year"),
+            "stage": sf.get("stage", ""),
+            "stage_name": sf.get("stage_name", ""),
+            "result_type": sf.get("result_type", ""),
+            "winner_team_id": wid,
+        })
+    return {"scope": "answer_facts", "nodes": list(nodes.values()), "edges": edges}
+
+
+def _build_hybrid_degraded_answer(structured_facts: list[dict]) -> str:
+    """Deterministic degraded answer from structured facts only."""
+    if not structured_facts:
+        return "当前无法提供完整答案，请稍后重试。"
+    if len(structured_facts) == 1:
+        return _build_structured_answer_text(structured_facts[0])
+    teams = list(dict.fromkeys(
+        sf.get("home_team_name", "") for sf in structured_facts
+    ))
+    return (
+        f"共找到 {len(structured_facts)} 场比赛"
+        f"{'（涉及 ' + '、'.join(teams) + '）' if teams else ''}，"
+        f"语义生成服务暂不可用，以下为结构化事实结果。"
+    )
+
+
 def _rag_query(state: AgentState) -> AgentState:
     """Execute semantic / hybrid query via RagService → Chroma → DeepSeek."""
     import asyncio
@@ -380,19 +524,9 @@ def _rag_query(state: AgentState) -> AgentState:
     if route not in ("rag_query", "hybrid_query"):
         return state
 
-    rag_svc = _get_rag_service()
-    if rag_svc is None:
-        state["status"] = "error"
-        state["answer"] = "RAG 服务暂时不可用。"
-        state["warnings"].append({
-            "code": "DATA_SOURCE_UNAVAILABLE",
-            "message": "RAG 服务未配置或初始化失败。",
-            "component": "rag_query",
-            "retryable": True,
-        })
-        return state
-
     # --- Build structured_facts + source_catalog from SQLite -------------
+    # Build facts BEFORE checking RAG availability — we may need them
+    # for a safe degraded response even when the service is down.
     provider = _get_provider_safe()
     extracted = state.get("extracted", {})
     filters = state.get("filters", {})
@@ -468,6 +602,11 @@ def _rag_query(state: AgentState) -> AgentState:
         options=RAGOptions(retrieval_top_k=5, rerank_top_n=3),
     )
 
+    # --- Check RAG availability ----------------------------------------
+    rag_svc = _get_rag_service()
+    if rag_svc is None:
+        return _handle_rag_unavailable(state, structured_facts, source_catalog)
+
     # --- Call RagService (async → sync bridge for LangGraph) -------------
     try:
         try:
@@ -486,6 +625,9 @@ def _rag_query(state: AgentState) -> AgentState:
         else:
             rag_result = asyncio.run(rag_svc.generate(rag_request))
     except Exception:
+        # For hybrid queries with trusted facts, degrade instead of error
+        if route == "hybrid_query" and structured_facts:
+            return _handle_rag_unavailable(state, structured_facts, source_catalog)
         state["status"] = "error"
         state["answer"] = "RAG 查询处理失败。"
         state["warnings"].append({
@@ -495,6 +637,14 @@ def _rag_query(state: AgentState) -> AgentState:
             "retryable": True,
         })
         return state
+
+    # --- Check RAGResult for error with hybrid fallback -----------------
+    rag_status = getattr(rag_result, "status", None)
+    rag_status_str = rag_status.value if hasattr(rag_status, "value") else str(rag_status or "")
+
+    if rag_status_str == "error" and route == "hybrid_query" and structured_facts:
+        # RAG returned error but we have trusted facts → degrade
+        return _handle_rag_unavailable(state, structured_facts, source_catalog)
 
     # --- Map RAGResult → state -------------------------------------------
     _apply_rag_result(state, rag_result)
