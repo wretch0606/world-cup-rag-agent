@@ -628,14 +628,24 @@ def _rag_query(state: AgentState) -> AgentState:
                 rag_result = fut.result(timeout=35)
         else:
             rag_result = asyncio.run(rag_svc.generate(rag_request))
-    except Exception:
-        # For hybrid queries with trusted facts, degrade instead of error
+    except TimeoutError:
+        # Actual timeout → HTTP 504
         if route == "hybrid_query" and structured_facts:
             return _handle_rag_unavailable(state, structured_facts, source_catalog)
         raise RAGFatalError(
             code="UPSTREAM_TIMEOUT",
-            message="RAG 查询超时或失败。",
+            message="RAG 查询超时，请稍后重试。",
             status_code=504,
+            retryable=True,
+        )
+    except Exception:
+        # Non-timeout failure → HTTP 503
+        if route == "hybrid_query" and structured_facts:
+            return _handle_rag_unavailable(state, structured_facts, source_catalog)
+        raise RAGFatalError(
+            code="DATA_SOURCE_UNAVAILABLE",
+            message="RAG 查询处理失败。",
+            status_code=503,
             retryable=True,
         )
 

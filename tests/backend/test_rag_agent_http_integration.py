@@ -126,6 +126,83 @@ def test_semantic_retrieval_error_returns_503(_mock_rag):
     assert data["data"] is None
 
 
+@patch("backend.application.langgraph_agent_service._get_rag_service")
+def test_semantic_runtime_error_returns_503(_mock_rag):
+    """Pure rag_query with RuntimeError -> HTTP 503 (not 504)."""
+    from backend.application.langgraph_agent_service import LangGraphAgentService
+    from backend.dependencies import get_agent_service
+    from backend.main import app
+    from backend.rag.service import RagService
+
+    class _FailingGateway:
+        async def retrieve(self, request):
+            raise RuntimeError("generic failure")
+
+    _mock_rag.return_value = RagService(
+        retrieval=_FailingGateway(),
+        generation=None,
+    )
+
+    app.dependency_overrides[get_agent_service] = lambda: LangGraphAgentService()
+    client = TestClient(app)
+    resp = _http_post(client, "为什么世界杯比赛很经典？")
+    assert resp.status_code == 503
+    data = resp.json()
+    assert data["code"] == "DATA_SOURCE_UNAVAILABLE"
+    assert data["retryable"] is True
+
+
+@patch("backend.application.langgraph_agent_service._get_rag_service")
+def test_ragresult_timeout_code_returns_504(_mock_rag):
+    """RAGResult with error.code=TIMEOUT -> HTTP 504."""
+    from backend.application.langgraph_agent_service import LangGraphAgentService
+    from backend.dependencies import get_agent_service
+    from backend.main import app
+    from backend.rag.service import RagService
+    from backend.schemas.rag_contract import (  # noqa: F401
+        RAG_CONTRACT_VERSION,
+        ErrorItem,
+        GenerationMeta,
+        RAGResult,
+        RAGStatus,
+        RAGTiming,
+        RetrievalFilters,
+        RetrievalResult,
+        RetrievalTiming,
+    )
+
+    class _TimeoutReturningGateway:
+        async def retrieve(self, request):
+            return RetrievalResult(
+                contract_version=RAG_CONTRACT_VERSION,
+                trace_id=request.trace_id,
+                status=RAGStatus.error,
+                original_query=request.query,
+                items=[],
+                applied_filters=request.filters,
+                timing=RetrievalTiming(),
+                error=ErrorItem(code="TIMEOUT", message="timeout",
+                                component="retrieval"),
+            )
+
+    class _DummyGen:
+        async def generate(self, req, ret):
+            raise RuntimeError("should not be called")
+
+    _mock_rag.return_value = RagService(
+        retrieval=_TimeoutReturningGateway(),
+        generation=_DummyGen(),
+    )
+
+    app.dependency_overrides[get_agent_service] = lambda: LangGraphAgentService()
+    client = TestClient(app)
+    resp = _http_post(client, "为什么世界杯比赛很经典？")
+    assert resp.status_code == 504
+    data = resp.json()
+    assert data["code"] == "UPSTREAM_TIMEOUT"
+    assert data["retryable"] is True
+
+
 # ====================================================================
 # 5. Error message does not contain API key, paths, or stack traces
 # ====================================================================
