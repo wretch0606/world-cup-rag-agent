@@ -50,6 +50,28 @@ class AgentState(dict):
     extracted: dict
 
 
+def _graph_payload(
+    nodes: list[dict],
+    edges: list[dict],
+    *,
+    scope: str = "answer_facts",
+    applied_filters: dict | None = None,
+) -> dict:
+    """Build a complete live graph payload for the public API contract."""
+    return {
+        "data_status": "live",
+        "scope": scope,
+        "nodes": nodes,
+        "edges": edges,
+        "stats": {
+            "node_count": len(nodes),
+            "edge_count": len(edges),
+            "truncated": False,
+        },
+        "applied_filters": applied_filters or {},
+    }
+
+
 # ---------------------------------------------------------------------------
 # Nodes
 # ---------------------------------------------------------------------------
@@ -64,7 +86,7 @@ def _normalise(state: AgentState) -> AgentState:
     state.setdefault("clarification_question", None)
     state.setdefault("facts", [])
     state.setdefault("sources", [])
-    state.setdefault("graph", {"scope": "answer_facts", "nodes": [], "edges": []})
+    state.setdefault("graph", _graph_payload([], []))
     state.setdefault("applied_filters", state.get("filters", {}))
     state.setdefault("confidence", None)
     state.setdefault("warnings", [])
@@ -527,9 +549,14 @@ def _build_hybrid_degraded_graph(structured_facts: list[dict]) -> dict:
                 "stage_name": sf.get("stage_name", ""),
                 "result_type": sf.get("result_type", ""),
                 "winner_team_id": wid,
+                "label": (
+                    f"{sf.get('tournament_year', '')} "
+                    f"{sf.get('stage_name', '')} "
+                    f"{sf.get('score_display', '')}"
+                ),
             }
         )
-    return {"scope": "answer_facts", "nodes": list(nodes.values()), "edges": edges}
+    return _graph_payload(list(nodes.values()), edges)
 
 
 def _build_hybrid_degraded_answer(structured_facts: list[dict]) -> str:
@@ -890,7 +917,7 @@ def _build_rag_graph(facts: list[object], sources: list[object]) -> dict:
             }
         )
 
-    return {"scope": "answer_facts", "nodes": list(nodes.values()), "edges": edges}
+    return _graph_payload(list(nodes.values()), edges)
 
 
 def _assemble(state: AgentState) -> AgentState:
@@ -944,6 +971,9 @@ def _build_list_fact(match: dict) -> dict:
         "stage_name": match.get("stage_name", ""),
         "home_team": match.get("home_team"),
         "away_team": match.get("away_team"),
+        "score": match.get("score"),
+        "result_type": match.get("result_type"),
+        "winner_team": match.get("winner_team"),
         "text": f"{h} vs {a} {s}",
         "source_ids": [],
     }
@@ -966,36 +996,34 @@ def _build_answer_graph(match: dict) -> dict:
     h = match.get("home_team", {})
     a = match.get("away_team", {})
     w = match.get("winner_team")
-    return {
-        "scope": "answer_facts",
-        "nodes": [
-            {"id": h.get("team_id", ""), "name": h.get("name", ""), "type": "team"},
-            {"id": a.get("team_id", ""), "name": a.get("name", ""), "type": "team"},
-        ],
-        "edges": [
-            {
-                "id": f"edge-{match['match_id']}",
-                "source": (w["team_id"] if (w and w.get("team_id")) else h.get("team_id", "")),
-                "target": (
-                    a.get("team_id", "")
-                    if (w and w.get("team_id", "") == h.get("team_id", ""))
-                    else h.get("team_id", "")
-                ),
-                "type": "match_result",
-                "match_id": match["match_id"],
-                "tournament_year": match.get("tournament_year"),
-                "stage": match.get("stage", ""),
-                "stage_name": match.get("stage_name", ""),
-                "result_type": match.get("result_type", ""),
-                "winner_team_id": w["team_id"] if w else None,
-                "label": (
-                    f"{match.get('tournament_year', '')} "
-                    f"{match.get('stage_name', '')} "
-                    f"{match.get('score', {}).get('display', '')}"
-                ),
-            }
-        ],
-    }
+    nodes = [
+        {"id": h.get("team_id", ""), "name": h.get("name", ""), "type": "team"},
+        {"id": a.get("team_id", ""), "name": a.get("name", ""), "type": "team"},
+    ]
+    edges = [
+        {
+            "id": f"edge-{match['match_id']}",
+            "source": (w["team_id"] if (w and w.get("team_id")) else h.get("team_id", "")),
+            "target": (
+                a.get("team_id", "")
+                if (w and w.get("team_id", "") == h.get("team_id", ""))
+                else h.get("team_id", "")
+            ),
+            "type": "match_result",
+            "match_id": match["match_id"],
+            "tournament_year": match.get("tournament_year"),
+            "stage": match.get("stage", ""),
+            "stage_name": match.get("stage_name", ""),
+            "result_type": match.get("result_type", ""),
+            "winner_team_id": w["team_id"] if w else None,
+            "label": (
+                f"{match.get('tournament_year', '')} "
+                f"{match.get('stage_name', '')} "
+                f"{match.get('score', {}).get('display', '')}"
+            ),
+        }
+    ]
+    return _graph_payload(nodes, edges)
 
 
 def _build_list_graph(items: list[dict]) -> dict:
@@ -1031,7 +1059,7 @@ def _build_list_graph(items: list[dict]) -> dict:
                 ),
             }
         )
-    return {"scope": "answer_facts", "nodes": list(nodes.values()), "edges": edges}
+    return _graph_payload(list(nodes.values()), edges)
 
 
 # ---------------------------------------------------------------------------
@@ -1099,7 +1127,7 @@ class LangGraphAgentService:
             "clarification_question": result.get("clarification_question"),
             "facts": result.get("facts", []),
             "sources": result.get("sources", []),
-            "graph": result.get("graph", {"scope": "answer_facts", "nodes": [], "edges": []}),
+            "graph": result.get("graph", _graph_payload([], [])),
             "applied_filters": result.get("applied_filters", {}),
             "confidence": result.get("confidence"),
             "warnings": result.get("warnings", []),
