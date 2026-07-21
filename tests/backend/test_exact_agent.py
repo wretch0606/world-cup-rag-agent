@@ -81,8 +81,18 @@ def test_penalty_matches_2022():
     assert data["status"] == "ok"
     for fact in data.get("facts", []):
         score = fact.get("score", {})
-        if score:
-            assert score.get("penalties") is not None
+        assert score
+        assert score.get("penalties") is not None
+        assert fact.get("result_type") == "penalties"
+
+
+def test_exact_query_graph_has_live_metadata_and_counts():
+    body = _post({"question": "2022年有哪些点球大战？"})
+    graph = body["data"]["graph"]
+
+    assert graph["data_status"] == "live"
+    assert graph["stats"]["node_count"] == len(graph["nodes"])
+    assert graph["stats"]["edge_count"] == len(graph["edges"])
 
 
 # ------------------------------------------------------------------

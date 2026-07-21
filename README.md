@@ -24,6 +24,45 @@ flowchart LR
     RAG --> RERANK[BGE Reranker]
 ```
 
+## 运行 SQLite Live Demo
+
+仓库内置 6 场 2022 年世界杯淘汰赛样例，可在不下载外部数据、无需大模型密钥的情况下运行真实 SQLite 查询和 LangGraph 精确问答：
+
+```bash
+# 1. 安装 Python 依赖
+uv sync
+
+# 2. 生成 data/generated/worldcup_demo.db 及配套事实文件
+uv run python scripts/init_demo_data.py
+
+# 3. 复制环境变量示例
+cp .env.example .env
+```
+
+Windows PowerShell 可使用 `Copy-Item .env.example .env`。随后在 `.env` 中切换：
+
+```dotenv
+FRONTEND_DATA_MODE=sqlite
+WORLD_CUP_DB_PATH=data/generated/worldcup_demo.db
+AGENT_MODE=langgraph
+```
+
+启动后端：
+
+```bash
+uv run uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+另开终端启动前端：
+
+```bash
+cd frontend
+npm ci
+npm run dev
+```
+
+此离线 Demo 覆盖真实 SQLite 筛选、比赛详情及精确事实问答；需要 Chroma 和大模型的语义问答仍属于后续接入范围。
+
 ## 目录约定
 
 ```text
