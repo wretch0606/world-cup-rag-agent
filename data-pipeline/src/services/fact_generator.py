@@ -9,14 +9,13 @@
 
 import hashlib
 import json
-from typing import Optional
 
-from models.entities import Match, Team, StructuredFact
-
+from models.entities import Match, StructuredFact, Team
 
 # ═══════════════════════════════════════════════════════════
 #  单场比赛事实文本
 # ═══════════════════════════════════════════════════════════
+
 
 def generate_match_fact(
     match: Match,
@@ -73,7 +72,10 @@ def generate_match_fact(
         winner_name = home_name if h_pen > a_pen else away_name
         score_90 = f"{match.home_score_90}:{match.away_score_90}"
         if match.home_score_et is not None and match.away_score_et is not None:
-            if match.home_score_et != match.home_score_90 or match.away_score_et != match.away_score_90:
+            if (
+                match.home_score_et != match.home_score_90
+                or match.away_score_et != match.away_score_90
+            ):
                 score_et = f"{match.home_score_et}:{match.away_score_et}"
                 return (
                     f"{year}年世界杯{stage_name}，{home_name}队{venue_str}与{away_name}队"
@@ -97,11 +99,12 @@ def generate_match_fact(
 #  转换为 StructuredFact（对齐 RAG 契约）
 # ═══════════════════════════════════════════════════════════
 
+
 def match_to_structured_fact(
     match: Match,
     home_team: Team,
     away_team: Team,
-    source_ids: Optional[list[str]] = None,
+    source_ids: list[str] | None = None,
     tournament_host: str = "",
 ) -> StructuredFact:
     """
@@ -158,12 +161,13 @@ def match_to_structured_fact(
 #  批量生成（供 Chroma 入库 / D 消费）
 # ═══════════════════════════════════════════════════════════
 
+
 def generate_all_match_facts(
     matches: list[Match],
     teams: dict[str, Team],
-    source_ids: Optional[list[str]] = None,
+    source_ids: list[str] | None = None,
     source_url: str = "",
-    source_page: Optional[str] = None,
+    source_page: str | None = None,
     tournament_host: str = "",
 ) -> list[dict]:
     """
@@ -209,9 +213,11 @@ def generate_all_match_facts(
         away_team = teams.get(match.away_team_id)
 
         if not home_team or not away_team:
+            home_status = "found" if home_team else "MISSING"
+            away_status = "found" if away_team else "MISSING"
             skipped.append(
-                f"{match.match_id}: home={match.home_team_id}({'found' if home_team else 'MISSING'}), "
-                f"away={match.away_team_id}({'found' if away_team else 'MISSING'})"
+                f"{match.match_id}: home={match.home_team_id}({home_status}), "
+                f"away={match.away_team_id}({away_status})"
             )
             continue
 
@@ -220,32 +226,33 @@ def generate_all_match_facts(
         # 生成幂等 id
         doc_id = f"match_fact_{match.match_id}_{match.data_version or 'v1'}"
 
-        results.append({
-            "id": doc_id,
-            "text": fact_text,
-            "metadata": {
-                "match_id": match.match_id,
-                "tournament_year": match.tournament_year,
-                "stage": match.stage,                   # 英文 enum，与 DB 一致
-                "stage_name": match.stage_name or match.stage,  # 中文显示名
-                "team_ids": [match.home_team_id, match.away_team_id],
-                "result_type": match.result_type,
-
-                "source_ids": source_ids,               # 支持多来源数组
-                "document_name": f"FIFA World Cup {match.tournament_year}",
-                "source_url": source_url,
-                "source_page": source_page,
-
-                "chunk_index": 0,
-                "language": "zh",
-                "data_version": match.data_version or "2026-07-16-v2",
-            },
-        })
+        results.append(
+            {
+                "id": doc_id,
+                "text": fact_text,
+                "metadata": {
+                    "document_id": doc_id,
+                    "match_id": match.match_id,
+                    "tournament_year": match.tournament_year,
+                    "stage": match.stage,  # 英文 enum，与 DB 一致
+                    "stage_name": match.stage_name or match.stage,  # 中文显示名
+                    "team_ids": [match.home_team_id, match.away_team_id],
+                    "result_type": match.result_type,
+                    "source_ids": source_ids,  # 支持多来源数组
+                    "document_name": f"FIFA World Cup {match.tournament_year}",
+                    "source_url": source_url,
+                    "source_page": source_page,
+                    "chunk_index": 0,
+                    "language": "zh",
+                    "data_version": match.data_version or "2026-07-16-v2",
+                },
+            }
+        )
 
     if skipped:
         import sys
-        print(f"\n[C] 以下比赛因无法匹配球队而跳过 ({len(skipped)} 场):",
-              file=sys.stderr)
+
+        print(f"\n[C] 以下比赛因无法匹配球队而跳过 ({len(skipped)} 场):", file=sys.stderr)
         for s in skipped:
             print(f"    {s}", file=sys.stderr)
 
@@ -256,12 +263,14 @@ def generate_all_match_facts(
 #  JSONL 格式输出（按 RAG 契约要求）
 # ═══════════════════════════════════════════════════════════
 
+
 def write_match_facts_jsonl(facts: list[dict], output_path: str) -> str:
     """
     将事实列表写入 JSONL 文件（每行一个 JSON）。
     这是整改清单要求的 match_facts.jsonl 格式。
     """
     from pathlib import Path
+
     path = Path(output_path)
     path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -277,6 +286,7 @@ def write_match_facts_json(facts: list[dict], output_path: str) -> str:
     将事实列表写入 JSON 文件（美化格式，用于人工查阅）。
     """
     from pathlib import Path
+
     path = Path(output_path)
     path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -290,20 +300,19 @@ def write_match_facts_json(facts: list[dict], output_path: str) -> str:
 #  赛事概述（保留）
 # ═══════════════════════════════════════════════════════════
 
+
 def generate_tournament_summary(
     year: int,
     host: str,
     matches: list[Match],
     teams: dict[str, Team],
-    champion: Optional[str] = None,
+    champion: str | None = None,
 ) -> str:
     """生成一届世界杯的概述文本。"""
     if not matches:
         return f"{year}年世界杯（主办国：{host}），暂无比赛数据。"
 
-    total_goals = sum(
-        (m.home_score_90 + m.away_score_90) for m in matches
-    )
+    total_goals = sum((m.home_score_90 + m.away_score_90) for m in matches)
     unique_teams = set()
     for m in matches:
         unique_teams.add(m.home_team_id)
@@ -316,12 +325,12 @@ def generate_tournament_summary(
         final_str = f"决赛中{champion}以{final.score_display}获胜夺冠。"
     elif finals:
         final = finals[0]
-        home_name = teams.get(final.home_team_id, Team(
-            team_id=final.home_team_id, canonical_name=final.home_team_id
-        )).canonical_name
-        away_name = teams.get(final.away_team_id, Team(
-            team_id=final.away_team_id, canonical_name=final.away_team_id
-        )).canonical_name
+        home_name = teams.get(
+            final.home_team_id, Team(team_id=final.home_team_id, canonical_name=final.home_team_id)
+        ).canonical_name
+        away_name = teams.get(
+            final.away_team_id, Team(team_id=final.away_team_id, canonical_name=final.away_team_id)
+        ).canonical_name
         final_str = f"决赛在{home_name}与{away_name}之间进行，比分{final.score_display}。"
 
     return (
@@ -333,6 +342,7 @@ def generate_tournament_summary(
 # ═══════════════════════════════════════════════════════════
 #  内部工具
 # ═══════════════════════════════════════════════════════════
+
 
 def _compute_fact_checksum(fact_text: str, match_id: str) -> str:
     """计算单条事实文本的 MD5 checksum（前 8 位）。"""

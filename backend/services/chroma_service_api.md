@@ -223,10 +223,12 @@ count = import_match_facts("D/match_facts.jsonl")  # 自动检测 .json 和 .jso
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
-| `EMBEDDING_MODE` | `default` | `default`（Chroma 内置）/ `bge`（中文精准） |
+| `EMBEDDING_MODE` | `default` | `hash`（仅离线 Demo）/ `default`（Chroma 内置）/ `bge`（中文精准） |
 | `CHROMA_DATA_DIR` | `./backend/data/chroma_db` | Chroma 持久化目录 |
 | `TEAM_ALIASES_PATH` | 自动搜索 `D/team_aliases.json` | 球队别名文件 |
 | `WORLD_CUP_DB_PATH` | 自动搜索 `worldcup_v2.db` | SQLite 数据库路径 |
+
+`hash` 模式不需要下载模型，用于验证本仓库六场比赛 Demo 的完整检索链路；它不代表生产级语义检索质量。首次使用 `default` 或 `bge` 模式时可能需要下载对应模型。
 
 ---
 

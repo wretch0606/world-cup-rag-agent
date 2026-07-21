@@ -16,3 +16,5 @@ def test_env_example_loads_cors_origins(monkeypatch) -> None:
         "http://localhost:5173",
         "http://127.0.0.1:5173",
     ]
+    assert example_settings.chroma_data_dir == "data/generated/chroma_demo"
+    assert example_settings.embedding_mode == "hash"

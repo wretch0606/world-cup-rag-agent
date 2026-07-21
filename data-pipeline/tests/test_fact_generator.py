@@ -205,6 +205,7 @@ class TestGenerateAllMatchFacts:
         assert record["id"] == "match_fact_WC2018_FRA_CRO_final_2026-07-16-v2"
         assert "text" in record
         assert "metadata" in record
+        assert record["metadata"]["document_id"] == record["id"]
         assert record["metadata"]["match_id"] == "WC2018_FRA_CRO_final"
         assert record["metadata"]["result_type"] == "regulation"
         assert record["metadata"]["source_ids"] == ["src_test_001"]

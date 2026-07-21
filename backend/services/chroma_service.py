@@ -12,43 +12,46 @@ Collection 设计（见开发文档 5.3 节）：
   - world_cup_reports：比赛报告、球队回顾等长文本（语义检索/总结）
 
 Embedding 模式（通过 EMBEDDING_MODE 环境变量切换）：
-  - "default"（默认）：Chroma 内置 all-MiniLM-L6-v2，无需下载，离线可用
+  - "hash"：本地确定性字符哈希，仅用于离线 Demo 和链路冒烟
+  - "default"（默认）：Chroma 内置 all-MiniLM-L6-v2，首次使用可能下载模型
   - "bge"：BAAI/bge-small-zh-v1.5，中文效果好，需网络下载（~24MB）
   切换方法：set EMBEDDING_MODE=bge   （Windows cmd）
           $env:EMBEDDING_MODE="bge"  （PowerShell）
 """
 
+from __future__ import annotations
+
+import hashlib
 import logging
+import math
 import os
 import re
+import unicodedata
 
 import chromadb
 from chromadb import Documents, EmbeddingFunction, Embeddings
+
+from backend.config import settings
 
 # ---------------------------------------------------------------------------
 # 配置常量
 # ---------------------------------------------------------------------------
 
-CHROMA_DATA_DIR = os.environ.get("CHROMA_DATA_DIR", "./backend/data/chroma_db")
+CHROMA_DATA_DIR = settings.chroma_data_dir
 
 # 数据库路径（C→B 交付的 SQLite，D 仅用于调试增强）
 # 正式流程中 B/E 负责 SQLite 查询，D 的 enrich_result() 是可选调试辅助
-WORLD_CUP_DB_PATH = os.environ.get("WORLD_CUP_DB_PATH", "")
+WORLD_CUP_DB_PATH = settings.world_cup_db_path
 
 # 两个 Collection（见文档 5.3 节）
 COLLECTION_FACTS = "world_cup_match_facts"  # 比赛事实（精确检索）
 COLLECTION_REPORTS = "world_cup_reports"  # 比赛报告/长文本（语义检索）
 
 # Embedding 模式选择
-#   "default" = Chroma 内置 ONNX 模型（all-MiniLM-L6-v2，离线可用）
+#   "hash"    = 本地确定性字符哈希（仅 Demo）
+#   "default" = Chroma 内置 ONNX 模型（首次使用可能下载）
 #   "bge"     = BAAI/bge-small-zh-v1.5（中文效果好，需网络下载）
-EMBEDDING_MODE = os.environ.get("EMBEDDING_MODE", "default")
-COLLECTION_REPORTS = "world_cup_reports"  # 比赛报告/长文本（语义检索）
-
-# Embedding 模式选择
-#   "default" = Chroma 内置 ONNX 模型（all-MiniLM-L6-v2，离线可用）
-#   "bge"     = BAAI/bge-small-zh-v1.5（中文效果好，需网络下载）
-EMBEDDING_MODE = os.environ.get("EMBEDDING_MODE", "default")
+EMBEDDING_MODE = settings.embedding_mode
 
 # BGE 中文 Embedding 模型（仅在 mode="bge" 时使用）
 # 优先使用 ModelScope 本地缓存，其次尝试 HuggingFace
@@ -131,28 +134,76 @@ class BGEEmbeddingFunction(EmbeddingFunction):
         return embedding.tolist()
 
 
+class HashEmbeddingFunction(EmbeddingFunction):
+    """Deterministic, dependency-free embedding for offline demo retrieval.
+
+    It hashes normalized character n-grams into a fixed-size L2-normalized
+    vector. This preserves useful lexical overlap for the tiny checked-in demo
+    corpus, but is not a replacement for a production semantic model.
+    """
+
+    def __init__(self, dimensions: int = 384):
+        if dimensions < 32:
+            raise ValueError("dimensions must be at least 32")
+        self.dimensions = dimensions
+
+    def __call__(self, input: Documents) -> Embeddings:
+        return [self._embed(str(text)) for text in input]
+
+    def _embed(self, text: str) -> list[float]:
+        normalized = unicodedata.normalize("NFKC", text).lower()
+        compact = "".join(re.findall(r"[\w\u4e00-\u9fff]", normalized))
+        tokens = re.findall(r"[a-z0-9_]+", normalized)
+        tokens.extend(char for char in compact if "\u4e00" <= char <= "\u9fff")
+        tokens.extend(compact[index : index + 2] for index in range(max(0, len(compact) - 1)))
+        tokens.extend(compact[index : index + 3] for index in range(max(0, len(compact) - 2)))
+
+        vector = [0.0] * self.dimensions
+        for token in tokens or [normalized]:
+            digest = hashlib.blake2b(token.encode("utf-8"), digest_size=8).digest()
+            index = int.from_bytes(digest[:4], "little") % self.dimensions
+            vector[index] += 1.0 if digest[4] & 1 else -1.0
+
+        norm = math.sqrt(sum(value * value for value in vector)) or 1.0
+        return [value / norm for value in vector]
+
+    @staticmethod
+    def name() -> str:
+        return "world-cup-hash-v1"
+
+    def get_config(self) -> dict:
+        return {"dimensions": self.dimensions}
+
+    @staticmethod
+    def build_from_config(config: dict) -> HashEmbeddingFunction:
+        return HashEmbeddingFunction(**config)
+
+
 # 模块级单例
-_ef: BGEEmbeddingFunction | None = None
+_ef: BGEEmbeddingFunction | HashEmbeddingFunction | None = None
 
 
 def get_embedding_function():
     """获取 Embedding 函数。
 
-    - "default" 模式：返回 None，Chroma 使用内置的 all-MiniLM-L6-v2（ONNX，离线可用）
+    - "hash" 模式：返回本地字符哈希 embedding（无下载，仅用于 Demo）
+    - "default" 模式：返回 None，Chroma 使用内置的 all-MiniLM-L6-v2（可能首次下载）
     - "bge" 模式：返回 BGEEmbeddingFunction 实例（中文效果好，需网络下载一次）
     """
     global _ef
+    if EMBEDDING_MODE == "hash":
+        if _ef is None:
+            logger.info("Embedding 模式: 本地字符哈希 (Demo)")
+            _ef = HashEmbeddingFunction()
+        return _ef
     if EMBEDDING_MODE == "bge":
         if _ef is None:
             logger.info(f"Embedding 模式: BGE ({EMBEDDING_MODEL_NAME})")
             _ef = BGEEmbeddingFunction()
         return _ef
-    else:
-        # 使用 Chroma 内置模型（默认）
-        if _ef is None:
-            logger.info("Embedding 模式: Chroma 内置 (all-MiniLM-L6-v2, ONNX)")
-            _ef = None  # None 表示让 Chroma 自己处理
-        return None
+    # 使用 Chroma 内置模型（默认）
+    logger.info("Embedding 模式: Chroma 内置 (all-MiniLM-L6-v2, ONNX)")
+    return None
 
 
 # ===================================================================
@@ -319,6 +370,8 @@ def _find_file(filename: str, env_var: str | None = None) -> str | None:
     candidates = [
         filename,  # 当前目录
         os.path.join(project_root, filename),  # 项目根
+        os.path.join(project_root, "data-pipeline", "data", filename),  # C 数据交付
+        os.path.join(project_root, "data", "generated", filename),  # Demo 生成物
         os.path.join(project_root, "D", filename),  # D 文件夹（C 交付）
         os.path.join(project_root, "交付", "B", filename),  # 交付/B 文件夹（C→B 交付）
         os.path.join(project_root, "交付", "C", filename),  # 交付/C 文件夹
@@ -976,6 +1029,7 @@ def import_match_facts(json_path: str = "match_facts.json") -> int:
                     continue
                 item = json.loads(line)
                 meta = item["metadata"].copy()
+                meta.setdefault("document_id", item["id"])
                 # v2 格式已含 id 字段，直接使用
                 chunks.append(
                     {
@@ -991,6 +1045,7 @@ def import_match_facts(json_path: str = "match_facts.json") -> int:
         for item in raw_data:
             meta = item["metadata"].copy()
             chunk_id = item.get("id", meta.get("match_id", f"unknown_{len(chunks)}"))
+            meta.setdefault("document_id", chunk_id)
             chunks.append(
                 {
                     "id": chunk_id,

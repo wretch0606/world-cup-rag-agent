@@ -32,7 +32,7 @@ flowchart LR
 # 1. 安装 Python 依赖
 uv sync
 
-# 2. 生成 data/generated/worldcup_demo.db 及配套事实文件
+# 2. 生成 SQLite、事实文件及离线 Chroma 向量库
 uv run python scripts/init_demo_data.py
 
 # 3. 复制环境变量示例
@@ -45,6 +45,8 @@ Windows PowerShell 可使用 `Copy-Item .env.example .env`。随后在 `.env` �
 FRONTEND_DATA_MODE=sqlite
 WORLD_CUP_DB_PATH=data/generated/worldcup_demo.db
 AGENT_MODE=langgraph
+CHROMA_DATA_DIR=data/generated/chroma_demo
+EMBEDDING_MODE=hash
 ```
 
 启动后端：
@@ -61,7 +63,7 @@ npm ci
 npm run dev
 ```
 
-此离线 Demo 覆盖真实 SQLite 筛选、比赛详情及精确事实问答；需要 Chroma 和大模型的语义问答仍属于后续接入范围。
+此离线 Demo 覆盖真实 SQLite 筛选、比赛详情、精确事实问答和 Chroma 检索。`hash` embedding 仅用于无下载的链路演示，不代表生产级语义质量；完整语义回答仍需要配置大模型 API，正式检索建议改用 `default` 或 `bge` embedding。
 
 ## 目录约定
 
