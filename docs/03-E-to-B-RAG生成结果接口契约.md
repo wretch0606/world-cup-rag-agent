@@ -1,12 +1,15 @@
 # 03 — E → B：RAG 生成结果接口契约 v2.0
 
+> **本文档定位**：本文档是 `docs/rag-contract-v1-draft.md`（总契约，`rag-v1.1-draft`）的 **E→B 生成数据子契约**。它定义 E 返回给 B 的生成内容字段（`answer`、`facts`、`sources`、`evidence`、`confidence`、`warnings`、`timing`、`generation_meta`），但不定义链路控制字段。完整的 RAGResult 结构由总契约统一定义，本子契约不竞争 `contract_version`。
+
 ## 0. 文档状态
 
 | 项目 | 内容 |
 |------|------|
-| 契约版本 | `generation-v2.0` |
+| 契约版本 | `generation-v2.0`（E→B 生成数据子契约，隶属总契约 `rag-v1.1-draft`） |
 | 方向 | E（RAG 生成与评测）→ B（FastAPI 后端） |
 | 前提 | E 已收到 D 的 RetrievalResult 和 B 的 StructuredFact |
+| 总契约 | `docs/rag-contract-v1-draft.md` 定义完整的 RAGResult 及链路控制字段 |
 
 ## 1. E 的职责边界
 
@@ -153,7 +156,35 @@ SummaryFact: 多场/多届总结
 | `data_version` | string | | 数据版本 |
 | `used_for_fact_ids` | string[] | | 该来源支撑了哪些事实 |
 
-## 4. B 的组装
+## 4. 与总契约 RAGResult 的字段合并
+
+本子契约定义的字段是完整 `RAGResult`（定义于 `docs/rag-contract-v1-draft.md`，版本 `rag-v1.1-draft`）的**生成数据子集**。完整 RAGResult 包含以下链路控制字段（由总契约定义，不由本子契约定义）：
+
+| 字段 | 类型 | 定义方 | 说明 |
+|------|------|:------:|------|
+| `contract_version` | string | 总契约 | 全链路契约版本 `rag-v1.1-draft` |
+| `trace_id` | string | 总契约 | 全链路请求追踪 ID，B 生成、E 透传 |
+| `status` | RAGStatus | 总契约 | `ok`/`empty`/`degraded`/`error` |
+| `applied_filters` | RetrievalFilters | 总契约 | 实际生效的检索过滤条件 |
+| `rewrite_applied` | boolean | 总契约 | D 查询改写实际执行状态 |
+| `rerank_applied` | boolean | 总契约 | D 重排序实际执行状态 |
+| `error` | ErrorItem/null | 总契约 | 错误详情，非 error 状态时为 null |
+
+本子契约定义的生成数据字段（`answer`、`facts`、`sources`、`evidence`、`confidence`、`warnings`、`timing`、`generation_meta`）合并到完整 RAGResult 中。B 组装前端统一响应时，`answer`、`facts`、`sources`、`warnings` 直接来自 E 的生成数据，`trace_id`、`status`、`intent`、`graph` 由 B 自行管理。
+
+### 4.1 SourceItem 扩展字段
+
+本子契约（`generation-v2.0`）为 SourceItem 定义的扩展字段已吸收到总契约 `rag-v1.1-draft` 的 `SourceItem` 模型中：
+
+| 扩展字段 | 类型 | 说明 |
+|----------|------|------|
+| `source_type` | string/null | csv / json / pdf / web 等 |
+| `publisher` | string/null | 出版方或数据提供者 |
+| `retrieved_at` | string/null | 抓取或导入日期 |
+
+这些字段在总契约中标记为可选，不得虚构值。
+
+## 5. B 的组装（由总契约定义）
 
 B 收到 RAGResult 后，组装统一前端响应：
 
@@ -174,7 +205,7 @@ B 收到 RAGResult 后，组装统一前端响应：
 - `intent`, `graph`, `trace_id` → B 自己生成
 - `evidence` → 默认不发送前端，调试时通过参数控制
 
-## 5. 告警代码
+## 6. 告警代码
 
 | code | 含义 |
 |------|------|
@@ -188,7 +219,7 @@ B 收到 RAGResult 后，组装统一前端响应：
 | `RETRIEVAL_DEGRADED` | 检索降级 |
 | `GENERATION_DEGRADED` | 生成降级 |
 
-## 6. E 的确认清单
+## 7. E 的确认清单
 
 - [ ] E 不重新解析硬过滤条件，不直接读取底层数据库
 - [ ] 事实融合以 B 的 StructuredFact 为准，语义补充来自 D 的 EvidenceItem

@@ -34,13 +34,13 @@
 <script setup lang="ts">
 import { ref, watch, onBeforeUnmount, nextTick } from 'vue'
 import * as d3 from 'd3'
-import type { GraphResponse, GraphNode, GraphEdge } from '@/api'
+import type { GraphData, GraphNode, GraphEdge } from '@/api'
 
 // ============================================================
 // Props
 // ============================================================
 const props = defineProps<{
-  graphData: GraphResponse
+  graphData: GraphData
   loading?: boolean
 }>()
 

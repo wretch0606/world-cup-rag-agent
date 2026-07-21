@@ -9,12 +9,12 @@
         <span class="filter-arrow">{{ filterGroupOpen.tournament ? '▾' : '▸' }}</span>
       </div>
       <div v-show="filterGroupOpen.tournament" class="filter-checks filter-checks-scroll-sm">
-        <label v-for="y in filterOptions.tournaments" :key="y" class="filter-check">
-          <input type="checkbox" :value="y" v-model="filters.years" />
-          <span>{{ y }}</span>
+        <label v-for="y in filterOptions.tournaments" :key="y.year" class="filter-check">
+          <input type="checkbox" :value="y.year" v-model="filters.years" />
+          <span>{{ y.label }}</span>
         </label>
         <div class="filter-actions">
-          <button @click="selectAll('years', filterOptions.tournaments)">{{ labels.selectAll }}</button>
+          <button @click="selectAll('years', filterOptions.tournaments.map(y => y.year))">{{ labels.selectAll }}</button>
           <button @click="clearAll('years')">{{ labels.clearAll }}</button>
         </div>
       </div>
@@ -38,14 +38,14 @@
           />
         </div>
         <div class="filter-checks-scroll-lg">
-          <label v-for="t in filteredTeams" :key="t.id" class="filter-check">
-            <input type="checkbox" :value="t.id" v-model="filters.teamIds" />
+          <label v-for="t in filteredTeams" :key="t.team_id" class="filter-check">
+            <input type="checkbox" :value="t.team_id" v-model="filters.teamIds" />
             <span>{{ t.name }}</span>
           </label>
           <div v-if="!filteredTeams.length" class="filter-empty-hint">{{ labels.noTeamMatch }}</div>
         </div>
         <div class="filter-actions">
-          <button @click="selectAll('teamIds', filterOptions.teams.map(t => t.id))">{{ labels.selectAll }}</button>
+          <button @click="selectAll('teamIds', filterOptions.teams.map(t => t.team_id))">{{ labels.selectAll }}</button>
           <button @click="clearAll('teamIds')">{{ labels.clearAll }}</button>
         </div>
       </div>
@@ -76,7 +76,7 @@
         <span class="filter-arrow">{{ filterGroupOpen.resultType ? '▾' : '▸' }}</span>
       </div>
       <div v-show="filterGroupOpen.resultType" class="filter-checks">
-        <label v-for="r in filterOptions.resultTypes" :key="r.value" class="filter-check">
+        <label v-for="r in filterOptions.result_types" :key="r.value" class="filter-check">
           <input type="checkbox" :value="r.value" v-model="filters.resultTypes" />
           <span>{{ r.label }}</span>
         </label>
@@ -100,13 +100,13 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed } from 'vue'
-import type { FilterOptionsResponse, FiltersState } from '@/api'
+import type { FilterOptionsData, FiltersState } from '@/api'
 
 // ============================================================
 // Props & Emits
 // ============================================================
 const props = defineProps<{
-  filterOptions: FilterOptionsResponse
+  filterOptions: FilterOptionsData
   loading?: boolean
 }>()
 

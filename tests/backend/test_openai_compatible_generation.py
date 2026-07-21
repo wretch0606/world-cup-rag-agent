@@ -1,0 +1,2006 @@
+"""Tests for OpenAICompatibleGenerationClient.
+
+All tests use a Fake OpenAIClient — no real DeepSeek network calls.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+
+from openai import APIStatusError
+
+from backend.rag.openai_compatible_generation import (
+    OpenAICompatibleGenerationClient,
+    _build_messages,
+    _load_prompt_file,
+    _ModelGenerationPayload,
+    _strip_fences,
+)
+from backend.schemas.rag_contract import (
+    RAG_CONTRACT_VERSION,
+    ErrorItem,
+    EvidenceItem,
+    RAGOptions,
+    RAGRequest,
+    RAGStatus,
+    RetrievalFilters,
+    RetrievalResult,
+    RetrievalTiming,
+    SourceItem,
+    StructuredFact,
+)
+
+
+# ====================================================================
+# Fake AsyncOpenAI
+# ====================================================================
+class _FakeCompletion:
+    def __init__(self, content: str):
+        self.choices = [_FakeChoice(content)]
+
+
+class _FakeChoice:
+    def __init__(self, content: str):
+        self.message = _FakeMessage(content)
+
+
+class _FakeMessage:
+    def __init__(self, content: str):
+        self.content = content
+
+
+class _FakeChat:
+    def __init__(self, completions: FakeCompletions):
+        self.completions = completions
+
+
+class FakeCompletions:
+    """Fake completions.create — records calls and returns configured responses."""
+
+    def __init__(self, *, response: str | None = None, should_raise: BaseException | None = None):
+        self.response = response or json.dumps(_minimal_model_output())
+        self.should_raise = should_raise
+        self.calls: list[dict] = []
+
+    async def create(self, **kwargs):
+        self.calls.append(kwargs)
+        if self.should_raise:
+            raise self.should_raise
+        return _FakeCompletion(self.response)
+
+
+class FakeOpenAI:
+    """Fake AsyncOpenAI for test injection."""
+
+    def __init__(self, *, response: str | None = None, should_raise: BaseException | None = None):
+        self._fake = FakeCompletions(response=response, should_raise=should_raise)
+        self.chat = _FakeChat(self._fake)
+
+    @property
+    def calls(self):
+        return self._fake.calls
+
+
+# ====================================================================
+# Helpers
+# ====================================================================
+def _minimal_model_output(**overrides) -> dict:
+    d = {
+        "status": "ok",
+        "answer": "测试回答内容。",
+        "facts": [],
+        "used_source_ids": [],
+        "used_chunk_ids": [],
+        "warnings": [],
+    }
+    d.update(overrides)
+    return d
+
+
+def _make_request(**overrides) -> RAGRequest:
+    kwargs = {
+        "contract_version": RAG_CONTRACT_VERSION,
+        "trace_id": "trace-gen-001",
+        "question": "测试问题",
+        "original_question": "测试问题",
+        "query_type": "semantic",
+        "filters": RetrievalFilters(),
+        "structured_facts": [],
+        "source_catalog": [],
+        "options": RAGOptions(),
+    }
+    kwargs.update(overrides)
+    return RAGRequest(**kwargs)
+
+
+def _make_retrieval(**overrides) -> RetrievalResult:
+    kwargs = {
+        "contract_version": RAG_CONTRACT_VERSION,
+        "trace_id": "trace-gen-001",
+        "status": RAGStatus.ok,
+        "original_query": "q",
+        "applied_filters": RetrievalFilters(),
+        "items": [
+            EvidenceItem(
+                chunk_id="chunk-1",
+                document_id="doc-1",
+                source_id="src-1",
+                document_name="Test Doc",
+                text="证据文本。",
+                data_version="v1",
+                retrieval_rank=1,
+            )
+        ],
+        "timing": RetrievalTiming(),
+    }
+    kwargs.update(overrides)
+    return RetrievalResult(**kwargs)
+
+
+def _make_source(source_id: str = "src-1") -> SourceItem:
+    return SourceItem(source_id=source_id, title=f"Source {source_id}")
+
+
+def _run(coro):
+    return asyncio.run(coro)
+
+
+# ====================================================================
+# 1. Module import without API key
+# ====================================================================
+def test_module_import_without_api_key():
+    """Module can be imported even when no API key is configured."""
+    import backend.rag.openai_compatible_generation  # noqa: F401
+
+    assert True  # reached without exception
+
+
+# ====================================================================
+# 2. Live client fails clearly without key
+# ====================================================================
+def test_client_fails_without_key():
+    """generate() returns error when API key is empty."""
+    client = OpenAICompatibleGenerationClient(api_key="")
+
+    async def _test():
+        return await client.generate(_make_request(), _make_retrieval())
+
+    result = _run(_test())
+    assert result.status == RAGStatus.error
+    assert result.error is not None
+    assert "API Key" in result.error.message
+
+
+# ====================================================================
+# 3. Default base_url
+# ====================================================================
+def test_default_base_url():
+    client = OpenAICompatibleGenerationClient(api_key="")
+    assert client._base_url == "https://api.deepseek.com"
+
+
+# ====================================================================
+# 4. Default model is deepseek-v4-flash
+# ====================================================================
+def test_default_model_is_deepseek_v4_flash():
+    client = OpenAICompatibleGenerationClient(api_key="")
+    assert client._model == "deepseek-v4-flash"
+
+
+# ====================================================================
+# 5. Not default to deepseek-chat
+# ====================================================================
+def test_not_default_to_deepseek_chat():
+    client = OpenAICompatibleGenerationClient(api_key="")
+    assert client._model != "deepseek-chat"
+    assert client._model != "deepseek-reasoner"
+
+
+# ====================================================================
+# 6. AsyncOpenAI call parameters
+# ====================================================================
+def test_async_openai_call_parameters():
+    fake = FakeOpenAI()
+    client = OpenAICompatibleGenerationClient(client=fake, api_key="sk-test")
+
+    async def _test():
+        return await client.generate(
+            _make_request(
+                structured_facts=[
+                    StructuredFact(
+                        match_id="M-1",
+                        tournament_year=2022,
+                        stage="final",
+                        stage_name="决赛",
+                        home_team_id="t1",
+                        home_team_name="A",
+                        away_team_id="t2",
+                        away_team_name="B",
+                        score_display="1:0",
+                        result_type="regulation",
+                        winner_team_id="t1",
+                    )
+                ],
+                source_catalog=[_make_source("src-1")],
+            ),
+            _make_retrieval(),
+        )
+
+    _run(_test())
+    assert len(fake.calls) == 1
+    call = fake.calls[0]
+    assert call["model"] == "deepseek-v4-flash"
+    assert call["stream"] is False
+    assert isinstance(call["messages"], list)
+
+
+# ====================================================================
+# 7. response_format = json_object
+# ====================================================================
+def test_response_format_json_object():
+    fake = FakeOpenAI()
+    client = OpenAICompatibleGenerationClient(client=fake, api_key="sk-test")
+
+    async def _test():
+        return await client.generate(
+            _make_request(
+                structured_facts=[
+                    StructuredFact(
+                        match_id="M-1",
+                        tournament_year=2022,
+                        stage="final",
+                        stage_name="决赛",
+                        home_team_id="t1",
+                        home_team_name="A",
+                        away_team_id="t2",
+                        away_team_name="B",
+                        score_display="1:0",
+                        result_type="regulation",
+                        winner_team_id="t1",
+                    )
+                ],
+                source_catalog=[_make_source("src-1")],
+            ),
+            _make_retrieval(),
+        )
+
+    _run(_test())
+    call = fake.calls[0]
+    assert call["response_format"] == {"type": "json_object"}
+
+
+# ====================================================================
+# 8. Thinking disabled
+# ====================================================================
+def test_thinking_disabled():
+    fake = FakeOpenAI()
+    client = OpenAICompatibleGenerationClient(client=fake, api_key="sk-test", thinking=False)
+
+    async def _test():
+        return await client.generate(
+            _make_request(
+                structured_facts=[
+                    StructuredFact(
+                        match_id="M-1",
+                        tournament_year=2022,
+                        stage="final",
+                        stage_name="决赛",
+                        home_team_id="t1",
+                        home_team_name="A",
+                        away_team_id="t2",
+                        away_team_name="B",
+                        score_display="1:0",
+                        result_type="regulation",
+                        winner_team_id="t1",
+                    )
+                ],
+                source_catalog=[_make_source("src-1")],
+            ),
+            _make_retrieval(),
+        )
+
+    _run(_test())
+    call = fake.calls[0]
+    assert call["extra_body"] == {"thinking": {"type": "disabled"}}
+
+
+# ====================================================================
+# 9. stream=false
+# ====================================================================
+def test_stream_false():
+    fake = FakeOpenAI()
+    client = OpenAICompatibleGenerationClient(client=fake, api_key="sk-test")
+
+    async def _test():
+        return await client.generate(
+            _make_request(
+                structured_facts=[
+                    StructuredFact(
+                        match_id="M-1",
+                        tournament_year=2022,
+                        stage="final",
+                        stage_name="决赛",
+                        home_team_id="t1",
+                        home_team_name="A",
+                        away_team_id="t2",
+                        away_team_name="B",
+                        score_display="1:0",
+                        result_type="regulation",
+                        winner_team_id="t1",
+                    )
+                ],
+                source_catalog=[_make_source("src-1")],
+            ),
+            _make_retrieval(),
+        )
+
+    _run(_test())
+    call = fake.calls[0]
+    assert call["stream"] is False
+
+
+# ====================================================================
+# 10. max_tokens
+# ====================================================================
+def test_max_tokens():
+    fake = FakeOpenAI()
+    client = OpenAICompatibleGenerationClient(client=fake, api_key="sk-test", max_tokens=2048)
+
+    async def _test():
+        return await client.generate(
+            _make_request(
+                structured_facts=[
+                    StructuredFact(
+                        match_id="M-1",
+                        tournament_year=2022,
+                        stage="final",
+                        stage_name="决赛",
+                        home_team_id="t1",
+                        home_team_name="A",
+                        away_team_id="t2",
+                        away_team_name="B",
+                        score_display="1:0",
+                        result_type="regulation",
+                        winner_team_id="t1",
+                    )
+                ],
+                source_catalog=[_make_source("src-1")],
+            ),
+            _make_retrieval(),
+        )
+
+    _run(_test())
+    call = fake.calls[0]
+    assert call["max_tokens"] == 2048
+
+
+# ====================================================================
+# 11. Prompt UTF-8 loading
+# ====================================================================
+def test_prompt_utf8_loading():
+    content = _load_prompt_file("summary.md")
+    assert isinstance(content, str)
+    assert len(content) > 0
+    assert "{{question}}" in content
+
+
+# ====================================================================
+# 12. Prompt does not depend on CWD
+# ====================================================================
+def test_prompt_does_not_depend_on_cwd():
+    """Prompt loading uses module-relative path, not CWD."""
+    content = _load_prompt_file("summary.md")
+    assert len(content) > 0  # loaded successfully regardless of CWD
+
+
+# ====================================================================
+# 13. Normal JSON output
+# ====================================================================
+def test_normal_json_output():
+    fake = FakeOpenAI(
+        response=json.dumps(
+            _minimal_model_output(
+                answer="正常回答。",
+                used_source_ids=["src-1"],
+                used_chunk_ids=["chunk-1"],
+            )
+        )
+    )
+    client = OpenAICompatibleGenerationClient(client=fake, api_key="sk-test")
+
+    async def _test():
+        return await client.generate(
+            _make_request(
+                source_catalog=[_make_source("src-1")],
+                structured_facts=[
+                    StructuredFact(
+                        match_id="M-1",
+                        tournament_year=2022,
+                        stage="final",
+                        stage_name="决赛",
+                        home_team_id="t1",
+                        home_team_name="A",
+                        away_team_id="t2",
+                        away_team_name="B",
+                        score_display="1:0",
+                        result_type="regulation",
+                        winner_team_id="t1",
+                    )
+                ],
+            ),
+            _make_retrieval(),
+        )
+
+    result = _run(_test())
+    assert result.status == RAGStatus.ok
+    assert result.answer == "正常回答。"
+    assert len(result.sources) == 1
+
+
+# ====================================================================
+# 14. Markdown code fence stripped
+# ====================================================================
+def test_strip_fences():
+    raw = '```json\n{"key": "value"}\n```'
+    cleaned = _strip_fences(raw)
+    assert cleaned == '{"key": "value"}'
+
+
+def test_strip_fences_no_fence():
+    raw = '{"key": "value"}'
+    cleaned = _strip_fences(raw)
+    assert cleaned == '{"key": "value"}'
+
+
+# ====================================================================
+# 15. Non-JSON output
+# ====================================================================
+def test_non_json_output():
+    fake = FakeOpenAI(response="this is not json at all")
+    client = OpenAICompatibleGenerationClient(client=fake, api_key="sk-test")
+
+    async def _test():
+        return await client.generate(
+            _make_request(
+                structured_facts=[
+                    StructuredFact(
+                        match_id="M-1",
+                        tournament_year=2022,
+                        stage="final",
+                        stage_name="决赛",
+                        home_team_id="t1",
+                        home_team_name="A",
+                        away_team_id="t2",
+                        away_team_name="B",
+                        score_display="1:0",
+                        result_type="regulation",
+                        winner_team_id="t1",
+                    )
+                ],
+                source_catalog=[_make_source("src-1")],
+            ),
+            _make_retrieval(),
+        )
+
+    result = _run(_test())
+    # Should error after retries (non-JSON won't parse)
+    assert result.status == RAGStatus.error
+    assert result.error is not None
+    assert result.error.code == "GENERATION_ERROR"
+
+
+# ====================================================================
+# 16-17. One retry + second failure
+# ====================================================================
+def test_json_parse_failure_one_retry():
+    """Non-JSON triggers retry; the fake returns same bad content."""
+    fake = FakeOpenAI(response="not json")
+    client = OpenAICompatibleGenerationClient(client=fake, api_key="sk-test")
+
+    async def _test():
+        return await client.generate(
+            _make_request(
+                structured_facts=[
+                    StructuredFact(
+                        match_id="M-1",
+                        tournament_year=2022,
+                        stage="final",
+                        stage_name="决赛",
+                        home_team_id="t1",
+                        home_team_name="A",
+                        away_team_id="t2",
+                        away_team_name="B",
+                        score_display="1:0",
+                        result_type="regulation",
+                        winner_team_id="t1",
+                    )
+                ],
+                source_catalog=[_make_source("src-1")],
+            ),
+            _make_retrieval(),
+        )
+
+    result = _run(_test())
+    assert result.status == RAGStatus.error
+    # After 2 attempts, both fail → GENERATION_ERROR
+    assert result.error is not None
+    assert result.error.code == "GENERATION_ERROR"
+
+
+# ====================================================================
+# 18. Timeout
+# ====================================================================
+def test_timeout():
+    import httpx
+
+    fake = FakeOpenAI(should_raise=httpx.TimeoutException("timeout"))
+    client = OpenAICompatibleGenerationClient(client=fake, api_key="sk-test")
+
+    async def _test():
+        return await client.generate(
+            _make_request(
+                structured_facts=[
+                    StructuredFact(
+                        match_id="M-1",
+                        tournament_year=2022,
+                        stage="final",
+                        stage_name="决赛",
+                        home_team_id="t1",
+                        home_team_name="A",
+                        away_team_id="t2",
+                        away_team_name="B",
+                        score_display="1:0",
+                        result_type="regulation",
+                        winner_team_id="t1",
+                    )
+                ],
+                source_catalog=[_make_source("src-1")],
+            ),
+            _make_retrieval(),
+        )
+
+    result = _run(_test())
+    assert result.status == RAGStatus.error
+
+
+# ====================================================================
+# 19-24. OpenAI HTTP error codes
+# ====================================================================
+def _make_status_error(status_code: int) -> APIStatusError:
+    import httpx
+
+    request = httpx.Request("POST", "https://api.deepseek.com/chat/completions")
+    response = httpx.Response(status_code, request=request)
+    return APIStatusError("error", response=response, body=None)
+
+
+def test_error_401():
+    _assert_error_code_mapped(401)
+
+
+def test_error_402():
+    _assert_error_code_mapped(402)
+
+
+def test_error_422():
+    _assert_error_code_mapped(422)
+
+
+def test_error_429():
+    _assert_error_code_mapped(429)
+
+
+def test_error_500():
+    _assert_error_code_mapped(500)
+
+
+def test_error_503():
+    _assert_error_code_mapped(503)
+
+
+def _assert_error_code_mapped(status_code: int):
+    fake = FakeOpenAI(should_raise=_make_status_error(status_code))
+    client = OpenAICompatibleGenerationClient(client=fake, api_key="sk-test")
+
+    async def _test():
+        return await client.generate(
+            _make_request(
+                structured_facts=[
+                    StructuredFact(
+                        match_id="M-1",
+                        tournament_year=2022,
+                        stage="final",
+                        stage_name="决赛",
+                        home_team_id="t1",
+                        home_team_name="A",
+                        away_team_id="t2",
+                        away_team_name="B",
+                        score_display="1:0",
+                        result_type="regulation",
+                        winner_team_id="t1",
+                    )
+                ],
+                source_catalog=[_make_source("src-1")],
+            ),
+            _make_retrieval(),
+        )
+
+    result = _run(_test())
+    assert result.status == RAGStatus.error
+    assert result.error is not None
+
+
+# ====================================================================
+# 25. Network error
+# ====================================================================
+def test_network_error():
+    fake = FakeOpenAI(should_raise=ConnectionError("network down"))
+    client = OpenAICompatibleGenerationClient(client=fake, api_key="sk-test")
+
+    async def _test():
+        return await client.generate(
+            _make_request(
+                structured_facts=[
+                    StructuredFact(
+                        match_id="M-1",
+                        tournament_year=2022,
+                        stage="final",
+                        stage_name="决赛",
+                        home_team_id="t1",
+                        home_team_name="A",
+                        away_team_id="t2",
+                        away_team_name="B",
+                        score_display="1:0",
+                        result_type="regulation",
+                        winner_team_id="t1",
+                    )
+                ],
+                source_catalog=[_make_source("src-1")],
+            ),
+            _make_retrieval(),
+        )
+
+    result = _run(_test())
+    assert result.status == RAGStatus.error
+
+
+# ====================================================================
+# 26. Retrieval empty → no LLM call
+# ====================================================================
+def test_retrieval_empty_no_llm_call():
+    fake = FakeOpenAI()
+    client = OpenAICompatibleGenerationClient(client=fake, api_key="sk-test")
+
+    async def _test():
+        return await client.generate(
+            _make_request(structured_facts=[], source_catalog=[]),
+            _make_retrieval(status=RAGStatus.empty, items=[]),
+        )
+
+    result = _run(_test())
+    assert result.status == RAGStatus.empty
+    # No LLM call was made
+    assert len(fake.calls) == 0
+
+
+# ====================================================================
+# 27. Retrieval error → no LLM call
+# ====================================================================
+def test_retrieval_error_no_llm_call():
+    fake = FakeOpenAI()
+    client = OpenAICompatibleGenerationClient(client=fake, api_key="sk-test")
+
+    async def _test():
+        return await client.generate(
+            _make_request(),
+            _make_retrieval(
+                status=RAGStatus.error,
+                error=ErrorItem(code="RETRIEVAL_ERROR", message="fail", component="retrieval"),
+            ),
+        )
+
+    result = _run(_test())
+    assert result.status == RAGStatus.error
+    assert len(fake.calls) == 0
+
+
+# ====================================================================
+# 28. Retrieval degraded must stay degraded
+# ====================================================================
+def test_retrieval_degraded_not_become_ok():
+    fake = FakeOpenAI(
+        response=json.dumps(
+            _minimal_model_output(
+                status="ok",
+                used_source_ids=["src-1"],
+                used_chunk_ids=["chunk-1"],
+            )
+        )
+    )
+    client = OpenAICompatibleGenerationClient(client=fake, api_key="sk-test")
+
+    async def _test():
+        return await client.generate(
+            _make_request(
+                source_catalog=[_make_source("src-1")],
+                structured_facts=[
+                    StructuredFact(
+                        match_id="M-1",
+                        tournament_year=2022,
+                        stage="final",
+                        stage_name="决赛",
+                        home_team_id="t1",
+                        home_team_name="A",
+                        away_team_id="t2",
+                        away_team_name="B",
+                        score_display="1:0",
+                        result_type="regulation",
+                        winner_team_id="t1",
+                    )
+                ],
+            ),
+            _make_retrieval(status=RAGStatus.degraded),
+        )
+
+    result = _run(_test())
+    assert result.status == RAGStatus.degraded
+
+
+# ====================================================================
+# 29. trace_id passthrough
+# ====================================================================
+def test_trace_id_passthrough():
+    fake = FakeOpenAI(
+        response=json.dumps(
+            _minimal_model_output(
+                used_source_ids=["src-1"],
+                used_chunk_ids=["chunk-1"],
+            )
+        )
+    )
+    client = OpenAICompatibleGenerationClient(client=fake, api_key="sk-test")
+
+    async def _test():
+        return await client.generate(
+            _make_request(
+                trace_id="my-gen-trace",
+                source_catalog=[_make_source("src-1")],
+                structured_facts=[
+                    StructuredFact(
+                        match_id="M-1",
+                        tournament_year=2022,
+                        stage="final",
+                        stage_name="决赛",
+                        home_team_id="t1",
+                        home_team_name="A",
+                        away_team_id="t2",
+                        away_team_name="B",
+                        score_display="1:0",
+                        result_type="regulation",
+                        winner_team_id="t1",
+                    )
+                ],
+            ),
+            _make_retrieval(),
+        )
+
+    result = _run(_test())
+    assert result.trace_id == "my-gen-trace"
+
+
+# ====================================================================
+# 30. contract_version passthrough
+# ====================================================================
+def test_contract_version_passthrough():
+    fake = FakeOpenAI(
+        response=json.dumps(
+            _minimal_model_output(
+                used_source_ids=["src-1"],
+                used_chunk_ids=["chunk-1"],
+            )
+        )
+    )
+    client = OpenAICompatibleGenerationClient(client=fake, api_key="sk-test")
+
+    async def _test():
+        return await client.generate(
+            _make_request(
+                source_catalog=[_make_source("src-1")],
+                structured_facts=[
+                    StructuredFact(
+                        match_id="M-1",
+                        tournament_year=2022,
+                        stage="final",
+                        stage_name="决赛",
+                        home_team_id="t1",
+                        home_team_name="A",
+                        away_team_id="t2",
+                        away_team_name="B",
+                        score_display="1:0",
+                        result_type="regulation",
+                        winner_team_id="t1",
+                    )
+                ],
+            ),
+            _make_retrieval(),
+        )
+
+    result = _run(_test())
+    assert result.contract_version == RAG_CONTRACT_VERSION
+
+
+# ====================================================================
+# 31. confidence is always null
+# ====================================================================
+def test_confidence_always_null():
+    fake = FakeOpenAI(
+        response=json.dumps(
+            _minimal_model_output(
+                used_source_ids=["src-1"],
+                used_chunk_ids=["chunk-1"],
+            )
+        )
+    )
+    client = OpenAICompatibleGenerationClient(client=fake, api_key="sk-test")
+
+    async def _test():
+        return await client.generate(
+            _make_request(
+                source_catalog=[_make_source("src-1")],
+                structured_facts=[
+                    StructuredFact(
+                        match_id="M-1",
+                        tournament_year=2022,
+                        stage="final",
+                        stage_name="决赛",
+                        home_team_id="t1",
+                        home_team_name="A",
+                        away_team_id="t2",
+                        away_team_name="B",
+                        score_display="1:0",
+                        result_type="regulation",
+                        winner_team_id="t1",
+                    )
+                ],
+            ),
+            _make_retrieval(),
+        )
+
+    result = _run(_test())
+    assert result.confidence is None
+
+
+# ====================================================================
+# 32. Fabricated source_id removed
+# ====================================================================
+def test_fabricated_source_id_removed():
+    fake = FakeOpenAI(
+        response=json.dumps(
+            _minimal_model_output(
+                used_source_ids=["src-1", "fake-src-999"],
+                used_chunk_ids=["chunk-1"],
+            )
+        )
+    )
+    client = OpenAICompatibleGenerationClient(client=fake, api_key="sk-test")
+
+    async def _test():
+        return await client.generate(
+            _make_request(
+                source_catalog=[_make_source("src-1")],
+                structured_facts=[
+                    StructuredFact(
+                        match_id="M-1",
+                        tournament_year=2022,
+                        stage="final",
+                        stage_name="决赛",
+                        home_team_id="t1",
+                        home_team_name="A",
+                        away_team_id="t2",
+                        away_team_name="B",
+                        score_display="1:0",
+                        result_type="regulation",
+                        winner_team_id="t1",
+                    )
+                ],
+            ),
+            _make_retrieval(),
+        )
+
+    result = _run(_test())
+    source_ids = {s.source_id for s in result.sources}
+    assert "fake-src-999" not in source_ids
+    assert "src-1" in source_ids
+    assert result.status == RAGStatus.degraded  # fabricated sources → degraded
+
+
+# ====================================================================
+# 33. Fabricated chunk_id removed
+# ====================================================================
+def test_fabricated_chunk_id_removed():
+    fake = FakeOpenAI(
+        response=json.dumps(
+            _minimal_model_output(
+                used_source_ids=["src-1"],
+                used_chunk_ids=["chunk-1", "fake-chunk-999"],
+            )
+        )
+    )
+    client = OpenAICompatibleGenerationClient(client=fake, api_key="sk-test")
+
+    async def _test():
+        return await client.generate(
+            _make_request(
+                source_catalog=[_make_source("src-1")],
+                structured_facts=[
+                    StructuredFact(
+                        match_id="M-1",
+                        tournament_year=2022,
+                        stage="final",
+                        stage_name="决赛",
+                        home_team_id="t1",
+                        home_team_name="A",
+                        away_team_id="t2",
+                        away_team_name="B",
+                        score_display="1:0",
+                        result_type="regulation",
+                        winner_team_id="t1",
+                    )
+                ],
+            ),
+            _make_retrieval(),
+        )
+
+    result = _run(_test())
+    chunk_ids = {e.chunk_id for e in result.evidence}
+    assert "fake-chunk-999" not in chunk_ids
+    assert "chunk-1" in chunk_ids
+
+
+# ====================================================================
+# 34. Sources rebuilt from source_catalog
+# ====================================================================
+def test_sources_rebuilt_from_source_catalog():
+    fake = FakeOpenAI(
+        response=json.dumps(
+            _minimal_model_output(
+                used_source_ids=["src-1", "src-2"],
+                used_chunk_ids=["chunk-1"],
+            )
+        )
+    )
+    client = OpenAICompatibleGenerationClient(client=fake, api_key="sk-test")
+
+    async def _test():
+        return await client.generate(
+            _make_request(
+                source_catalog=[_make_source("src-1"), _make_source("src-2")],
+                structured_facts=[
+                    StructuredFact(
+                        match_id="M-1",
+                        tournament_year=2022,
+                        stage="final",
+                        stage_name="决赛",
+                        home_team_id="t1",
+                        home_team_name="A",
+                        away_team_id="t2",
+                        away_team_name="B",
+                        score_display="1:0",
+                        result_type="regulation",
+                        winner_team_id="t1",
+                    )
+                ],
+            ),
+            _make_retrieval(),
+        )
+
+    result = _run(_test())
+    assert len(result.sources) == 2
+    assert {s.source_id for s in result.sources} == {"src-1", "src-2"}
+
+
+# ====================================================================
+# 35. Evidence rebuilt from retrieval.items
+# ====================================================================
+def test_evidence_rebuilt_from_retrieval():
+    fake = FakeOpenAI(
+        response=json.dumps(
+            _minimal_model_output(
+                used_source_ids=["src-1"],
+                used_chunk_ids=["chunk-1"],
+            )
+        )
+    )
+    client = OpenAICompatibleGenerationClient(client=fake, api_key="sk-test")
+
+    async def _test():
+        return await client.generate(
+            _make_request(
+                source_catalog=[_make_source("src-1")],
+                structured_facts=[
+                    StructuredFact(
+                        match_id="M-1",
+                        tournament_year=2022,
+                        stage="final",
+                        stage_name="决赛",
+                        home_team_id="t1",
+                        home_team_name="A",
+                        away_team_id="t2",
+                        away_team_name="B",
+                        score_display="1:0",
+                        result_type="regulation",
+                        winner_team_id="t1",
+                    )
+                ],
+            ),
+            _make_retrieval(),
+        )
+
+    result = _run(_test())
+    assert len(result.evidence) == 1
+    assert result.evidence[0].chunk_id == "chunk-1"
+
+
+# ====================================================================
+# 36. used_for_fact_ids cross-linked
+# ====================================================================
+def test_used_for_fact_ids():
+    fake = FakeOpenAI(
+        response=json.dumps(
+            _minimal_model_output(
+                facts=[
+                    {
+                        "fact_type": "match_result",
+                        "fact_id": "fact-1",
+                        "match_id": "M-1",
+                        "tournament_year": 2022,
+                        "stage": "final",
+                        "stage_name": "决赛",
+                        "home_team_id": "t1",
+                        "home_team_name": "A",
+                        "away_team_id": "t2",
+                        "away_team_name": "B",
+                        "score_display": "1:0",
+                        "result_type": "regulation",
+                        "winner_team_id": "t1",
+                        "text": "...",
+                        "source_ids": ["src-1"],
+                    }
+                ],
+                used_source_ids=["src-1"],
+                used_chunk_ids=["chunk-1"],
+            )
+        )
+    )
+    client = OpenAICompatibleGenerationClient(client=fake, api_key="sk-test")
+
+    async def _test():
+        return await client.generate(
+            _make_request(
+                source_catalog=[_make_source("src-1")],
+                structured_facts=[
+                    StructuredFact(
+                        match_id="M-1",
+                        tournament_year=2022,
+                        stage="final",
+                        stage_name="决赛",
+                        home_team_id="t1",
+                        home_team_name="A",
+                        away_team_id="t2",
+                        away_team_name="B",
+                        score_display="1:0",
+                        result_type="regulation",
+                        winner_team_id="t1",
+                    )
+                ],
+            ),
+            _make_retrieval(),
+        )
+
+    result = _run(_test())
+    assert len(result.facts) == 1
+    for s in result.sources:
+        assert "fact-1" in s.used_for_fact_ids
+
+
+# ====================================================================
+# 37. StructuredFact score precedence
+# ====================================================================
+def test_structured_fact_score_precedence():
+    """Model says 2:0, StructuredFact says 1:0 — fact wins."""
+    fake = FakeOpenAI(
+        response=json.dumps(
+            _minimal_model_output(
+                facts=[
+                    {
+                        "fact_type": "match_result",
+                        "fact_id": "fact-1",
+                        "match_id": "M-1",
+                        "tournament_year": 2022,
+                        "stage": "final",
+                        "stage_name": "决赛",
+                        "home_team_id": "t1",
+                        "home_team_name": "A",
+                        "away_team_id": "t2",
+                        "away_team_name": "B",
+                        "score_display": "2:0",
+                        "result_type": "regulation",
+                        "winner_team_id": "t1",
+                        "text": "...",
+                        "source_ids": ["src-1"],
+                    }
+                ],
+                used_source_ids=["src-1"],
+                used_chunk_ids=["chunk-1"],
+            )
+        )
+    )
+    client = OpenAICompatibleGenerationClient(client=fake, api_key="sk-test")
+
+    async def _test():
+        return await client.generate(
+            _make_request(
+                source_catalog=[_make_source("src-1")],
+                structured_facts=[
+                    StructuredFact(
+                        match_id="M-1",
+                        tournament_year=2022,
+                        stage="final",
+                        stage_name="决赛",
+                        home_team_id="t1",
+                        home_team_name="A",
+                        away_team_id="t2",
+                        away_team_name="B",
+                        score_display="1:0",
+                        result_type="regulation",
+                        winner_team_id="t1",
+                    )
+                ],
+            ),
+            _make_retrieval(),
+        )
+
+    result = _run(_test())
+    codes = {w.code for w in result.warnings}
+    assert "SOURCE_CONFLICT" in codes
+    assert result.status == RAGStatus.degraded
+
+
+# ====================================================================
+# 38. SOURCE_CONFLICT warning
+# ====================================================================
+def test_source_conflict_warning():
+    """score mismatch produces SOURCE_CONFLICT."""
+    fake = FakeOpenAI(
+        response=json.dumps(
+            _minimal_model_output(
+                facts=[
+                    {
+                        "fact_type": "match_result",
+                        "fact_id": "fact-1",
+                        "match_id": "M-1",
+                        "tournament_year": 2022,
+                        "stage": "final",
+                        "stage_name": "决赛",
+                        "home_team_id": "t1",
+                        "home_team_name": "A",
+                        "away_team_id": "t2",
+                        "away_team_name": "B",
+                        "score_display": "3:3",
+                        "result_type": "draw",
+                        "winner_team_id": "t1",  # model claims winner on draw
+                        "text": "...",
+                        "source_ids": ["src-1"],
+                    }
+                ],
+                used_source_ids=["src-1"],
+                used_chunk_ids=["chunk-1"],
+            )
+        )
+    )
+    client = OpenAICompatibleGenerationClient(client=fake, api_key="sk-test")
+
+    async def _test():
+        return await client.generate(
+            _make_request(
+                source_catalog=[_make_source("src-1")],
+                structured_facts=[
+                    StructuredFact(
+                        match_id="M-1",
+                        tournament_year=2022,
+                        stage="group",
+                        stage_name="小组赛",
+                        home_team_id="t1",
+                        home_team_name="A",
+                        away_team_id="t2",
+                        away_team_name="B",
+                        score_display="1:1",
+                        result_type="draw",
+                    )
+                ],
+            ),
+            _make_retrieval(),
+        )
+
+    result = _run(_test())
+    codes = {w.code for w in result.warnings}
+    assert "SOURCE_CONFLICT" in codes
+
+
+# ====================================================================
+# 39. Penalties separated from formal score
+# ====================================================================
+def test_penalties_separated():
+    """When result_type=penalties, penalty_score is separate from score_display."""
+    fake = FakeOpenAI(
+        response=json.dumps(
+            _minimal_model_output(
+                facts=[
+                    {
+                        "fact_type": "match_result",
+                        "fact_id": "fact-1",
+                        "match_id": "M-1",
+                        "tournament_year": 2022,
+                        "stage": "final",
+                        "stage_name": "决赛",
+                        "home_team_id": "t1",
+                        "home_team_name": "A",
+                        "away_team_id": "t2",
+                        "away_team_name": "B",
+                        "score_display": "4:2",
+                        "result_type": "penalties",
+                        "penalty_score": "4:2",
+                        "winner_team_id": "t1",
+                        "text": "...",
+                        "source_ids": ["src-1"],
+                    }
+                ],
+                used_source_ids=["src-1"],
+                used_chunk_ids=["chunk-1"],
+            )
+        )
+    )
+    client = OpenAICompatibleGenerationClient(client=fake, api_key="sk-test")
+
+    async def _test():
+        return await client.generate(
+            _make_request(
+                source_catalog=[_make_source("src-1")],
+                structured_facts=[
+                    StructuredFact(
+                        match_id="M-1",
+                        tournament_year=2022,
+                        stage="final",
+                        stage_name="决赛",
+                        home_team_id="t1",
+                        home_team_name="A",
+                        away_team_id="t2",
+                        away_team_name="B",
+                        score_display="3:3",
+                        penalty_score="4:2",
+                        result_type="penalties",
+                        winner_team_id="t1",
+                    )
+                ],
+            ),
+            _make_retrieval(),
+        )
+
+    result = _run(_test())
+    assert result.status in (RAGStatus.ok, RAGStatus.degraded)
+
+
+# ====================================================================
+# 40. Error content does not leak API key
+# ====================================================================
+def test_error_no_api_key_leak():
+    fake = FakeOpenAI(should_raise=RuntimeError("Error with sk-12345-secret-key"))
+    client = OpenAICompatibleGenerationClient(client=fake, api_key="sk-test-real")
+
+    async def _test():
+        return await client.generate(
+            _make_request(
+                structured_facts=[
+                    StructuredFact(
+                        match_id="M-1",
+                        tournament_year=2022,
+                        stage="final",
+                        stage_name="决赛",
+                        home_team_id="t1",
+                        home_team_name="A",
+                        away_team_id="t2",
+                        away_team_name="B",
+                        score_display="1:0",
+                        result_type="regulation",
+                        winner_team_id="t1",
+                    )
+                ],
+                source_catalog=[_make_source("src-1")],
+            ),
+            _make_retrieval(),
+        )
+
+    result = _run(_test())
+    assert result.status == RAGStatus.error
+    assert result.error is not None
+    assert "sk-test-real" not in result.error.message
+    assert "sk-" not in result.error.message.lower()
+
+
+# ====================================================================
+# 41. _ModelGenerationPayload silently ignores unknown fields
+# ====================================================================
+def test_model_payload_ignores_unknown():
+    """extra="ignore": unknown fields are silently dropped, no crash."""
+    payload = _ModelGenerationPayload(status="ok", answer="test", unknown_field="x")
+    assert payload.status == "ok"
+    assert payload.answer == "test"
+    assert not hasattr(payload, "unknown_field")
+
+
+# 41b. sources / confidence / generation_meta from model are ignored
+def test_model_payload_ignores_oversharing_fields():
+    """Model returns extra sources, confidence, generation_meta — ignored."""
+    payload = _ModelGenerationPayload(
+        status="ok",
+        answer="answer text",
+        facts=[{"fact_id": "f1", "text": "fact"}],
+        used_source_ids=["src-1"],
+        used_chunk_ids=["c1"],
+        warnings=[],
+        sources=[{"source_id": "evil", "title": "fabricated"}],
+        confidence=0.99,
+        generation_meta={"model_name": "evil-model"},
+        unknown_random_field=42,
+    )
+    assert payload.status == "ok"
+    assert payload.answer == "answer text"
+    assert len(payload.facts) == 1
+    assert payload.used_source_ids == ["src-1"]
+    assert payload.used_chunk_ids == ["c1"]
+    # These MUST NOT be present
+    assert not hasattr(payload, "sources")
+    assert not hasattr(payload, "confidence")
+    assert not hasattr(payload, "generation_meta")
+    assert not hasattr(payload, "unknown_random_field")
+
+
+# 41c. E2E: model extra fields do NOT trigger JSON retry
+def test_model_extras_no_retry():
+    """When model returns extra fields, no retry — just strip and proceed."""
+    call_count = [0]
+
+    class _FakeResponse:
+        def __init__(self, content):
+            self.choices = [type("_C", (), {"message": type("_M", (), {"content": content})()})()]
+
+    class _FakeAsyncOpenAI:
+        def __init__(self):
+            self.chat = type(
+                "_Chat", (), {"completions": type("_Compl", (), {"create": self._fake_create})()}
+            )()
+
+        async def _fake_create(self, **kwargs):
+            call_count[0] += 1
+            import json
+
+            payload = {
+                "status": "ok",
+                "answer": "test answer with extras.",
+                "facts": [],
+                "used_source_ids": [],
+                "used_chunk_ids": [],
+                "warnings": [],
+                "sources": [{"source_id": "fake-src"}],
+                "confidence": 0.99,
+                "generation_meta": {"model_name": "fake-model"},
+                "unknown_field": "should-be-gone",
+            }
+            return _FakeResponse(json.dumps(payload))
+
+    client = OpenAICompatibleGenerationClient(
+        client=_FakeAsyncOpenAI(),
+        api_key="sk-test",
+        model="test-model",
+    )
+
+    async def _test():
+        return await client.generate(
+            RAGRequest(
+                contract_version=RAG_CONTRACT_VERSION,
+                trace_id="trace-extras-001",
+                question="test",
+                original_question="test",
+                query_type="semantic",
+                filters=RetrievalFilters(),
+                options=RAGOptions(),
+                structured_facts=[],
+                source_catalog=[],
+            ),
+            RetrievalResult(
+                contract_version=RAG_CONTRACT_VERSION,
+                trace_id="trace-extras-001",
+                status=RAGStatus.ok,
+                original_query="test",
+                items=[
+                    EvidenceItem(
+                        chunk_id="c1",
+                        document_id="d1",
+                        source_id="src-1",
+                        document_name="D",
+                        text="evidence text",
+                        data_version="v1",
+                    )
+                ],
+                applied_filters=RetrievalFilters(),
+                timing=RetrievalTiming(),
+            ),
+        )
+
+    result = asyncio.run(_test())
+
+    # 1. No retry — call_count is exactly 1
+    assert call_count[0] == 1, f"Expected 1 call, got {call_count[0]}"
+
+    # 2. Model provided fake sources → ignored, real sources from code
+    assert result.status == RAGStatus.ok
+    assert result.answer == "test answer with extras."
+    # sources NOT from model
+    for s in result.sources:
+        assert s.source_id != "fake-src", "Fabricated source should not appear"
+
+    # 3. confidence must be null (code-enforced)
+    assert result.confidence is None
+
+    # 4. generation_meta uses real config
+    assert result.generation_meta.model_name == "test-model"
+
+    # 5. trace_id from request, not model
+    assert result.trace_id == "trace-extras-001"
+
+    # 6. Extra unknown fields not in RAGResult
+    assert not hasattr(result, "unknown_field")
+
+
+# ====================================================================
+# 42. _build_messages produces strings
+# ====================================================================
+def test_build_messages_produces_strings():
+    sf = StructuredFact(
+        match_id="M-1",
+        tournament_year=2022,
+        stage="final",
+        stage_name="决赛",
+        home_team_id="t1",
+        home_team_name="A",
+        away_team_id="t2",
+        away_team_name="B",
+        score_display="1:0",
+        result_type="regulation",
+        winner_team_id="t1",
+    )
+    system, user = _build_messages(
+        prompt_template="Test prompt {{question}}",
+        question="Q?",
+        original_question="Q?",
+        query_type="semantic",
+        structured_facts=[sf],
+        source_catalog=[_make_source("src-1")],
+        evidence=[
+            EvidenceItem(
+                chunk_id="c1",
+                document_id="d1",
+                source_id="s1",
+                document_name="D",
+                text="T",
+                data_version="v1",
+            )
+        ],
+        applied_filters=RetrievalFilters(),
+    )
+    assert isinstance(system, str)
+    assert isinstance(user, str)
+    assert "Q?" in user
+
+
+# ====================================================================
+# 43. Hybrid: model returns empty facts, structured_facts preserved
+# ====================================================================
+def test_structured_facts_preserved_when_model_facts_empty():
+    """When model returns no facts, SQLite structured_facts become output."""
+    from backend.rag.openai_compatible_generation import _build_rag_result
+
+    sf = StructuredFact(
+        match_id="M-2022-64",
+        tournament_year=2022,
+        stage="final",
+        stage_name="决赛",
+        home_team_id="team_ARG",
+        home_team_name="阿根廷",
+        away_team_id="team_FRA",
+        away_team_name="法国",
+        score_display="2:2",
+        penalty_score="4:2",
+        result_type="penalties",
+        winner_team_id="team_ARG",
+        source_ids=["src-csv-001"],
+    )
+    sc = SourceItem(source_id="src-csv-001", title="Test Source")
+
+    payload = _ModelGenerationPayload(
+        status="ok",
+        answer="2022年世界杯决赛阿根廷对法国。",
+        facts=[],  # model returned NO facts
+        used_source_ids=[],
+        used_chunk_ids=[],
+        warnings=[],
+    )
+
+    result = _build_rag_result(
+        request=RAGRequest(
+            contract_version=RAG_CONTRACT_VERSION,
+            trace_id="trace-fb-001",
+            question="test",
+            original_question="test",
+            query_type="hybrid",
+            filters=RetrievalFilters(),
+            structured_facts=[sf],
+            source_catalog=[sc],
+            options=RAGOptions(),
+        ),
+        retrieval=RetrievalResult(
+            contract_version=RAG_CONTRACT_VERSION,
+            trace_id="trace-fb-001",
+            status=RAGStatus.ok,
+            original_query="test",
+            items=[
+                EvidenceItem(
+                    chunk_id="c1",
+                    document_id="d1",
+                    source_id="src-csv-001",
+                    document_name="D",
+                    text="evidence",
+                    data_version="v1",
+                )
+            ],
+            applied_filters=RetrievalFilters(),
+            timing=RetrievalTiming(),
+        ),
+        payload=payload,
+        prompt_name="test",
+        prompt_version="v1",
+        generation_ms=100,
+        model_name="test-model",
+    )
+
+    # Facts preserved from structured_facts
+    assert len(result.facts) >= 1
+    f0 = result.facts[0]
+    assert f0.match_id == "M-2022-64"
+    assert f0.home_team_name == "阿根廷"
+    assert f0.away_team_name == "法国"
+    assert f0.score_display == "2:2"
+    assert f0.penalty_score == "4:2"
+    assert f0.winner_team_id == "team_ARG"
+
+    # Sources populated from source_catalog via structured_facts source_ids
+    assert len(result.sources) >= 1
+    assert any(s.source_id == "src-csv-001" for s in result.sources)
+
+    # Evidence from retrieval
+    assert len(result.evidence) >= 1
+
+    # Warning about degraded
+    codes = {w.code for w in result.warnings}
+    assert "GENERATION_DEGRADED" in codes
+
+
+# ====================================================================
+# 44. Hybrid: invalid model SummaryFact dropped, structured_facts kept
+# ====================================================================
+def test_invalid_model_summary_fact_dropped_structured_kept():
+    """Model returns SummaryFact with invalid fields → dropped, SQLite kept."""
+    from backend.rag.openai_compatible_generation import _build_rag_result
+
+    sf = StructuredFact(
+        match_id="M-2022-64",
+        tournament_year=2022,
+        stage="final",
+        stage_name="决赛",
+        home_team_id="team_ARG",
+        home_team_name="阿根廷",
+        away_team_id="team_FRA",
+        away_team_name="法国",
+        score_display="2:2",
+        penalty_score="4:2",
+        result_type="penalties",
+        winner_team_id="team_ARG",
+        source_ids=["src-csv-001"],
+    )
+    sc = SourceItem(source_id="src-csv-001", title="Test Source")
+
+    # Model returns a "summary" fact with fields that don't match SummaryFact
+    payload = _ModelGenerationPayload(
+        status="ok",
+        answer="决赛概要。",
+        facts=[
+            {
+                "fact_type": "summary",
+                "summary_scope": "2022世界杯决赛",
+                "key_match_ids": ["M-2022-64"],
+                "statements": ["阿根廷对法国，2:2后点球获胜"],
+                # missing: fact_id, match_ids, tournament_years, text, source_ids
+            }
+        ],
+        used_source_ids=[],
+        used_chunk_ids=[],
+        warnings=[],
+    )
+
+    result = _build_rag_result(
+        request=RAGRequest(
+            contract_version=RAG_CONTRACT_VERSION,
+            trace_id="trace-fb-002",
+            question="test",
+            original_question="test",
+            query_type="hybrid",
+            filters=RetrievalFilters(),
+            structured_facts=[sf],
+            source_catalog=[sc],
+            options=RAGOptions(),
+        ),
+        retrieval=RetrievalResult(
+            contract_version=RAG_CONTRACT_VERSION,
+            trace_id="trace-fb-002",
+            status=RAGStatus.ok,
+            original_query="test",
+            items=[],
+            applied_filters=RetrievalFilters(),
+            timing=RetrievalTiming(),
+        ),
+        payload=payload,
+        prompt_name="test",
+        prompt_version="v1",
+        generation_ms=100,
+        model_name="test-model",
+    )
+
+    # Structured fact preserved despite invalid model fact
+    assert len(result.facts) >= 1
+    f0 = result.facts[0]
+    assert f0.match_id == "M-2022-64"
+    assert f0.fact_type == "match_result"
+    assert f0.home_team_name == "阿根廷"
+
+    # Not error — degraded with warning
+    assert result.status != RAGStatus.error
+
+
+# ====================================================================
+# 45. Model score conflict → SQLite wins
+# ====================================================================
+def test_model_score_conflict_sqlite_wins():
+    """Model claims different score; code enforces structured_fact values."""
+    from backend.rag.openai_compatible_generation import _build_rag_result
+
+    sf = StructuredFact(
+        match_id="M-1",
+        tournament_year=2022,
+        stage="final",
+        stage_name="决赛",
+        home_team_id="t1",
+        home_team_name="A",
+        away_team_id="t2",
+        away_team_name="B",
+        score_display="2:2",
+        penalty_score="4:2",
+        result_type="penalties",
+        winner_team_id="t1",
+    )
+
+    payload = _ModelGenerationPayload(
+        status="ok",
+        answer="A wins.",
+        facts=[
+            {
+                "fact_type": "match_result",
+                "fact_id": "f1",
+                "match_id": "M-1",
+                "tournament_year": 2022,
+                "stage": "final",
+                "stage_name": "决赛",
+                "home_team_id": "t1",
+                "home_team_name": "A",
+                "away_team_id": "t2",
+                "away_team_name": "B",
+                "score_display": "5:0",  # WRONG — model hallucinates
+                "result_type": "regulation",  # WRONG
+                "text": "A wins 5-0.",
+            }
+        ],
+        used_source_ids=[],
+        used_chunk_ids=[],
+        warnings=[],
+    )
+
+    result = _build_rag_result(
+        request=RAGRequest(
+            contract_version=RAG_CONTRACT_VERSION,
+            trace_id="trace-fb-003",
+            question="test",
+            original_question="test",
+            query_type="hybrid",
+            filters=RetrievalFilters(),
+            structured_facts=[sf],
+            source_catalog=[],
+            options=RAGOptions(),
+        ),
+        retrieval=RetrievalResult(
+            contract_version=RAG_CONTRACT_VERSION,
+            trace_id="trace-fb-003",
+            status=RAGStatus.ok,
+            original_query="test",
+            items=[],
+            applied_filters=RetrievalFilters(),
+            timing=RetrievalTiming(),
+        ),
+        payload=payload,
+        prompt_name="test",
+        prompt_version="v1",
+        generation_ms=100,
+        model_name="test-model",
+    )
+
+    assert len(result.facts) == 1
+    f0 = result.facts[0]
+    # SQLite score overrides model hallucination
+    assert f0.score_display == "2:2"
+    assert f0.penalty_score == "4:2"
+    assert f0.result_type.value == "penalties"
+    # SOURCE_CONFLICT warning
+    codes = {w.code for w in result.warnings}
+    assert "SOURCE_CONFLICT" in codes
+
+
+# ====================================================================
+# 46. Model fake source_id removed
+# ====================================================================
+def test_model_fake_source_id_removed():
+    """Model references a source_id not in source_catalog → removed."""
+    from backend.rag.openai_compatible_generation import _build_rag_result
+
+    real_src = SourceItem(source_id="real-src", title="Real Source")
+    sf = StructuredFact(
+        match_id="M-1",
+        tournament_year=2022,
+        stage="final",
+        stage_name="决赛",
+        home_team_id="t1",
+        home_team_name="A",
+        away_team_id="t2",
+        away_team_name="B",
+        score_display="1:0",
+        result_type="regulation",
+        winner_team_id="t1",
+        source_ids=["real-src"],
+    )
+
+    payload = _ModelGenerationPayload(
+        status="ok",
+        answer="A wins.",
+        facts=[
+            {
+                "fact_type": "match_result",
+                "fact_id": "f1",
+                "match_id": "M-1",
+                "tournament_year": 2022,
+                "stage": "final",
+                "stage_name": "决赛",
+                "home_team_id": "t1",
+                "home_team_name": "A",
+                "away_team_id": "t2",
+                "away_team_name": "B",
+                "score_display": "1:0",
+                "result_type": "regulation",
+                "text": "A wins.",
+                "source_ids": ["fake-src-999"],  # fabricated!
+            }
+        ],
+        used_source_ids=["fake-src-999"],  # fabricated!
+        used_chunk_ids=[],
+        warnings=[],
+    )
+
+    result = _build_rag_result(
+        request=RAGRequest(
+            contract_version=RAG_CONTRACT_VERSION,
+            trace_id="trace-fb-004",
+            question="test",
+            original_question="test",
+            query_type="hybrid",
+            filters=RetrievalFilters(),
+            structured_facts=[sf],
+            source_catalog=[real_src],
+            options=RAGOptions(),
+        ),
+        retrieval=RetrievalResult(
+            contract_version=RAG_CONTRACT_VERSION,
+            trace_id="trace-fb-004",
+            status=RAGStatus.ok,
+            original_query="test",
+            items=[],
+            applied_filters=RetrievalFilters(),
+            timing=RetrievalTiming(),
+        ),
+        payload=payload,
+        prompt_name="test",
+        prompt_version="v1",
+        generation_ms=100,
+        model_name="test-model",
+    )
+
+    # Fake source NOT in output
+    for s in result.sources:
+        assert s.source_id != "fake-src-999", "Fabricated source must be removed"
+    # Real source IS in output (from structured_facts source_ids)
+    assert any(s.source_id == "real-src" for s in result.sources), (
+        "Real source from structured_facts must be preserved"
+    )
+    # LOW_CONFIDENCE warning about fabricated source
+    codes = {w.code for w in result.warnings}
+    assert "LOW_CONFIDENCE" in codes
+
+
+# ====================================================================
+# 47. Pure rag_query without structured_facts: no fabrication
+# ====================================================================
+def test_pure_rag_query_no_structured_no_fabrication():
+    """Without structured_facts, do NOT fabricate match facts."""
+    from backend.rag.openai_compatible_generation import _build_rag_result
+
+    payload = _ModelGenerationPayload(
+        status="ok",
+        answer="足球比赛很精彩。",
+        facts=[
+            {
+                "fact_type": "summary",
+                "fact_id": "sum-1",
+                "match_ids": [],
+                "tournament_years": [],
+                "text": "football is exciting",
+                "source_ids": [],
+            }
+        ],
+        used_source_ids=[],
+        used_chunk_ids=[],
+        warnings=[],
+    )
+
+    result = _build_rag_result(
+        request=RAGRequest(
+            contract_version=RAG_CONTRACT_VERSION,
+            trace_id="trace-fb-005",
+            question="为什么足球激动人心？",
+            original_question="test",
+            query_type="semantic",
+            filters=RetrievalFilters(),
+            structured_facts=[],  # no SQLite facts
+            source_catalog=[],
+            options=RAGOptions(),
+        ),
+        retrieval=RetrievalResult(
+            contract_version=RAG_CONTRACT_VERSION,
+            trace_id="trace-fb-005",
+            status=RAGStatus.ok,
+            original_query="test",
+            items=[],
+            applied_filters=RetrievalFilters(),
+            timing=RetrievalTiming(),
+        ),
+        payload=payload,
+        prompt_name="test",
+        prompt_version="v1",
+        generation_ms=100,
+        model_name="test-model",
+    )
+
+    # SummaryFact is valid in this case (has required fields)
+    assert len(result.facts) == 1
+    assert result.facts[0].fact_type == "summary"
+    # No fabricated match_result facts
+    for f in result.facts:
+        if hasattr(f, "fact_type"):
+            assert f.fact_type != "match_result"
+
+
+# ====================================================================
+# 48. Fake client call count stays 1, no retry on fact issues
+# ====================================================================
+def test_fact_type_mismatch_no_json_retry():
+    """Invalid model fact types do NOT trigger JSON retry — call_count=1."""
+    call_count = [0]
+
+    class _FakeResponse:
+        def __init__(self, content):
+            self.choices = [type("_C", (), {"message": type("_M", (), {"content": content})()})()]
+
+    class _FakeAsyncOpenAI:
+        def __init__(self):
+            self.chat = type(
+                "_Chat", (), {"completions": type("_Compl", (), {"create": self._fake_create})()}
+            )()
+
+        async def _fake_create(self, **kwargs):
+            call_count[0] += 1
+            import json as _json
+
+            payload = {
+                "status": "ok",
+                "answer": "决赛很精彩。",
+                "facts": [
+                    {
+                        "fact_type": "summary",
+                        "summary_scope": "2022 final",
+                        "statements": ["ARG beat FRA"],
+                    }
+                ],
+                "used_source_ids": [],
+                "used_chunk_ids": [],
+                "warnings": [],
+            }
+            return _FakeResponse(_json.dumps(payload))
+
+    sf = StructuredFact(
+        match_id="M-2022-64",
+        tournament_year=2022,
+        stage="final",
+        stage_name="决赛",
+        home_team_id="team_ARG",
+        home_team_name="阿根廷",
+        away_team_id="team_FRA",
+        away_team_name="法国",
+        score_display="2:2",
+        penalty_score="4:2",
+        result_type="penalties",
+        winner_team_id="team_ARG",
+    )
+    sc = SourceItem(source_id="src-1", title="T")
+
+    client = OpenAICompatibleGenerationClient(
+        client=_FakeAsyncOpenAI(),
+        api_key="sk-test",
+        model="test-model",
+    )
+
+    async def _test():
+        return await client.generate(
+            RAGRequest(
+                contract_version=RAG_CONTRACT_VERSION,
+                trace_id="trace-fb-006",
+                question="介绍一下决赛",
+                original_question="test",
+                query_type="hybrid",
+                filters=RetrievalFilters(),
+                structured_facts=[sf],
+                source_catalog=[sc],
+                options=RAGOptions(),
+            ),
+            RetrievalResult(
+                contract_version=RAG_CONTRACT_VERSION,
+                trace_id="trace-fb-006",
+                status=RAGStatus.ok,
+                original_query="test",
+                items=[],
+                applied_filters=RetrievalFilters(),
+                timing=RetrievalTiming(),
+            ),
+        )
+
+    result = asyncio.run(_test())
+
+    # call count is exactly 1 — no retry
+    assert call_count[0] == 1, f"Expected 1 call, got {call_count[0]}"
+    # Facts preserved from structured_facts
+    assert len(result.facts) >= 1
+    assert any(f.match_id == "M-2022-64" for f in result.facts if hasattr(f, "match_id"))

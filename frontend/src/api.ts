@@ -11,50 +11,83 @@ const api = axios.create({
 
 // ============================================================
 // 请求参数序列化
-//   · 驼峰 → 下划线：teamIds → team_ids
-//   · 数组展开为重复键：years=2018&years=2022（禁用逗号拼接）
+//   · 数组展开为重复键：years=2018&years=2022
 // ============================================================
 function buildParams(params: Record<string, unknown>): string {
   const sp = new URLSearchParams()
   for (const [key, value] of Object.entries(params)) {
     if (value === undefined || value === null) continue
-    const snakeKey = key.replace(/[A-Z]/g, (m) => '_' + m.toLowerCase())
     if (Array.isArray(value)) {
-      value.forEach(v => sp.append(snakeKey, String(v)))
+      value.forEach(v => sp.append(key, String(v)))
     } else if (typeof value === 'boolean') {
-      sp.append(snakeKey, value ? '1' : '0')
+      sp.append(key, value ? 'true' : 'false')
     } else {
-      sp.append(snakeKey, String(value))
+      sp.append(key, String(value))
     }
   }
   return sp.toString()
 }
 
 // ============================================================
-// 响应拦截器
+// 公共响应外壳（契约 §3）
+// ============================================================
+export interface ApiResponse<T> {
+  success: boolean
+  code: string
+  message: string
+  data: T
+  trace_id: string
+  timestamp: string
+}
+
+export interface ApiErrorDetail {
+  field?: string
+  reason?: string
+  error?: string
+}
+
+export interface ApiErrorResponse {
+  success: false
+  code: string
+  message: string
+  data: null
+  trace_id: string
+  timestamp: string
+  retryable: boolean
+  details: ApiErrorDetail[]
+}
+
+// ============================================================
+// 响应拦截器 — 保留 AxiosResponse，由各函数提取 response.data.data
 // ============================================================
 api.interceptors.response.use(
-  (res) => res.data,
+  (res) => res,
   (err) => {
     console.warn('[API] 请求失败:', err.config?.url, err.message)
-    return Promise.resolve(null)
+    return Promise.reject(err)
   },
 )
 
 // ============================================================
-// 类型定义（对齐 rag-contract-v1.0）
+// 内部 helper — 提取业务 data
 // ============================================================
-
-// ---- 通用筛选参数（前端驼峰命名） ----
-export interface QueryFilters {
-  years?: number[]
-  teamIds?: string[]
-  stages?: string[]
-  resultTypes?: string[]
-  hasPenalties?: boolean
+function extractData<T>(res: { data: ApiResponse<T> }): T {
+  return res.data.data
 }
 
-/** UI 端的筛选状态（数组始终存在，空数组表示不筛选） */
+// ============================================================
+// 通用筛选参数（snake_case，契约 §3）
+// ============================================================
+export interface QueryFilters {
+  years?: number[]
+  team_ids?: string[]
+  stages?: string[]
+  result_types?: string[]
+  has_penalties?: boolean | null
+  match_ids?: string[]
+}
+
+/** 前端组件内部使用的筛选状态（空数组表示不筛选）。 */
 export interface FiltersState {
   years: number[]
   teamIds: string[]
@@ -63,84 +96,47 @@ export interface FiltersState {
   hasPenalties: boolean
 }
 
-// ---- GET /api/filter-options ----
-export interface FilterOptionTeam {
-  id: string
+// ============================================================
+// GET /api/filter-options
+// ============================================================
+export interface TournamentOption {
+  year: number
+  label: string
+  host: string | null
+}
+
+export interface TeamOption {
+  team_id: string
   name: string
 }
-export interface FilterOptionStage {
+
+export interface StageOption {
+  value: string
+  label: string
+  order: number
+}
+
+export interface ResultTypeOption {
   value: string
   label: string
 }
-export interface FilterOptionResultType {
-  value: string
-  label: string
+
+export interface FilterOptionsData {
+  data_status: string
+  tournaments: TournamentOption[]
+  teams: TeamOption[]
+  stages: StageOption[]
+  result_types: ResultTypeOption[]
 }
 
-export interface FilterOptionsResponse {
-  tournaments: number[]
-  teams: FilterOptionTeam[]
-  stages: FilterOptionStage[]
-  resultTypes: FilterOptionResultType[]
+export async function fetchFilterOptions(): Promise<FilterOptionsData> {
+  const res = await api.get<ApiResponse<FilterOptionsData>>('/filter-options')
+  return extractData(res)
 }
 
-// ---- GET /api/matches ----
-export interface MatchSourceItem {
-  source_id: string
-  title: string
-  url: string | null
-}
-
-export interface MatchItem {
-  match_id: string
-  match_date: string | null
-  tournament_year: number
-  stage: string
-  stage_name: string
-  home_team_id: string
-  home_team_name: string
-  away_team_id: string
-  away_team_name: string
-  home_score_90: number
-  away_score_90: number
-  home_score_et: number | null
-  away_score_et: number | null
-  home_penalties: number | null
-  away_penalties: number | null
-  score_display: string
-  penalty_score: string | null
-  result_type: string
-  winner_team_id: string | null
-  sources: MatchSourceItem[]
-}
-
-export interface MatchesResponse {
-  matches: MatchItem[]
-  total: number
-  page: number
-  page_size: number
-}
-
-// ---- GET /api/graph ----
-export interface GraphNode {
-  id: string
-  name: string
-  type: string
-}
-export interface GraphEdge {
-  id: string
-  source: string
-  target: string
-  match_id: string
-  label: string
-}
-
-export interface GraphResponse {
-  nodes: GraphNode[]
-  edges: GraphEdge[]
-}
-
-// ---- POST /api/query —— B 统一响应（契约 §10） ----
+// ============================================================
+// GET /api/matches
+// ============================================================
 export interface TeamRef {
   team_id: string
   name: string
@@ -159,101 +155,278 @@ export interface MatchScore {
   penalty_display: string | null
 }
 
-export interface ApiFact {
-  fact_id: string
+export interface MatchItem {
   match_id: string
+  tournament_year: number
+  match_date: string
+  stage: string
   stage_name: string
   home_team: TeamRef
   away_team: TeamRef
   score: MatchScore
+  result_type: string
   winner_team: TeamRef | null
 }
 
-export interface ApiSourceItem {
-  source_id: string
-  title: string
-  url: string | null
+export interface MatchesData {
+  data_status: string
+  items: MatchItem[]
+  total: number
+  page: number
+  page_size: number
+  applied_filters: Record<string, unknown>
 }
 
-export interface QueryWarning {
-  code: string
-  message: string
-  component: string
-  retryable: boolean
-}
-
-/** B 组装的前端统一响应（契约 §10） */
-export interface QueryResponse {
-  intent: string
-  answer: string
-  facts: ApiFact[]
-  sources: ApiSourceItem[]
-  graph: {
-    nodes: GraphNode[]
-    edges: GraphEdge[]
-  }
-  trace_id: string
-  status: string
-  warnings: QueryWarning[]
-  /** MVP 阶段固定 null，非 null 时才展示置信度 UI */
-  confidence?: number | null
-}
-
-// ============================================================
-// API 函数
-// ============================================================
-
-/** 获取筛选器可用选项 */
-export async function fetchFilterOptions(): Promise<FilterOptionsResponse | null> {
-  return api.get('/filter-options') as unknown as Promise<FilterOptionsResponse | null>
-}
-
-/** 获取比赛列表（支持多选筛选 + 分页） */
 export async function fetchMatches(
   filters?: QueryFilters,
   page?: number,
   pageSize?: number,
-): Promise<MatchesResponse | null> {
+): Promise<MatchesData> {
   const params: Record<string, unknown> = {}
   if (filters) {
     for (const [k, v] of Object.entries(filters)) {
-      if (v !== undefined && v !== null && (Array.isArray(v) ? v.length > 0 : true)) {
+      if (v !== undefined && v !== null && (!Array.isArray(v) || v.length > 0)) {
         params[k] = v
       }
     }
   }
   if (page !== undefined) params.page = page
   if (pageSize !== undefined) params.page_size = pageSize
-
-  return api.get('/matches', {
+  const res = await api.get<ApiResponse<MatchesData>>('/matches', {
     params,
     paramsSerializer: { serialize: buildParams },
-  }) as unknown as Promise<MatchesResponse | null>
+  })
+  return extractData(res)
 }
 
-/** 获取知识图谱数据（支持筛选） */
-export async function fetchGraph(filters?: QueryFilters): Promise<GraphResponse | null> {
-  const params = filters
-    ? Object.fromEntries(
-        Object.entries(filters).filter(([, v]) =>
-          v !== undefined && v !== null && (Array.isArray(v) ? v.length > 0 : true),
-        ),
-      )
-    : {}
-  return api.get('/graph', {
+// ============================================================
+// GET /api/graph
+// ============================================================
+export interface GraphNode {
+  id: string
+  name: string
+  type: string
+}
+
+export interface GraphEdge {
+  id: string
+  source: string
+  target: string
+  type: string
+  match_id: string
+  tournament_year: number
+  stage: string
+  stage_name: string
+  result_type: string
+  winner_team_id: string | null
+  label: string
+}
+
+export interface GraphStats {
+  node_count: number
+  edge_count: number
+  truncated: boolean
+}
+
+export interface GraphData {
+  data_status: string
+  scope: string
+  nodes: GraphNode[]
+  edges: GraphEdge[]
+  stats: GraphStats
+  applied_filters: Record<string, unknown>
+}
+
+export async function fetchGraph(filters?: QueryFilters): Promise<GraphData> {
+  const params: Record<string, unknown> = {}
+  if (filters) {
+    for (const [k, v] of Object.entries(filters)) {
+      if (v !== undefined && v !== null && (!Array.isArray(v) || v.length > 0)) {
+        params[k] = v
+      }
+    }
+  }
+  const res = await api.get<ApiResponse<GraphData>>('/graph', {
     params,
     paramsSerializer: { serialize: buildParams },
-  }) as unknown as Promise<GraphResponse | null>
+  })
+  return extractData(res)
 }
 
-/** 提交问答 → B 统一响应 */
+// ============================================================
+// POST /api/agent/query
+// ============================================================
+export interface QueryFiltersSnake {
+  years: number[]
+  team_ids: string[]
+  stages: string[]
+  result_types: string[]
+  match_ids: string[]
+  has_penalties: boolean | null
+}
+
+export interface QueryRequest {
+  question: string
+  session_id: string | null
+  filters: QueryFiltersSnake
+  debug: boolean
+}
+
+export interface ApiFact {
+  fact_type: string
+  fact_id: string
+  match_id: string | null
+  tournament_year?: number
+  stage?: string
+  stage_name?: string
+  home_team?: TeamRef
+  away_team?: TeamRef
+  score?: MatchScore
+  result_type?: string
+  winner_team?: TeamRef | null
+  text: string
+  source_ids: string[]
+}
+
+export interface ApiSourceItem {
+  source_id: string
+  title: string
+  url: string | null
+  page: number | null
+  document_id: string | null
+  data_version: string | null
+  used_for_fact_ids: string[]
+}
+
+export interface QueryWarning {
+  code: string
+  message: string
+  component: string
+  retryable?: boolean
+}
+
+export interface QueryTiming {
+  routing_ms: number
+  sql_ms: number
+  retrieval_ms: number
+  generation_ms: number
+  total_ms: number
+}
+
+export interface QueryResponseData {
+  data_status: string
+  status: string
+  intent: string
+  route: string
+  answer: string
+  needs_clarification: boolean
+  clarification_question: string | null
+  facts: ApiFact[]
+  sources: ApiSourceItem[]
+  graph: GraphData & { scope: string }
+  applied_filters: Record<string, unknown>
+  confidence: number | null
+  warnings: QueryWarning[]
+  timing: QueryTiming
+}
+
 export async function postQuery(
   question: string,
   filters?: QueryFilters,
-): Promise<QueryResponse | null> {
-  const body: Record<string, unknown> = { question }
-  if (filters) {
-    body.filters = filters
+): Promise<QueryResponseData> {
+  const body: QueryRequest = {
+    question,
+    session_id: null,
+    filters: {
+      years: filters?.years ?? [],
+      team_ids: filters?.team_ids ?? [],
+      stages: filters?.stages ?? [],
+      result_types: filters?.result_types ?? [],
+      match_ids: filters?.match_ids ?? [],
+      has_penalties: filters?.has_penalties ?? null,
+    },
+    debug: false,
   }
-  return api.post('/query', body) as unknown as Promise<QueryResponse | null>
+  const res = await api.post<ApiResponse<QueryResponseData>>('/agent/query', body)
+  return extractData(res)
+}
+
+// ============================================================
+// GET /api/matches/{match_id}
+// ============================================================
+export interface MatchDetailData extends MatchItem {
+  data_status: string
+  venue: string | null
+  city: string | null
+  timeline: {
+    regular_time: unknown[]
+    extra_time: unknown[]
+    shootout: {
+      available: boolean
+      home_score: number
+      away_score: number
+      events: unknown[]
+      message: string
+    }
+  }
+  sources: ApiSourceItem[]
+}
+
+export async function fetchMatchDetail(matchId: string): Promise<MatchDetailData> {
+  const res = await api.get<ApiResponse<MatchDetailData>>(`/matches/${matchId}`)
+  return extractData(res)
+}
+
+// ============================================================
+// GET /api/teams/{team_id}/relations
+// ============================================================
+export interface TeamRelationsData {
+  data_status: string
+  team: TeamRef | null
+  stats: {
+    matches: number
+    regulation_or_extra_time_wins: number
+    draws: number
+    penalty_advances: number
+    losses: number
+  }
+  matches: MatchItem[]
+  graph: GraphData & { scope: string }
+  total: number
+  page: number
+  page_size: number
+  applied_filters: Record<string, unknown>
+}
+
+export async function fetchTeamRelations(teamId: string): Promise<TeamRelationsData> {
+  const res = await api.get<ApiResponse<TeamRelationsData>>(`/teams/${teamId}/relations`)
+  return extractData(res)
+}
+
+// ============================================================
+// GET /api/documents
+// ============================================================
+export interface DocumentItem {
+  document_id: string
+  title: string
+  source_id: string
+  file_type: string
+  parse_status: string
+  chunk_count: number
+  parsed_at: string | null
+  data_version: string
+}
+
+export interface DocumentsData {
+  data_status: string
+  items: DocumentItem[]
+  total: number
+  page: number
+  page_size: number
+  applied_filters: Record<string, unknown>
+}
+
+export async function fetchDocuments(): Promise<DocumentsData> {
+  const res = await api.get<ApiResponse<DocumentsData>>('/documents')
+  return extractData(res)
 }

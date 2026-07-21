@@ -52,6 +52,11 @@ data/generated/*
 # 作业文档（非代码）
 *.docx
 
+# 外部需求/参考文档
+*A_B_前后端接口契约*.md
+*RAG模块输入输出接口契约*.md
+*分步骤可复制Prompt*.md
+
 # IDE / OS
 .idea/
 .vscode/

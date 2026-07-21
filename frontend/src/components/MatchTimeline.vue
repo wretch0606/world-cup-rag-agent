@@ -155,8 +155,8 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
-import type { QueryFilters, MatchItem, MatchSourceItem } from '@/api'
-import { fetchMatches } from '@/api'
+import type { QueryFilters, MatchItem } from '@/api'
+import { fetchMatchDetail, fetchMatches } from '@/api'
 
 // ============================================================
 // Props
@@ -202,15 +202,18 @@ const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.v
 async function fetchPage(p: number) {
   loading.value = true
   error.value = false
-  const res = await fetchMatches(props.filters, p, pageSize.value)
-  if (res) {
-    matches.value = res.matches
+  try {
+    const res = await fetchMatches(props.filters, p, pageSize.value)
+    matches.value = res.items
     total.value = res.total
     page.value = res.page
-  } else {
+    pageSize.value = res.page_size
+  } catch {
+    matches.value = []
     error.value = true
+  } finally {
+    loading.value = false
   }
-  loading.value = false
 }
 
 function goPrev() {
@@ -236,9 +239,30 @@ onMounted(() => fetchPage(1))
 // 比赛详情展开
 // ============================================================
 const expandedMatchId = ref<string | null>(null)
+const detailSources = ref<Record<string, TSource[]>>({})
 
-function toggleDetail(id: string) {
-  expandedMatchId.value = expandedMatchId.value === id ? null : id
+async function toggleDetail(id: string) {
+  if (expandedMatchId.value === id) {
+    expandedMatchId.value = null
+    return
+  }
+
+  expandedMatchId.value = id
+  if (detailSources.value[id]) return
+
+  try {
+    const detail = await fetchMatchDetail(id)
+    detailSources.value = {
+      ...detailSources.value,
+      [id]: detail.sources.map(source => ({
+        source_id: source.source_id,
+        title: source.title,
+        url: source.url,
+      })),
+    }
+  } catch {
+    detailSources.value = { ...detailSources.value, [id]: [] }
+  }
 }
 function closeDetail() {
   expandedMatchId.value = null
@@ -275,22 +299,6 @@ interface TStage {
   matches: TMatch[]
 }
 
-function toMatchScore(m: MatchItem): TMatch['score'] {
-  return {
-    regular_time: { home: m.home_score_90, away: m.away_score_90 },
-    after_extra_time:
-      m.home_score_et !== null && m.away_score_et !== null
-        ? { home: m.home_score_et, away: m.away_score_et }
-        : null,
-    penalties:
-      m.home_penalties !== null && m.away_penalties !== null
-        ? { home: m.home_penalties, away: m.away_penalties }
-        : null,
-    display: m.score_display,
-    penalty_display: m.penalty_score,
-  }
-}
-
 function toTMatch(m: MatchItem): TMatch {
   return {
     match_id: m.match_id,
@@ -298,14 +306,10 @@ function toTMatch(m: MatchItem): TMatch {
     tournament_year: m.tournament_year,
     stage: m.stage,
     stage_name: m.stage_name,
-    home_team_name: m.home_team_name,
-    away_team_name: m.away_team_name,
-    score: toMatchScore(m),
-    sources: (m.sources as MatchSourceItem[]).map(s => ({
-      source_id: s.source_id,
-      title: s.title,
-      url: s.url,
-    })),
+    home_team_name: m.home_team.name,
+    away_team_name: m.away_team.name,
+    score: m.score,
+    sources: detailSources.value[m.match_id] ?? [],
   }
 }
 
@@ -345,9 +349,15 @@ function findTMatch(id: string): TMatch | null {
   return null
 }
 
-const expandedMatchDetail = computed<TMatch | null>(() =>
-  expandedMatchId.value ? findTMatch(expandedMatchId.value) : null,
-)
+const expandedMatchDetail = computed<TMatch | null>(() => {
+  if (!expandedMatchId.value) return null
+  const match = findTMatch(expandedMatchId.value)
+  if (!match) return null
+  return {
+    ...match,
+    sources: detailSources.value[expandedMatchId.value] ?? [],
+  }
+})
 </script>
 
 <style scoped>

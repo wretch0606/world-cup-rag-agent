@@ -6,7 +6,6 @@ import json
 from collections import Counter
 from pathlib import Path
 
-
 TESTSET = Path(__file__).resolve().with_name("testset.jsonl")
 EXPECTED_TYPES = {
     "exact_match",

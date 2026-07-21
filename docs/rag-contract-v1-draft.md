@@ -1,10 +1,10 @@
-# RAG 模块输入输出接口契约 v1.0（建议版）
+# RAG 模块输入输出接口契约 v1.1（建议版）
 
 ## 0. 文档状态
 
 | 项目 | 内容 |
 |---|---|
-| 契约版本 | `rag-v1.0-draft` |
+| 契约版本 | `rag-v1.1-draft` |
 | 当前状态 | B、D、E 联调评审稿，确认后冻结 |
 | 适用范围 | FastAPI/LangGraph（B）、Chroma 检索（D）、RAG 生成与评测（E） |
 | 核心原则 | 精确事实走 SQLite；语义与混合问题调用 RAG；所有结论可追溯到 `source_id` |
@@ -60,7 +60,7 @@ FastAPI 接收请求
 后端契约统一使用英文枚举，中文名称使用独立的 `*_name` 字段。
 
 ```text
-stage: group, round_of_16, quarter_final, semi_final, third_place, final
+stage: group, second_group, round_of_16, quarter_final, semi_final, third_place, final_round, final
 result_type: regulation, draw, extra_time, penalties
 query_type: semantic, hybrid
 ```
@@ -92,7 +92,7 @@ query_type: semantic, hybrid
 
 ```json
 {
-  "contract_version": "rag-v1.0-draft",
+  "contract_version": "rag-v1.1-draft",
   "trace_id": "trace-20260716-001",
   "question": "2022年世界杯决赛有哪些重要情节？",
   "original_question": "介绍一下2022年世界杯决赛",
@@ -216,7 +216,7 @@ E 将 B 提供的硬约束原样传给 D，不重新解析球队、年份或阶�
 
 ```json
 {
-  "contract_version": "rag-v1.0-draft",
+  "contract_version": "rag-v1.1-draft",
   "trace_id": "trace-20260716-001",
   "query": "2022年世界杯决赛有哪些重要情节？",
   "original_question": "介绍一下2022年世界杯决赛",
@@ -246,7 +246,7 @@ E 将 B 提供的硬约束原样传给 D，不重新解析球队、年份或阶�
 
 ```json
 {
-  "contract_version": "rag-v1.0-draft",
+  "contract_version": "rag-v1.1-draft",
   "trace_id": "trace-20260716-001",
   "status": "ok",
   "original_query": "2022年世界杯决赛有哪些重要情节？",
@@ -320,7 +320,7 @@ E 将 B 提供的硬约束原样传给 D，不重新解析球队、年份或阶�
 
 ```json
 {
-  "contract_version": "rag-v1.0-draft",
+  "contract_version": "rag-v1.1-draft",
   "trace_id": "trace-20260716-001",
   "status": "ok",
   "answer": "阿根廷与法国在90分钟内战成2:2，加时赛结束后为3:3；阿根廷最终在点球大战中以4:2获胜。比赛过程中双方多次交换领先优势。",
@@ -595,10 +595,23 @@ GenerationMeta
 共享模型建议放置在：
 
 ```text
-app/schemas/rag_contract.py
+backend/schemas/rag_contract.py
 ```
 
 B、D、E 必须从同一文件导入模型，禁止各自复制一份。
+
+### 11.1 子契约说明
+
+`docs/03-E-to-B-RAG生成结果接口契约.md`（`generation-v2.0`）是 E→B 生成数据子契约，不定义独立的 `contract_version`。其 SourceItem 扩展字段（`source_type`、`publisher`、`retrieved_at`）已吸收到本契约的 SourceItem 模型中。完整 RAGResult 的链路控制字段（`contract_version`、`trace_id`、`status`、`applied_filters`、`error`）由本契约统一定义。
+
+### 11.2 运行时入口
+
+B 通过进程内异步 Python 调用 `RagService.generate(request: RAGRequest) -> RAGResult`，不引入内部 HTTP 接口。`RagService` 通过 `RetrievalGateway` Protocol 调用 D，B 不直接依赖 D 的实现。入口代码位于：
+
+```text
+backend/rag/service.py      — RagService 类
+backend/rag/protocols.py    — RetrievalGateway / GenerationClient 协议
+```
 
 ---
 

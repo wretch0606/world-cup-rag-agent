@@ -188,9 +188,9 @@ import { ref, computed, watch, onMounted } from 'vue'
 import {
   type FiltersState,
   type QueryFilters,
-  type FilterOptionsResponse,
-  type GraphResponse,
-  type QueryResponse,
+  type FilterOptionsData,
+  type GraphData,
+  type QueryResponseData,
   type ApiSourceItem,
   fetchFilterOptions,
   fetchGraph,
@@ -225,20 +225,21 @@ const filtersState = ref<FiltersState>({
   hasPenalties: false,
 })
 
-const filterOptions = ref<FilterOptionsResponse>({
+const filterOptions = ref<FilterOptionsData>({
+  data_status: 'mock',
   tournaments: [],
   teams: [],
   stages: [],
-  resultTypes: [],
+  result_types: [],
 })
 
 /** 将 UI 筛选状态转换为 API 查询参数 */
 const currentFilters = computed<QueryFilters>(() => ({
   years: filtersState.value.years.length ? [...filtersState.value.years] : undefined,
-  teamIds: filtersState.value.teamIds.length ? [...filtersState.value.teamIds] : undefined,
+  team_ids: filtersState.value.teamIds.length ? [...filtersState.value.teamIds] : undefined,
   stages: filtersState.value.stages.length ? [...filtersState.value.stages] : undefined,
-  resultTypes: filtersState.value.resultTypes.length ? [...filtersState.value.resultTypes] : undefined,
-  hasPenalties: filtersState.value.hasPenalties || undefined,
+  result_types: filtersState.value.resultTypes.length ? [...filtersState.value.resultTypes] : undefined,
+  has_penalties: filtersState.value.hasPenalties || undefined,
 }))
 
 function handleFilterReset() {
@@ -254,18 +255,29 @@ function handleFilterReset() {
 // ============================================================
 // 图谱状态（父组件负责获取，传递给子组件）
 // ============================================================
-const graphResult = ref<GraphResponse>({ nodes: [], edges: [] })
+function emptyGraph(): GraphData {
+  return {
+    data_status: 'mock',
+    scope: '',
+    nodes: [],
+    edges: [],
+    stats: { node_count: 0, edge_count: 0, truncated: false },
+    applied_filters: {},
+  }
+}
+
+const graphResult = ref<GraphData>(emptyGraph())
 const graphLoading = ref(false)
 
 async function loadGraph() {
   graphLoading.value = true
-  const res = await fetchGraph(currentFilters.value)
-  if (res) {
-    graphResult.value = res
-  } else {
-    graphResult.value = { nodes: [], edges: [] }
+  try {
+    graphResult.value = await fetchGraph(currentFilters.value)
+  } catch {
+    graphResult.value = emptyGraph()
+  } finally {
+    graphLoading.value = false
   }
-  graphLoading.value = false
 }
 
 // 筛选变化 → 刷新图谱
@@ -285,7 +297,7 @@ const userInputText = ref('')
 const currentUserQuestion = ref('2022年世界杯决赛阿根廷对法国的比分是多少？')
 const queryLoading = ref(false)
 const queryError = ref(false)
-const queryResult = ref<QueryResponse | null>(null)
+const queryResult = ref<QueryResponseData | null>(null)
 
 async function handleSendQuestion() {
   const trimmed = userInputText.value.trim()
@@ -295,25 +307,31 @@ async function handleSendQuestion() {
   queryLoading.value = true
   queryError.value = false
 
-  const res = await postQuery(trimmed, currentFilters.value)
-  if (res) {
+  try {
+    const res = await postQuery(trimmed, currentFilters.value)
     queryResult.value = res
     // QA 可能返回新图谱数据
     if (res.graph) {
       graphResult.value = res.graph
     }
-  } else {
+  } catch {
     queryError.value = true
+  } finally {
+    queryLoading.value = false
   }
-  queryLoading.value = false
 }
 
 // ---- 澄清检测 ----
-const needsClarification = computed(() =>
-  queryResult.value?.warnings?.some(w => w.code === 'NEED_CLARIFICATION') ?? false,
-)
+const needsClarification = computed(() => {
+  const result = queryResult.value
+  return result?.needs_clarification
+    ?? result?.warnings?.some(w => w.code === 'NEED_CLARIFICATION')
+    ?? false
+})
 const clarificationMessage = computed(() =>
-  queryResult.value?.warnings?.find(w => w.code === 'NEED_CLARIFICATION')?.message ?? '请提供更多信息',
+  queryResult.value?.clarification_question
+    ?? queryResult.value?.warnings?.find(w => w.code === 'NEED_CLARIFICATION')?.message
+    ?? '请提供更多信息',
 )
 
 // ---- 意图 Badge（confidence 为 null 时隐藏置信度） ----
@@ -323,7 +341,7 @@ const intentBadges = computed(() => {
   const d = queryResult.value
   if (!d) return []
   const f = d.facts[0]
-  const teams = f ? `${f.home_team.name}, ${f.away_team.name}` : '—'
+  const teams = f ? `${f.home_team?.name ?? '?'}, ${f.away_team?.name ?? '?'}` : '—'
 
   const badges = [
     { key: '意图', val: d.intent, css: 'badge-blue' },
@@ -355,26 +373,28 @@ const factRows = computed<FactRow[]>(() => {
   const f = queryResult.value?.facts[0]
   if (!f) return []
   const s = f.score
+  const home = f.home_team?.name ?? '?'
+  const away = f.away_team?.name ?? '?'
   return [
-    { label: '赛事', value: `${f.stage_name}` },
+    { label: '赛事', value: f.stage_name ?? '—' },
     {
       label: '对阵',
-      value: `${f.home_team.name} vs ${f.away_team.name}`,
+      value: `${home} vs ${away}`,
     },
     {
       label: '常规时间',
-      value: `${f.home_team.name} ${s.regular_time.home} : ${s.regular_time.away} ${f.away_team.name}`,
+      value: s ? `${home} ${s.regular_time.home} : ${s.regular_time.away} ${away}` : '—',
     },
     {
       label: '加时赛',
-      value: s.after_extra_time
-        ? `${f.home_team.name} ${s.after_extra_time.home} : ${s.after_extra_time.away} ${f.away_team.name}`
+      value: s?.after_extra_time
+        ? `${home} ${s.after_extra_time.home} : ${s.after_extra_time.away} ${away}`
         : '（无加时）',
     },
     {
       label: '点球',
-      value: s.penalty_display
-        ? `${f.home_team.name} ${s.penalty_display} ${f.away_team.name}`
+      value: s?.penalty_display
+        ? `${home} ${s.penalty_display} ${away}`
         : '（无点球大战）',
     },
     {
@@ -394,14 +414,21 @@ const sourceCatalog = computed<ApiSourceItem[]>(() => queryResult.value?.sources
 async function initPage() {
   pageLoading.value = true
   filterOptionsError.value = false
-  const [fo, gRes] = await Promise.all([fetchFilterOptions(), fetchGraph()])
-  if (fo) {
-    filterOptions.value = fo
+  const [filtersResult, graphResultResponse] = await Promise.allSettled([
+    fetchFilterOptions(),
+    fetchGraph(),
+  ])
+
+  if (filtersResult.status === 'fulfilled') {
+    filterOptions.value = filtersResult.value
   } else {
     filterOptionsError.value = true
   }
-  if (gRes) {
-    graphResult.value = gRes
+
+  if (graphResultResponse.status === 'fulfilled') {
+    graphResult.value = graphResultResponse.value
+  } else {
+    graphResult.value = emptyGraph()
   }
   pageLoading.value = false
 }
