@@ -406,6 +406,23 @@ def _run_relation_query(
 _rag_service: object | None = None
 
 
+def _build_generation_client() -> object:
+    """Select LLM or trusted offline generation from runtime settings."""
+    from backend.config import settings
+
+    use_offline = settings.rag_generation_mode == "offline" or (
+        settings.rag_generation_mode == "auto" and not settings.rag_llm_api_key
+    )
+    if use_offline:
+        from backend.rag.offline_generation import OfflineEvidenceGenerationClient
+
+        return OfflineEvidenceGenerationClient()
+
+    from backend.rag.openai_compatible_generation import OpenAICompatibleGenerationClient
+
+    return OpenAICompatibleGenerationClient()
+
+
 def _get_rag_service() -> object | None:
     """Lazy-init RagService with real gateways — never at import time."""
     global _rag_service
@@ -413,13 +430,10 @@ def _get_rag_service() -> object | None:
         return _rag_service
     try:
         from backend.rag.chroma_gateway import ChromaRetrievalGateway
-        from backend.rag.openai_compatible_generation import (
-            OpenAICompatibleGenerationClient,
-        )
         from backend.rag.service import RagService
 
         retrieval = ChromaRetrievalGateway()
-        generation = OpenAICompatibleGenerationClient()
+        generation = _build_generation_client()
         _rag_service = RagService(retrieval=retrieval, generation=generation)
         return _rag_service
     except Exception:
@@ -796,15 +810,49 @@ def _apply_rag_result(state: AgentState, rag_result: object) -> None:
             fd["stage"] = f.stage.value if hasattr(f.stage, "value") else f.stage
         if hasattr(f, "stage_name"):
             fd["stage_name"] = f.stage_name
-        if hasattr(f, "score_display"):
-            fd["score_display"] = f.score_display
-        if hasattr(f, "penalty_score"):
-            fd["penalty_score"] = f.penalty_score
+        home_team_id = getattr(f, "home_team_id", "")
+        home_team_name = getattr(f, "home_team_name", "")
+        away_team_id = getattr(f, "away_team_id", "")
+        away_team_name = getattr(f, "away_team_name", "")
+        if home_team_id or home_team_name:
+            fd["home_team"] = {"team_id": home_team_id, "name": home_team_name}
+        if away_team_id or away_team_name:
+            fd["away_team"] = {"team_id": away_team_id, "name": away_team_name}
+
+        home_score_90 = getattr(f, "home_score_90", None)
+        away_score_90 = getattr(f, "away_score_90", None)
+        if home_score_90 is not None and away_score_90 is not None:
+            home_score_et = getattr(f, "home_score_et", None)
+            away_score_et = getattr(f, "away_score_et", None)
+            home_penalties = getattr(f, "home_penalties", None)
+            away_penalties = getattr(f, "away_penalties", None)
+            fd["score"] = {
+                "regular_time": {"home": home_score_90, "away": away_score_90},
+                "after_extra_time": (
+                    {"home": home_score_et, "away": away_score_et}
+                    if home_score_et is not None and away_score_et is not None
+                    else None
+                ),
+                "penalties": (
+                    {"home": home_penalties, "away": away_penalties}
+                    if home_penalties is not None and away_penalties is not None
+                    else None
+                ),
+                "display": getattr(f, "score_display", ""),
+                "penalty_display": getattr(f, "penalty_score", None),
+            }
         if hasattr(f, "result_type"):
             rt = f.result_type
             fd["result_type"] = rt.value if hasattr(rt, "value") else rt
         if hasattr(f, "winner_team_id"):
-            fd["winner_team_id"] = f.winner_team_id
+            winner_team_id = f.winner_team_id
+            if winner_team_id:
+                winner_name = ""
+                if winner_team_id == home_team_id:
+                    winner_name = home_team_name
+                elif winner_team_id == away_team_id:
+                    winner_name = away_team_name
+                fd["winner_team"] = {"team_id": winner_team_id, "name": winner_name}
         state["facts"].append(fd)
 
     # Map sources

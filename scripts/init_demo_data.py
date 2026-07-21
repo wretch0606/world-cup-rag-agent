@@ -23,6 +23,7 @@ IMPORT_SCRIPT = PIPELINE_DIR / "scripts" / "import_data_v2.py"
 SAMPLE_INPUT = PIPELINE_DIR / "raw_data" / "matches_2022_sample.json"
 DEFAULT_OUTPUT_DIR = ROOT_DIR / "data" / "generated"
 CHROMA_INIT_SCRIPT = ROOT_DIR / "scripts" / "init_demo_chroma.py"
+API_SMOKE_SCRIPT = ROOT_DIR / "scripts" / "smoke_demo_api.py"
 
 ARTIFACT_NAMES = {
     "db": "worldcup_demo.db",
@@ -80,6 +81,19 @@ def build_demo_data(output_dir: Path) -> dict[str, Path]:
         check=True,
     )
     published["chroma"] = chroma_dir
+
+    subprocess.run(
+        [
+            sys.executable,
+            str(API_SMOKE_SCRIPT),
+            "--database",
+            str(published["db"]),
+            "--chroma-dir",
+            str(chroma_dir),
+        ],
+        cwd=ROOT_DIR,
+        check=True,
+    )
 
     return published
 
@@ -154,6 +168,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     print("  AGENT_MODE=langgraph")
     print(f"  CHROMA_DATA_DIR={_display_path(artifacts['chroma'])}")
     print("  EMBEDDING_MODE=hash")
+    print("  RAG_GENERATION_MODE=offline")
     return 0
 
 

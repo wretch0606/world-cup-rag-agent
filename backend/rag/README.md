@@ -30,9 +30,17 @@ The runtime ownership and schemas are defined in [`docs/rag-contract-v1-draft.md
   `RetrievalGateway` protocol.  Uses `asyncio.to_thread()` for sync→async bridging.
   Never loads Chroma/BGE/Reranker at import time.
 
+- `backend/rag/offline_generation.py::OfflineEvidenceGenerationClient` — Download-free,
+  deterministic generation for the live demo. It only formats trusted SQLite facts and
+  Chroma evidence, and always marks generated answers as degraded.
+
 - `backend/rag/openai_compatible_generation.py::OpenAICompatibleGenerationClient` —
   OpenAI-compatible Chat Completions client (DeepSeek by default).  Implements
   `GenerationClient` protocol.  Calls LLM with `response_format={"type": "json_object"}`,
   validates output against a trusted schema, and reconstructs sources/evidence from
   original data so the model can never fabricate references.  Configured via
   `RAG_LLM_*` env vars.
+
+`RAG_GENERATION_MODE=auto` selects the LLM client when an API key is available and the
+offline client otherwise. Use `offline` to force the no-network demo or `llm` to require
+the configured OpenAI-compatible provider.

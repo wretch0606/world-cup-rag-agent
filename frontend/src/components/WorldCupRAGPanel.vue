@@ -96,6 +96,12 @@
                   </div>
                 </div>
 
+                <!-- 生成答案 -->
+                <div v-if="queryResult.answer" class="answer-panel">
+                  <h4 class="panel-title">回答</h4>
+                  <p>{{ queryResult.answer }}</p>
+                </div>
+
                 <!-- 意图 Badge -->
                 <div class="intent-badges">
                   <span class="badge-label">{{ intentLabels.title }}</span>
@@ -111,7 +117,7 @@
                 </div>
 
                 <!-- 核心事实表 -->
-                <div v-if="queryResult.facts.length" class="fact-panel">
+                <div v-if="factRows.length" class="fact-panel">
                   <h4 class="panel-title">{{ factLabels.title }}</h4>
                   <table class="fact-table">
                     <tbody>
@@ -370,7 +376,7 @@ interface FactRow {
 }
 
 const factRows = computed<FactRow[]>(() => {
-  const f = queryResult.value?.facts[0]
+  const f = queryResult.value?.facts.find(fact => fact.fact_type === 'match_result')
   if (!f) return []
   const s = f.score
   const home = f.home_team?.name ?? '?'
@@ -626,6 +632,24 @@ onMounted(() => initPage())
 .question-icon { font-size: 16px; flex-shrink: 0; }
 .question-label { font-weight: 700; color: #888; flex-shrink: 0; }
 .question-text { color: #1a1a1a; font-weight: 500; }
+
+/* ============================================================
+   生成答案
+   ============================================================ */
+.answer-panel {
+  padding: 16px;
+  background: #fff;
+  border: 1px solid #d8e5f3;
+  border-radius: 8px;
+}
+
+.answer-panel p {
+  margin: 0;
+  color: #27364a;
+  font-size: 14px;
+  line-height: 1.75;
+  white-space: pre-wrap;
+}
 
 /* ============================================================
    意图 Badge

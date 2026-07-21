@@ -18,3 +18,4 @@ def test_env_example_loads_cors_origins(monkeypatch) -> None:
     ]
     assert example_settings.chroma_data_dir == "data/generated/chroma_demo"
     assert example_settings.embedding_mode == "hash"
+    assert example_settings.rag_generation_mode == "offline"

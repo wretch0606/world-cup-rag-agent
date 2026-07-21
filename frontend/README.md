@@ -71,37 +71,7 @@ npm run preview
 
 ## API 数据契约 (v2)
 
-组件以 mock 数据自驱动运行，数据接口遵循以下 TypeScript 类型定义：
-
-```ts
-// 比赛队伍引用
-interface TeamRef { id: string; name: string; }
-
-// 比分明细（含半场/点球等）
-interface ScoreDetail {
-  home: number; away: number;
-  halftime?: { home: number; away: number; };
-  penalties?: { home: number; away: number; };
-  display: string; penalty_display?: string | null;
-}
-
-// 一场比赛的完整分数结构
-interface MatchScore { home: number; away: number; detail: ScoreDetail; }
-
-// API 响应的核心事实 + 引用来源
-interface ApiEnvelope {
-  data: {
-    question: string;
-    answer: ApiFact[];       // 核心事实表行
-    sources: ApiSourceItem[]; // 引用来源列表
-    graph: { nodes: ApiGraphNode[]; edges: ApiGraphEdge[]; };
-    matches: ApiMatch[];      // 供时间线解析
-    intent_badges?: Record<string, string>;
-  };
-}
-```
-
-组件内部通过 `parseEnvelope()` 将 API 数据映射为 `timelineStages`、`factRows`、`sourceCatalog`、`graphData` 等视图数据，所有标签文案集中在 `*Labels` 对象中管理。
+组件已通过 `src/api.ts` 对接 FastAPI 的筛选、比赛、图谱、问答和来源接口。后端可通过 `FRONTEND_DATA_MODE` 在 mock 与 SQLite 数据之间切换；问答接口的精确查询使用 SQLite，语义查询可使用离线证据生成或配置的大模型生成。完整 TypeScript 契约以 `src/api.ts` 为准。
 
 ## 设计决策
 
@@ -112,7 +82,7 @@ interface ApiEnvelope {
 
 ## 后续计划
 
-- [ ] 对接后端 RAG API，替换 mock 数据
+- [x] 对接后端 API，并支持 mock / SQLite / RAG 运行模式
 - [ ] 抽离子组件（FilterSidebar / QAPanel / GraphPanel / TimelinePanel）
 - [ ] 添加路由支持（多页面 / 历史记录）
 - [ ] 引入 Pinia 进行全局状态管理
