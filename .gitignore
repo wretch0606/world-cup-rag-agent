@@ -32,7 +32,7 @@ chroma_data/
 backend/data/chroma_db/
 *.sqlite
 *.sqlite3
-models/
+/models/
 checkpoints/
 *.bin
 *.safetensors
