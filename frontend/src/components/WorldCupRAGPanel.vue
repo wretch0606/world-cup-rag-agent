@@ -51,7 +51,7 @@
               <div v-else-if="queryError" class="qa-state-box qa-state-error">
                 <span class="qa-state-icon">⚠️</span>
                 <p>{{ stateLabels.queryError }}</p>
-                <button class="qa-retry-btn" @click="handleSendQuestion">重新发送</button>
+                <button class="qa-retry-btn" @click="retryCurrentQuestion">重新发送</button>
               </div>
 
               <!-- ====== 无结果（empty） ====== -->
@@ -97,7 +97,7 @@
                 </div>
 
                 <!-- 生成答案 -->
-                <div v-if="queryResult.answer" class="answer-panel">
+                <div v-if="queryResult.answer" class="answer-panel" data-testid="query-answer">
                   <h4 class="panel-title">回答</h4>
                   <p>{{ queryResult.answer }}</p>
                 </div>
@@ -163,12 +163,14 @@
               v-model="userInputText"
               type="text"
               class="qa-input"
+              data-testid="query-input"
               :placeholder="qaLabels.inputPlaceholder"
               :disabled="queryLoading"
               @keyup.enter="handleSendQuestion"
             />
             <button
               class="qa-send-btn"
+              data-testid="query-send"
               :disabled="queryLoading"
               @click="handleSendQuestion"
             >
@@ -299,17 +301,18 @@ const qaLabels = {
   sendingBtn: '分析中...',
 }
 
+const DEFAULT_QUESTION = '2022年世界杯决赛阿根廷对法国的比分是多少？'
+
 const userInputText = ref('')
-const currentUserQuestion = ref('2022年世界杯决赛阿根廷对法国的比分是多少？')
+const currentUserQuestion = ref(DEFAULT_QUESTION)
 const queryLoading = ref(false)
 const queryError = ref(false)
 const queryResult = ref<QueryResponseData | null>(null)
 
-async function handleSendQuestion() {
-  const trimmed = userInputText.value.trim()
+async function submitQuestion(question: string) {
+  const trimmed = question.trim()
   if (!trimmed || queryLoading.value) return
   currentUserQuestion.value = trimmed
-  userInputText.value = ''
   queryLoading.value = true
   queryError.value = false
 
@@ -325,6 +328,17 @@ async function handleSendQuestion() {
   } finally {
     queryLoading.value = false
   }
+}
+
+function handleSendQuestion() {
+  const trimmed = userInputText.value.trim()
+  if (!trimmed || queryLoading.value) return
+  userInputText.value = ''
+  void submitQuestion(trimmed)
+}
+
+function retryCurrentQuestion() {
+  void submitQuestion(currentUserQuestion.value)
 }
 
 // ---- 澄清检测 ----
@@ -437,9 +451,15 @@ async function initPage() {
     graphResult.value = emptyGraph()
   }
   pageLoading.value = false
+
+  if (filtersResult.status === 'fulfilled') {
+    await submitQuestion(DEFAULT_QUESTION)
+  }
 }
 
-onMounted(() => initPage())
+onMounted(() => {
+  void initPage()
+})
 </script>
 
 <style scoped>
