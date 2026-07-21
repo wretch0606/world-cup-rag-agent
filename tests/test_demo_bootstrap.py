@@ -32,6 +32,8 @@ def test_demo_bootstrap_is_repeatable(tmp_path: Path) -> None:
     assert "Chroma live-demo data is ready" in first.stdout
     assert "top match: M-2022-001" in second.stdout
     assert "gateway status: ok" in second.stdout
+    assert "Offline API demo is ready" in first.stdout
+    assert "hybrid query: degraded (trusted offline generation)" in second.stdout
 
     with sqlite3.connect(database) as connection:
         assert connection.execute("SELECT COUNT(*) FROM matches").fetchone()[0] == 6

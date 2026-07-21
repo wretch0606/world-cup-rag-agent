@@ -264,6 +264,12 @@ class MatchResultFact(BaseModel):
     home_team_name: str
     away_team_id: str
     away_team_name: str
+    home_score_90: int | None = None
+    away_score_90: int | None = None
+    home_score_et: int | None = None
+    away_score_et: int | None = None
+    home_penalties: int | None = None
+    away_penalties: int | None = None
     score_display: str
     penalty_score: str | None = None
     result_type: ResultTypeEnum

@@ -172,10 +172,26 @@ class RagService:
         # -- 3. Merge warnings and determine final status ---------------
         warnings.extend(gen_result.warnings)
 
+        if gen_result.status == RAGStatus.error:
+            return _error_result(
+                request,
+                gen_result.error
+                or ErrorItem(
+                    code="GENERATION_ERROR",
+                    message="答案生成失败，无法继续处理。",
+                    component="generation",
+                    retryable=True,
+                ),
+                retrieval_timing=retrieval_timing,
+                t0=t0,
+            )
+
         if retrieval_result.status == RAGStatus.degraded:
             final_status = RAGStatus.degraded
         elif gen_result.status == RAGStatus.degraded:
             final_status = RAGStatus.degraded
+        elif gen_result.status == RAGStatus.empty:
+            final_status = RAGStatus.empty
         else:
             final_status = RAGStatus.ok
 

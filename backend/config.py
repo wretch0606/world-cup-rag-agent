@@ -55,6 +55,7 @@ class Settings(BaseSettings):
     rag_llm_timeout_ms: int = 30000
     rag_llm_max_tokens: int = 4096
     rag_llm_thinking: bool = False
+    rag_generation_mode: Literal["auto", "offline", "llm"] = "auto"
 
 
 settings = Settings()

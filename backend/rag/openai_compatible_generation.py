@@ -533,14 +533,25 @@ def _build_rag_result(
         # MatchResultFact-specific defaults — only when structured_fact
         # lookup succeeded.  Never inject these into summary/relation facts.
         if ftype == "match_result" and sf:
-            fact_dict.setdefault("tournament_year", sf.tournament_year)
-            fact_dict.setdefault("stage", sf.stage.value if sf.stage else "")
-            fact_dict.setdefault("stage_name", sf.stage_name)
-            fact_dict.setdefault("home_team_id", sf.home_team_id)
-            fact_dict.setdefault("home_team_name", sf.home_team_name)
-            fact_dict.setdefault("away_team_id", sf.away_team_id)
-            fact_dict.setdefault("away_team_name", sf.away_team_name)
-            fact_dict.setdefault("result_type", sf.result_type.value)
+            fact_dict.update(
+                {
+                    "tournament_year": sf.tournament_year,
+                    "stage": sf.stage.value if sf.stage else "",
+                    "stage_name": sf.stage_name,
+                    "home_team_id": sf.home_team_id,
+                    "home_team_name": sf.home_team_name,
+                    "away_team_id": sf.away_team_id,
+                    "away_team_name": sf.away_team_name,
+                    "home_score_90": sf.home_score_90,
+                    "away_score_90": sf.away_score_90,
+                    "home_score_et": sf.home_score_et,
+                    "away_score_et": sf.away_score_et,
+                    "home_penalties": sf.home_penalties,
+                    "away_penalties": sf.away_penalties,
+                    "result_type": sf.result_type.value,
+                    "winner_team_id": sf.winner_team_id,
+                }
+            )
         elif ftype == "match_result":
             # No structured_fact — model must provide all required fields
             pass
@@ -580,6 +591,12 @@ def _build_rag_result(
                     home_team_name=sf.home_team_name,
                     away_team_id=sf.away_team_id,
                     away_team_name=sf.away_team_name,
+                    home_score_90=sf.home_score_90,
+                    away_score_90=sf.away_score_90,
+                    home_score_et=sf.home_score_et,
+                    away_score_et=sf.away_score_et,
+                    home_penalties=sf.home_penalties,
+                    away_penalties=sf.away_penalties,
                     score_display=sf.score_display,
                     penalty_score=sf.penalty_score,
                     result_type=sf.result_type,

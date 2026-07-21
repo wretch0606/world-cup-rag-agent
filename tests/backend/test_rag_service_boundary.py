@@ -354,6 +354,49 @@ def test_generation_error():
     _run(_test())
 
 
+def test_generation_error_status_is_not_promoted_to_ok():
+    """A GenerationClient error result must remain an error at the service boundary."""
+
+    class ErrorGenerationClient:
+        async def generate(self, request, retrieval):
+            return RAGResult(
+                contract_version=RAG_CONTRACT_VERSION,
+                trace_id=request.trace_id,
+                status=RAGStatus.error,
+                answer="生成失败",
+                applied_filters=retrieval.applied_filters,
+                error=ErrorItem(
+                    code="GENERATION_ERROR",
+                    message="生成服务未配置。",
+                    component="generation",
+                ),
+            )
+
+    async def _test():
+        service = RagService(
+            retrieval=FakeRetrievalGateway(items=[_make_evidence()]),
+            generation=ErrorGenerationClient(),
+        )
+        result = await service.generate(_make_request())
+        assert result.status == RAGStatus.error
+        assert result.error is not None
+        assert result.error.code == "GENERATION_ERROR"
+
+    _run(_test())
+
+
+def test_generation_empty_status_is_not_promoted_to_ok():
+    async def _test():
+        service = RagService(
+            retrieval=FakeRetrievalGateway(items=[_make_evidence()]),
+            generation=FakeGenerationClient(answer="", status=RAGStatus.empty),
+        )
+        result = await service.generate(_make_request())
+        assert result.status == RAGStatus.empty
+
+    _run(_test())
+
+
 # ---------------------------------------------------------------------------
 # 10. Service unconfigured
 # ---------------------------------------------------------------------------

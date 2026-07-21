@@ -58,7 +58,7 @@ def get_agent_service() -> object:
         if mode == "langgraph":
             from backend.application.langgraph_agent_service import LangGraphAgentService
 
-            logger.info("Initialising LangGraphAgentService (exact-query, no LLM)")
+            logger.info("Initialising LangGraphAgentService")
             _agent_service = LangGraphAgentService()
         else:
             from backend.application.mock_agent_service import MockAgentService

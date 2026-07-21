@@ -24,9 +24,9 @@ flowchart LR
     RAG --> RERANK[BGE Reranker]
 ```
 
-## 运行 SQLite Live Demo
+## 运行离线 Live Demo
 
-仓库内置 6 场 2022 年世界杯淘汰赛样例，可在不下载外部数据、无需大模型密钥的情况下运行真实 SQLite 查询和 LangGraph 精确问答：
+仓库内置 6 场 2022 年世界杯淘汰赛样例，可在不下载外部数据、无需大模型密钥的情况下运行真实 SQLite 查询、Chroma 检索和 LangGraph 问答：
 
 ```bash
 # 1. 安装 Python 依赖
@@ -47,6 +47,7 @@ WORLD_CUP_DB_PATH=data/generated/worldcup_demo.db
 AGENT_MODE=langgraph
 CHROMA_DATA_DIR=data/generated/chroma_demo
 EMBEDDING_MODE=hash
+RAG_GENERATION_MODE=offline
 ```
 
 启动后端：
@@ -63,7 +64,7 @@ npm ci
 npm run dev
 ```
 
-此离线 Demo 覆盖真实 SQLite 筛选、比赛详情、精确事实问答和 Chroma 检索。`hash` embedding 仅用于无下载的链路演示，不代表生产级语义质量；完整语义回答仍需要配置大模型 API，正式检索建议改用 `default` 或 `bge` embedding。
+此离线 Demo 覆盖真实 SQLite 筛选、比赛详情、精确事实问答、Chroma 检索和基于可信证据的模板回答。离线语义回答会明确返回 `degraded`，不会冒充大模型生成；`hash` embedding 也仅用于无下载的链路演示。生产环境应将 `RAG_GENERATION_MODE` 改为 `auto` 或 `llm`、配置 `RAG_LLM_API_KEY`，并使用 `default` 或 `bge` embedding。
 
 ## 目录约定
 
