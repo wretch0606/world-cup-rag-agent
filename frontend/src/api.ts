@@ -87,6 +87,15 @@ export interface QueryFilters {
   match_ids?: string[]
 }
 
+/** 前端组件内部使用的筛选状态（空数组表示不筛选）。 */
+export interface FiltersState {
+  years: number[]
+  teamIds: string[]
+  stages: string[]
+  resultTypes: string[]
+  hasPenalties: boolean
+}
+
 // ============================================================
 // GET /api/filter-options
 // ============================================================
@@ -168,7 +177,11 @@ export interface MatchesData {
   applied_filters: Record<string, unknown>
 }
 
-export async function fetchMatches(filters?: QueryFilters): Promise<MatchesData> {
+export async function fetchMatches(
+  filters?: QueryFilters,
+  page?: number,
+  pageSize?: number,
+): Promise<MatchesData> {
   const params: Record<string, unknown> = {}
   if (filters) {
     for (const [k, v] of Object.entries(filters)) {
@@ -177,6 +190,8 @@ export async function fetchMatches(filters?: QueryFilters): Promise<MatchesData>
       }
     }
   }
+  if (page !== undefined) params.page = page
+  if (pageSize !== undefined) params.page_size = pageSize
   const res = await api.get<ApiResponse<MatchesData>>('/matches', {
     params,
     paramsSerializer: { serialize: buildParams },

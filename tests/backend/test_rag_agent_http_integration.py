@@ -211,8 +211,8 @@ def test_error_message_no_sensitive_content():
     client = TestClient(app)
     resp = _http_post(client, "为什么世界杯比赛很经典？")
     data = resp.json()
-    inner = data.get("data", {})
-    all_text = str(inner.get("answer", ""))
+    inner = data.get("data") or {}
+    all_text = str(data.get("message", "")) + str(inner.get("answer", ""))
     for w in inner.get("warnings", []):
         all_text += str(w.get("message", ""))
     assert "sk-" not in all_text.lower()
@@ -230,7 +230,7 @@ def test_warnings_have_required_fields():
     client = TestClient(app)
     resp = _http_post(client, "为什么世界杯比赛很经典？")
     data = resp.json()
-    inner = data.get("data", {})
+    inner = data.get("data") or {}
     warnings = inner.get("warnings", [])
     for w in warnings:
         assert "retryable" in w
