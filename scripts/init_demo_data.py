@@ -22,6 +22,7 @@ PIPELINE_DIR = ROOT_DIR / "data-pipeline"
 IMPORT_SCRIPT = PIPELINE_DIR / "scripts" / "import_data_v2.py"
 SAMPLE_INPUT = PIPELINE_DIR / "raw_data" / "matches_2022_sample.json"
 DEFAULT_OUTPUT_DIR = ROOT_DIR / "data" / "generated"
+CHROMA_INIT_SCRIPT = ROOT_DIR / "scripts" / "init_demo_chroma.py"
 
 ARTIFACT_NAMES = {
     "db": "worldcup_demo.db",
@@ -64,6 +65,21 @@ def build_demo_data(output_dir: Path) -> dict[str, Path]:
         published = {key: output_dir / name for key, name in ARTIFACT_NAMES.items()}
         for key, source in staged.items():
             source.replace(published[key])
+
+    chroma_dir = output_dir / "chroma_demo"
+    subprocess.run(
+        [
+            sys.executable,
+            str(CHROMA_INIT_SCRIPT),
+            "--facts",
+            str(published["facts_jsonl"]),
+            "--output-dir",
+            str(chroma_dir),
+        ],
+        cwd=ROOT_DIR,
+        check=True,
+    )
+    published["chroma"] = chroma_dir
 
     return published
 
@@ -129,13 +145,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     artifacts = build_demo_data(args.output_dir)
     db_path = _display_path(artifacts["db"])
 
-    print("\nSQLite live-demo data is ready:")
+    print("\nSQLite + Chroma live-demo data is ready:")
     for path in artifacts.values():
         print(f"  - {_display_path(path)}")
     print("\nSet these values in .env before starting the backend:")
     print("  FRONTEND_DATA_MODE=sqlite")
     print(f"  WORLD_CUP_DB_PATH={db_path}")
     print("  AGENT_MODE=langgraph")
+    print(f"  CHROMA_DATA_DIR={_display_path(artifacts['chroma'])}")
+    print("  EMBEDDING_MODE=hash")
     return 0
 
 

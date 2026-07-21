@@ -21,12 +21,17 @@ def test_demo_bootstrap_is_repeatable(tmp_path: Path) -> None:
     database = tmp_path / "worldcup_demo.db"
     facts_path = tmp_path / "demo_match_facts.jsonl"
     report_path = tmp_path / "demo_cleaning_report.json"
+    chroma_path = tmp_path / "chroma_demo" / "chroma.sqlite3"
 
     assert database.exists()
     assert facts_path.exists()
     assert report_path.exists()
+    assert chroma_path.exists()
     assert "FRONTEND_DATA_MODE=sqlite" in first.stdout
     assert "AGENT_MODE=langgraph" in second.stdout
+    assert "Chroma live-demo data is ready" in first.stdout
+    assert "top match: M-2022-001" in second.stdout
+    assert "gateway status: ok" in second.stdout
 
     with sqlite3.connect(database) as connection:
         assert connection.execute("SELECT COUNT(*) FROM matches").fetchone()[0] == 6

@@ -36,8 +36,12 @@ class Settings(BaseSettings):
     frontend_data_mode: Literal["mock", "sqlite"] = "mock"
     world_cup_db_path: str = ""
 
-    # Agent mode — only "mock" is supported in the current phase
+    # Agent mode: deterministic mock responses or the LangGraph workflow
     agent_mode: Literal["mock", "langgraph"] = "mock"
+
+    # Chroma retrieval
+    chroma_data_dir: str = "./backend/data/chroma_db"
+    embedding_mode: Literal["hash", "default", "bge"] = "default"
 
     # Logging
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
