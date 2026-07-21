@@ -39,9 +39,7 @@ class FrontendDataProvider(Protocol):
         """Return team relation stats, matches, and graph."""
         ...
 
-    def list_documents(
-        self, filters: DocumentFilters, page: int = 1, page_size: int = 20
-    ) -> dict:
+    def list_documents(self, filters: DocumentFilters, page: int = 1, page_size: int = 20) -> dict:
         """Return registered/indexed documents and their parse status."""
         ...
 

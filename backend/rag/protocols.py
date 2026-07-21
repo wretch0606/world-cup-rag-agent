@@ -4,6 +4,7 @@ concrete implementations.
 Follows the same ``@runtime_checkable`` Protocol pattern as
 ``backend/repositories/protocols.py``.
 """
+
 from __future__ import annotations
 
 from typing import Protocol, runtime_checkable
@@ -24,8 +25,7 @@ class RetrievalGateway(Protocol):
     wrap Chroma / the retrieval pipeline without exposing its internals.
     """
 
-    async def retrieve(self, request: RetrievalRequest) -> RetrievalResult:
-        ...
+    async def retrieve(self, request: RetrievalRequest) -> RetrievalResult: ...
 
 
 @runtime_checkable
@@ -36,5 +36,4 @@ class GenerationClient(Protocol):
     deterministic output so we never hit a real model.
     """
 
-    async def generate(self, request: RAGRequest, retrieval: RetrievalResult) -> RAGResult:
-        ...
+    async def generate(self, request: RAGRequest, retrieval: RetrievalResult) -> RAGResult: ...

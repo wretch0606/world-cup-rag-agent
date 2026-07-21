@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import sqlite3
+
 from backend.repositories.sqlite_frontend_data import (
     SQLiteFrontendDataProvider,
     SQLiteFrontendProviderError,
 )
 from backend.schemas.common import MatchFilters
-import sqlite3
 
 
 def test_filter_options_live_data_status(sqlite_provider) -> None:
@@ -83,7 +84,9 @@ def test_get_match_unknown(sqlite_provider) -> None:
 
 
 def test_list_documents(sqlite_provider) -> None:
-    result = sqlite_provider.list_documents(__import__("backend.schemas.common", fromlist=["DocumentFilters"]).DocumentFilters())
+    result = sqlite_provider.list_documents(
+        __import__("backend.schemas.common", fromlist=["DocumentFilters"]).DocumentFilters()
+    )
     assert result["data_status"] == "live"
     assert result["total"] >= 1
 
@@ -106,5 +109,3 @@ def test_missing_db_raises() -> None:
         assert False, "Should have raised"
     except SQLiteFrontendProviderError:
         pass
-
-

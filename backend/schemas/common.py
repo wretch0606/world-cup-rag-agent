@@ -6,7 +6,7 @@ provider-specific or database-internal fields here.
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 # ---------------------------------------------------------------------------
 # Enums
 # ---------------------------------------------------------------------------
-class StageEnum(str, Enum):
+class StageEnum(StrEnum):
     group = "group"
     second_group = "second_group"
     round_of_16 = "round_of_16"
@@ -53,14 +53,14 @@ class StageEnum(str, Enum):
         return _order[self.value]
 
 
-class ResultTypeEnum(str, Enum):
+class ResultTypeEnum(StrEnum):
     regulation = "regulation"
     extra_time = "extra_time"
     penalties = "penalties"
     draw = "draw"
 
 
-class AgentStatusEnum(str, Enum):
+class AgentStatusEnum(StrEnum):
     ok = "ok"
     empty = "empty"
     degraded = "degraded"
@@ -68,7 +68,7 @@ class AgentStatusEnum(str, Enum):
     error = "error"
 
 
-class IntentEnum(str, Enum):
+class IntentEnum(StrEnum):
     general_chat = "general_chat"
     match_result_query = "match_result_query"
     match_relation_query = "match_relation_query"
@@ -78,7 +78,7 @@ class IntentEnum(str, Enum):
     out_of_scope = "out_of_scope"
 
 
-class RouteEnum(str, Enum):
+class RouteEnum(StrEnum):
     general_chat = "general_chat"
     structured_query = "structured_query"
     rag_query = "rag_query"
@@ -87,7 +87,7 @@ class RouteEnum(str, Enum):
     clarification = "clarification"
 
 
-class DataStatusEnum(str, Enum):
+class DataStatusEnum(StrEnum):
     live = "live"
     mock = "mock"
     degraded = "degraded"

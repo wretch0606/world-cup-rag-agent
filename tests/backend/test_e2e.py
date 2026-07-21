@@ -10,7 +10,7 @@ client = TestClient(app)
 
 
 def test_e2e_full_flow() -> None:
-    """Complete E2E chain: filter-options → matches → graph → agent → detail → relations → documents."""
+    """Exercise all API endpoints as one end-to-end request chain."""
 
     # 1. filter-options
     r = client.get("/api/filter-options")
@@ -24,7 +24,6 @@ def test_e2e_full_flow() -> None:
     assert r.status_code == 200
     matches_data = r.json()["data"]
     assert len(matches_data["items"]) >= 1
-    match_id = matches_data["items"][0]["match_id"]
 
     # 3. graph
     r = client.get("/api/graph?years=2022&limit=10")

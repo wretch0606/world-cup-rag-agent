@@ -149,29 +149,44 @@ INSERT INTO matches VALUES ('M-2022-64', 2022, '2022-12-18', 'final', NULL, 'Lus
     'team_ARG', 'team_FRA', 2, 2, 3, 3, 4, 2, 'team_ARG', 'penalties', '3:3', '4:2', NULL, NULL);
 -- 2022 Semi (regulation)
 INSERT INTO matches VALUES ('M-2022-61', 2022, '2022-12-13', 'semi_final', NULL, 'Lusail Stadium',
-    'team_ARG', 'team_CRO', 3, 0, NULL, NULL, NULL, NULL, 'team_ARG', 'regulation', '3:0', NULL, NULL, NULL);
+    'team_ARG', 'team_CRO', 3, 0, NULL, NULL, NULL, NULL, 'team_ARG', 'regulation',
+    '3:0', NULL, NULL, NULL);
 -- 2018 Final (regulation)
 INSERT INTO matches VALUES ('M-2018-64', 2018, '2018-07-15', 'final', NULL, 'Luzhniki Stadium',
-    'team_FRA', 'team_CRO', 4, 2, NULL, NULL, NULL, NULL, 'team_FRA', 'regulation', '4:2', NULL, NULL, NULL);
+    'team_FRA', 'team_CRO', 4, 2, NULL, NULL, NULL, NULL, 'team_FRA', 'regulation',
+    '4:2', NULL, NULL, NULL);
 -- 2014 Final (extra_time)
 INSERT INTO matches VALUES ('M-2014-64', 2014, '2014-07-13', 'final', NULL, 'Maracana',
-    'team_GER', 'team_ARG', 0, 0, 1, 0, NULL, NULL, 'team_GER', 'extra_time', '1:0', NULL, NULL, NULL);
+    'team_GER', 'team_ARG', 0, 0, 1, 0, NULL, NULL, 'team_GER', 'extra_time',
+    '1:0', NULL, NULL, NULL);
 -- 2022 group stage draw (draw result type)
 INSERT INTO matches VALUES ('M-2022-44', 2022, '2022-12-01', 'group', 'F组', 'Al Thumama Stadium',
     'team_CRO', 'team_MAR', 0, 0, NULL, NULL, NULL, NULL, NULL, 'draw', '0:0', NULL, NULL, NULL);
 -- 1974 second_group stage
 INSERT INTO matches VALUES ('M-1974-26', 1974, '1974-06-26', 'second_group', 'B组', 'Munich',
-    'team_GER', 'team_ARG', 2, 0, NULL, NULL, NULL, NULL, 'team_GER', 'regulation', '2:0', NULL, NULL, NULL);
+    'team_GER', 'team_ARG', 2, 0, NULL, NULL, NULL, NULL, 'team_GER', 'regulation',
+    '2:0', NULL, NULL, NULL);
 
-INSERT INTO sources VALUES ('src-001', 'Kaggle FIFA Dataset', 'https://www.kaggle.com/datasets/fifa-world-cup', 'csv', '2026-01-01', NULL, 'CC0', '2026-07-16-v2');
-INSERT INTO sources VALUES ('src-002', 'Frontend integration mock source', NULL, 'mock', NULL, NULL, NULL, NULL);
+INSERT INTO sources VALUES (
+    'src-001', 'Kaggle FIFA Dataset', 'https://www.kaggle.com/datasets/fifa-world-cup',
+    'csv', '2026-01-01', NULL, 'CC0', '2026-07-16-v2');
+INSERT INTO sources VALUES (
+    'src-002', 'Frontend integration mock source', NULL, 'mock', NULL, NULL, NULL, NULL);
 
 INSERT INTO match_sources VALUES ('M-2022-64', 'src-001');
 INSERT INTO match_sources VALUES ('M-2018-64', 'src-001');
 
-INSERT INTO goals VALUES ('G-001', 'M-2022-64', NULL, 'Messi', 'Lionel', 10, 'team_ARG', '阿根廷', '23''', 23, 0, 'first_half', 0, 1);
-INSERT INTO goals VALUES ('G-002', 'M-2022-64', NULL, 'Di Maria', 'Angel', 11, 'team_ARG', '阿根廷', '36''', 36, 0, 'first_half', 0, 0);
-INSERT INTO goals VALUES ('G-003', 'M-2022-64', NULL, 'Mbappe', 'Kylian', 10, 'team_FRA', '法国', '80''', 80, 0, 'second_half', 0, 1);
+INSERT INTO goals VALUES (
+    'G-001', 'M-2022-64', NULL, 'Messi', 'Lionel', 10, 'team_ARG', '阿根廷',
+    '23''', 23, 0, 'first_half', 0, 1);
+INSERT INTO goals VALUES (
+    'G-002', 'M-2022-64', NULL, 'Di Maria', 'Angel', 11, 'team_ARG', '阿根廷',
+    '36''', 36, 0, 'first_half', 0, 0);
+INSERT INTO goals VALUES (
+    'G-003', 'M-2022-64', NULL, 'Mbappe', 'Kylian', 10, 'team_FRA', '法国',
+    '80''', 80, 0, 'second_half', 0, 1);
 
-INSERT INTO documents VALUES ('doc-001', 'FIFA World Cup Dataset', 'src-001', '/data/src-001.csv', 'csv', 'parsed', 964, '2026-07-16', '2026-07-16-v2');
+INSERT INTO documents VALUES (
+    'doc-001', 'FIFA World Cup Dataset', 'src-001', '/data/src-001.csv', 'csv',
+    'parsed', 964, '2026-07-16', '2026-07-16-v2');
 """

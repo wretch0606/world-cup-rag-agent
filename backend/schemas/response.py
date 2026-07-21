@@ -3,17 +3,15 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Any, Generic, TypeVar
+from typing import Any
 
 from pydantic import BaseModel
 from starlette.responses import JSONResponse
 
 from backend.middleware.trace import get_trace_id
 
-T = TypeVar("T")
 
-
-class ApiResponse(BaseModel, Generic[T]):
+class ApiResponse[T](BaseModel):
     """Unified response envelope for all front-end API endpoints."""
 
     success: bool
@@ -38,7 +36,7 @@ def _now_utc_iso() -> str:
     return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
 
-def ok(data: T, code: str = "OK", message: str = "查询成功") -> ApiResponse[T]:
+def ok[T](data: T, code: str = "OK", message: str = "查询成功") -> ApiResponse[T]:
     """Build a successful response."""
     return ApiResponse(
         success=True,

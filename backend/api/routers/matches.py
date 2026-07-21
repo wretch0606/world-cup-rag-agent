@@ -55,6 +55,7 @@ async def list_matches(
     response_data = result.model_dump()
     # Inject data_status from config
     from backend.config import settings as app_settings
+
     response_data["data_status"] = "live" if app_settings.frontend_data_mode == "sqlite" else "mock"
     return ok(data=response_data)
 

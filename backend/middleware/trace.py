@@ -44,9 +44,7 @@ class TraceMiddleware:
 
         # Accept client-supplied trace_id if valid
         headers = dict(scope.get("headers", []))
-        client_trace = (
-            headers.get(b"x-trace-id", b"").decode("latin-1")
-        )
+        client_trace = headers.get(b"x-trace-id", b"").decode("latin-1")
         trace_id = client_trace if _TRACE_ID_RE.match(client_trace) else _generate_trace_id()
 
         # Store for downstream use
@@ -55,9 +53,7 @@ class TraceMiddleware:
         async def send_wrapper(message: dict) -> None:
             if message["type"] == "http.response.start":
                 headers_list = list(message.get("headers", []))
-                headers_list.append(
-                    (b"x-trace-id", trace_id.encode("latin-1"))
-                )
+                headers_list.append((b"x-trace-id", trace_id.encode("latin-1")))
                 message["headers"] = headers_list
             await send(message)
 

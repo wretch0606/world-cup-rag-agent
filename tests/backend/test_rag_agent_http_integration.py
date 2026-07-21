@@ -6,6 +6,7 @@ Verifies the full HTTP stack handles missing RAG_LLM_API_KEY gracefully:
   - Semantic queries return stable errors (no 500 crash)
   - Error messages never leak secrets
 """
+
 from __future__ import annotations
 
 from unittest.mock import patch
@@ -29,6 +30,7 @@ def _http_post(client, question, filters=None):
 def test_app_import_without_api_key():
     """Importing main must not crash when RAG_LLM_API_KEY is unset."""
     from backend.main import app  # noqa: F401
+
     assert True
 
 
@@ -37,6 +39,7 @@ def test_app_import_without_api_key():
 # ====================================================================
 def test_health_returns_200():
     from backend.main import app
+
     client = TestClient(app)
     resp = client.get("/api/health")
     assert resp.status_code == 200
@@ -49,6 +52,7 @@ def test_health_returns_200():
 # ====================================================================
 def test_exact_query_returns_200_without_key():
     from backend.main import app
+
     client = TestClient(app)
     resp = _http_post(client, "2022年世界杯决赛比分是多少？")
     assert resp.status_code == 200
@@ -62,6 +66,7 @@ def test_exact_query_returns_200_without_key():
 def test_no_crash_on_varied_questions():
     """Mock mode: all questions return 200, no crash."""
     from backend.main import app
+
     client = TestClient(app)
     for q in [
         "2022年世界杯决赛比分是多少？",
@@ -181,8 +186,7 @@ def test_ragresult_timeout_code_returns_504(_mock_rag):
                 items=[],
                 applied_filters=request.filters,
                 timing=RetrievalTiming(),
-                error=ErrorItem(code="TIMEOUT", message="timeout",
-                                component="retrieval"),
+                error=ErrorItem(code="TIMEOUT", message="timeout", component="retrieval"),
             )
 
     class _DummyGen:
@@ -208,6 +212,7 @@ def test_ragresult_timeout_code_returns_504(_mock_rag):
 # ====================================================================
 def test_error_message_no_sensitive_content():
     from backend.main import app
+
     client = TestClient(app)
     resp = _http_post(client, "为什么世界杯比赛很经典？")
     data = resp.json()
@@ -227,6 +232,7 @@ def test_error_message_no_sensitive_content():
 # ====================================================================
 def test_warnings_have_required_fields():
     from backend.main import app
+
     client = TestClient(app)
     resp = _http_post(client, "为什么世界杯比赛很经典？")
     data = resp.json()
@@ -244,6 +250,7 @@ def test_warnings_have_required_fields():
 # ====================================================================
 def test_response_uses_api_response_envelope():
     from backend.main import app
+
     client = TestClient(app)
     resp = _http_post(client, "2022年世界杯决赛比分是多少？")
     data = resp.json()
@@ -258,4 +265,5 @@ def test_response_uses_api_response_envelope():
 def test_no_api_key_in_environment():
     """Confirm RAG_LLM_API_KEY is absent during HTTP tests."""
     from backend.config import settings
+
     assert settings.rag_llm_api_key == ""

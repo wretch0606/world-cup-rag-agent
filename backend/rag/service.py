@@ -11,6 +11,7 @@ This module never loads models, reads SQLite, initialises Chroma, or
 reads API keys.  When dependencies are not configured it returns a
 safe ``status=error`` result — never a fabricated success.
 """
+
 from __future__ import annotations
 
 import time

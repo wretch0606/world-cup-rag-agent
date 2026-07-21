@@ -48,13 +48,18 @@ def test_get_match_unknown_returns_none(mock_provider) -> None:
 
 
 def test_team_relations_returns_stats(mock_provider) -> None:
-    result = mock_provider.get_team_relations("team_ARG", __import__("backend.schemas.common", fromlist=["RelationFilters"]).RelationFilters())
+    result = mock_provider.get_team_relations(
+        "team_ARG",
+        __import__("backend.schemas.common", fromlist=["RelationFilters"]).RelationFilters(),
+    )
     assert result["team"]["team_id"] == "team_ARG"
     assert result["stats"]["matches"] > 0
 
 
 def test_documents_empty(mock_provider) -> None:
-    result = mock_provider.list_documents(__import__("backend.schemas.common", fromlist=["DocumentFilters"]).DocumentFilters())
+    result = mock_provider.list_documents(
+        __import__("backend.schemas.common", fromlist=["DocumentFilters"]).DocumentFilters()
+    )
     assert result["data_status"] == "mock"
     assert result["items"] == []
     assert result["total"] == 0

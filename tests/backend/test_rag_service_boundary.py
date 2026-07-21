@@ -5,6 +5,7 @@ never real LLM, Chroma, or network calls.
 
 Async tests use ``asyncio.run()`` (no pytest-asyncio dependency).
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -391,6 +392,7 @@ def test_service_missing_generation_returns_error():
 # ---------------------------------------------------------------------------
 def test_no_fabricated_sources():
     """SourceItem used_for_fact_ids must reference real fact_ids."""
+
     async def _test():
         fact = MatchResultFact(
             fact_id="fact-real-001",

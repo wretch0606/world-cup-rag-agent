@@ -9,6 +9,7 @@ model can never fabricate references.
 Never logs API keys, never trusts model-generated source_id / chunk_id
 without verification, and never writes secrets to disk.
 """
+
 from __future__ import annotations
 
 import json
@@ -55,6 +56,7 @@ _PROMPT_VERSIONS: dict[str, str] = {
     "summary.md": "summary-v1.0",
     "fallback.md": "fallback-v1.0",
 }
+
 
 # ---------------------------------------------------------------------------
 # Private DTO — the *only* fields the model is allowed to control
@@ -108,9 +110,7 @@ class OpenAICompatibleGenerationClient:
         self._model = model or settings.rag_llm_model
         self._timeout_ms = timeout_ms or settings.rag_llm_timeout_ms
         self._max_tokens = max_tokens or settings.rag_llm_max_tokens
-        self._thinking = (
-            thinking if thinking is not None else settings.rag_llm_thinking
-        )
+        self._thinking = thinking if thinking is not None else settings.rag_llm_thinking
         self._load_prompt = prompt_loader or _load_prompt_file
 
     # ------------------------------------------------------------------
@@ -425,12 +425,8 @@ def _build_rag_result(
     """Reconstruct a trusted RAGResult from model output + original data."""
 
     # -- Trusted lookups ------------------------------------------------
-    source_by_id: dict[str, SourceItem] = {
-        s.source_id: s for s in request.source_catalog
-    }
-    evidence_by_chunk: dict[str, EvidenceItem] = {
-        e.chunk_id: e for e in retrieval.items
-    }
+    source_by_id: dict[str, SourceItem] = {s.source_id: s for s in request.source_catalog}
+    evidence_by_chunk: dict[str, EvidenceItem] = {e.chunk_id: e for e in retrieval.items}
 
     # -- Validate used_source_ids / used_chunk_ids ----------------------
     warnings: list[WarningItem] = []
@@ -454,9 +450,7 @@ def _build_rag_result(
         warnings.append(
             WarningItem(
                 code="LOW_CONFIDENCE",
-                message=(
-                    f"模型引用了 {len(fabricated_sources)} 个不存在的 source_id，已删除。"
-                ),
+                message=(f"模型引用了 {len(fabricated_sources)} 个不存在的 source_id，已删除。"),
                 component="generation",
                 retryable=False,
             )
@@ -465,9 +459,7 @@ def _build_rag_result(
         warnings.append(
             WarningItem(
                 code="LOW_CONFIDENCE",
-                message=(
-                    f"模型引用了 {len(fabricated_chunks)} 个不存在的 chunk_id，已删除。"
-                ),
+                message=(f"模型引用了 {len(fabricated_chunks)} 个不存在的 chunk_id，已删除。"),
                 component="generation",
                 retryable=False,
             )
@@ -509,9 +501,7 @@ def _build_rag_result(
 
     # -- Validate facts against StructuredFact --------------------------
     fact_objects: list = []
-    sf_lookup: dict[str, StructuredFact] = {
-        sf.match_id: sf for sf in request.structured_facts
-    }
+    sf_lookup: dict[str, StructuredFact] = {sf.match_id: sf for sf in request.structured_facts}
     has_conflict = False
 
     for i, fact_dict in enumerate(payload.facts):
@@ -689,9 +679,7 @@ def _build_rag_result(
             retrieval_ms=retrieval.timing.retrieval_ms,
             rerank_ms=retrieval.timing.rerank_ms,
             generation_ms=generation_ms,
-            total_ms=(
-                retrieval.timing.total_ms + generation_ms
-            ),
+            total_ms=(retrieval.timing.total_ms + generation_ms),
         ),
         generation_meta=GenerationMeta(
             prompt_name=prompt_name.replace(".md", ""),
@@ -726,9 +714,7 @@ def _map_model_status(
 # ===================================================================
 # Result builders for early-exit paths
 # ===================================================================
-def _empty_result(
-    request: RAGRequest, retrieval: RetrievalResult
-) -> RAGResult:
+def _empty_result(request: RAGRequest, retrieval: RetrievalResult) -> RAGResult:
     return RAGResult(
         contract_version=RAG_CONTRACT_VERSION,
         trace_id=request.trace_id,

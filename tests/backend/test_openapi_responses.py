@@ -58,13 +58,9 @@ def test_all_422_are_error_response() -> None:
                 continue
             resp_422 = op.get("responses", {}).get("422")
             if resp_422:
-                schema = resp_422.get("content", {}).get(
-                    "application/json", {}
-                ).get("schema", {})
+                schema = resp_422.get("content", {}).get("application/json", {}).get("schema", {})
                 ref = schema.get("$ref", "")
-                assert "ErrorResponse" in ref, (
-                    f"{method.upper()} {ep} 422: got {ref}"
-                )
+                assert "ErrorResponse" in ref, f"{method.upper()} {ep} 422: got {ref}"
 
 
 # ─── All 200 are typed ApiResponse ───
@@ -79,13 +75,9 @@ def test_all_200_are_typed() -> None:
                 continue
             resp_200 = op.get("responses", {}).get("200")
             if resp_200:
-                schema = resp_200.get("content", {}).get(
-                    "application/json", {}
-                ).get("schema", {})
+                schema = resp_200.get("content", {}).get("application/json", {}).get("schema", {})
                 ref = schema.get("$ref", "")
-                assert "ApiResponse_" in ref, (
-                    f"{method.upper()} {ep} 200: got {ref}"
-                )
+                assert "ApiResponse_" in ref, f"{method.upper()} {ep} 200: got {ref}"
 
 
 # ─── Runtime: SQLite mode data_status=live (uses fixture DB) ───
@@ -107,6 +99,7 @@ def test_matches_data_status_live(monkeypatch, fixture_db_path: str) -> None:
         assert r.json()["data"].get("data_status") == "live"
     finally:
         import backend.dependencies as d
+
         d._data_provider = None
 
 
@@ -118,6 +111,7 @@ def test_graph_data_status_live(monkeypatch, fixture_db_path: str) -> None:
         assert r.json()["data"].get("data_status") == "live"
     finally:
         import backend.dependencies as d
+
         d._data_provider = None
 
 
@@ -135,11 +129,10 @@ def test_graph_no_self_loops(monkeypatch, fixture_db_path: str) -> None:
         r = client.get("/api/graph?limit=200")
         assert r.status_code == 200
         for e in r.json()["data"]["edges"]:
-            assert e["source"] != e["target"], (
-                f"Self-loop: {e['id']} {e['source']}"
-            )
+            assert e["source"] != e["target"], f"Self-loop: {e['id']} {e['source']}"
     finally:
         import backend.dependencies as d
+
         d._data_provider = None
 
 
@@ -160,6 +153,7 @@ def test_draw_edge_direction(monkeypatch, fixture_db_path: str) -> None:
             assert e["winner_team_id"] is None
     finally:
         import backend.dependencies as d
+
         d._data_provider = None
 
 

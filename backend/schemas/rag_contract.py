@@ -7,6 +7,7 @@ DTOs live in ``backend/schemas/common.py`` and ``responses.py``.
 
 Do NOT import provider-specific or database-internal modules here.
 """
+
 from __future__ import annotations
 
 from datetime import date
@@ -356,9 +357,7 @@ class RAGResult(BaseModel):
     @model_validator(mode="after")
     def _check_confidence_range(self) -> RAGResult:
         if self.confidence is not None and not (0 <= self.confidence <= 1):
-            raise ValueError(
-                f"confidence must be in [0, 1] when set, got {self.confidence}"
-            )
+            raise ValueError(f"confidence must be in [0, 1] when set, got {self.confidence}")
         return self
 
     @model_validator(mode="after")

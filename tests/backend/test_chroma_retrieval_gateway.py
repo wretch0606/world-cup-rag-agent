@@ -3,6 +3,7 @@
 All tests use injected fake synchronous D callables.  No real Chroma, BGE,
 Reranker, network, or absolute paths.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -266,9 +267,7 @@ def test_timeout():
     )
 
     async def _test():
-        return await gw.retrieve(
-            _make_request(options=RAGOptions(timeout_ms=1000))
-        )
+        return await gw.retrieve(_make_request(options=RAGOptions(timeout_ms=1000)))
 
     result = _run(_test())
     assert result.status == RAGStatus.error
@@ -321,9 +320,7 @@ def test_empty_result():
 # ====================================================================
 def test_single_year_mapping():
     """years=[2022] should produce tournament_year=2022 in filter."""
-    dicts, warnings = _build_filter_dicts(
-        RetrievalFilters(years=[2022])
-    )
+    dicts, warnings = _build_filter_dicts(RetrievalFilters(years=[2022]))
     assert len(dicts) == 1
     assert dicts[0] == {"tournament_year": 2022}
     assert warnings == []
@@ -350,9 +347,7 @@ def test_single_stage_mapping():
 # ====================================================================
 def test_multi_value_combination():
     """years=[2018, 2022] → two filter dicts."""
-    dicts, _ = _build_filter_dicts(
-        RetrievalFilters(years=[2018, 2022])
-    )
+    dicts, _ = _build_filter_dicts(RetrievalFilters(years=[2018, 2022]))
     assert len(dicts) == 2
     assert {"tournament_year": 2018} in dicts
     assert {"tournament_year": 2022} in dicts
@@ -460,9 +455,7 @@ def test_result_types_post_filter():
         _fake_d_item("c1", metadata={**_m, "result_type": "penalties"}),
         _fake_d_item("c2", metadata={**_m, "result_type": "regulation"}),
     ]
-    kept, dropped = _post_filter_raw(
-        raw, RetrievalFilters(result_types=["penalties"])
-    )
+    kept, dropped = _post_filter_raw(raw, RetrievalFilters(result_types=["penalties"]))
     assert len(kept) == 1
     assert kept[0]["id"] == "c1"
     assert dropped == 1
@@ -477,9 +470,7 @@ def test_match_ids_post_filter():
         _fake_d_item("c1", metadata={**_m, "match_id": "M-1"}),
         _fake_d_item("c2", metadata={**_m, "match_id": "M-2"}),
     ]
-    kept, dropped = _post_filter_raw(
-        raw, RetrievalFilters(match_ids=["M-1"])
-    )
+    kept, dropped = _post_filter_raw(raw, RetrievalFilters(match_ids=["M-1"]))
     assert len(kept) == 1
     assert kept[0]["id"] == "c1"
     assert dropped == 1
@@ -504,11 +495,7 @@ def test_hard_filter_candidates_removed():
     )
 
     async def _test():
-        return await gw.retrieve(
-            _make_request(
-                filters=RetrievalFilters(match_ids=["M-1"])
-            )
-        )
+        return await gw.retrieve(_make_request(filters=RetrievalFilters(match_ids=["M-1"])))
 
     result = _run(_test())
     assert len(result.items) == 1
@@ -531,11 +518,7 @@ def test_chunk_deduplication():
     )
 
     async def _test():
-        return await gw.retrieve(
-            _make_request(
-                filters=RetrievalFilters(years=[2018, 2022])
-            )
-        )
+        return await gw.retrieve(_make_request(filters=RetrievalFilters(years=[2018, 2022])))
 
     result = _run(_test())
     # 2 filter combos × 1 item each = both return same chunk_id → deduped to 1
@@ -549,13 +532,21 @@ def test_chunk_deduplication():
 def test_distance_sorting():
     """Items sorted by distance ascending."""
     e1 = EvidenceItem(
-        chunk_id="c1", document_id="d", source_id="s",
-        document_name="T", text="...", data_version="v1",
+        chunk_id="c1",
+        document_id="d",
+        source_id="s",
+        document_name="T",
+        text="...",
+        data_version="v1",
         vector_distance=0.5,
     )
     e2 = EvidenceItem(
-        chunk_id="c2", document_id="d", source_id="s",
-        document_name="T", text="...", data_version="v1",
+        chunk_id="c2",
+        document_id="d",
+        source_id="s",
+        document_name="T",
+        text="...",
+        data_version="v1",
         vector_distance=0.1,
     )
     sorted_items = _sort_items([e1, e2], rerank_applied=False)
@@ -568,14 +559,24 @@ def test_distance_sorting():
 def test_rerank_score_sorting():
     """When reranker applied, sort by rerank_score descending."""
     e1 = EvidenceItem(
-        chunk_id="c1", document_id="d", source_id="s",
-        document_name="T", text="...", data_version="v1",
-        rerank_score=0.3, vector_distance=0.5,
+        chunk_id="c1",
+        document_id="d",
+        source_id="s",
+        document_name="T",
+        text="...",
+        data_version="v1",
+        rerank_score=0.3,
+        vector_distance=0.5,
     )
     e2 = EvidenceItem(
-        chunk_id="c2", document_id="d", source_id="s",
-        document_name="T", text="...", data_version="v1",
-        rerank_score=0.9, vector_distance=0.8,
+        chunk_id="c2",
+        document_id="d",
+        source_id="s",
+        document_name="T",
+        text="...",
+        data_version="v1",
+        rerank_score=0.9,
+        vector_distance=0.8,
     )
     sorted_items = _sort_items([e1, e2], rerank_applied=True)
     assert sorted_items[0].chunk_id == "c2"  # higher rerank_score first
@@ -659,12 +660,15 @@ def test_rerank_rank_with_reranker_is_set():
 # ====================================================================
 def test_missing_required_metadata_dropped():
     """Item without source_id → not mapped to EvidenceItem."""
-    raw = _fake_d_item("bad", metadata={
-        "document_id": "d1",
-        "document_name": "Test Doc",
-        "data_version": "v1",
-        # source_id intentionally omitted
-    })
+    raw = _fake_d_item(
+        "bad",
+        metadata={
+            "document_id": "d1",
+            "document_name": "Test Doc",
+            "data_version": "v1",
+            # source_id intentionally omitted
+        },
+    )
     ev, missing = _map_to_evidence(raw)
     assert ev is None
     assert "source_id" in missing
@@ -847,9 +851,7 @@ def test_final_items_not_exceed_rerank_top_n():
 
     async def _test():
         return await gw.retrieve(
-            _make_request(
-                options=RAGOptions(retrieval_top_k=20, rerank_top_n=5)
-            )
+            _make_request(options=RAGOptions(retrieval_top_k=20, rerank_top_n=5))
         )
 
     result = _run(_test())
@@ -878,9 +880,7 @@ def test_query_rewrite_enabled_sets_degraded():
 
     async def _test():
         return await gw.retrieve(
-            _make_request(
-                options=RAGOptions(use_query_rewrite=True, use_reranker=False)
-            )
+            _make_request(options=RAGOptions(use_query_rewrite=True, use_reranker=False))
         )
 
     result = _run(_test())
@@ -895,10 +895,15 @@ def test_query_rewrite_enabled_sets_degraded():
 # ====================================================================
 def test_source_metadata_alias_mapping():
     """url field aliased to source_url."""
-    raw = _fake_d_item(metadata={
-        "source_id": "s1", "document_id": "d1", "document_name": "T",
-        "data_version": "v1", "url": "https://example.com/report.pdf",
-    })
+    raw = _fake_d_item(
+        metadata={
+            "source_id": "s1",
+            "document_id": "d1",
+            "document_name": "T",
+            "data_version": "v1",
+            "url": "https://example.com/report.pdf",
+        }
+    )
     ev, missing = _map_to_evidence(raw)
     assert ev is not None
     assert ev.source_url == "https://example.com/report.pdf"
@@ -909,10 +914,15 @@ def test_source_metadata_alias_mapping():
 # ====================================================================
 def test_source_page_alias_mapping():
     """page field aliased to source_page."""
-    raw = _fake_d_item(metadata={
-        "source_id": "s1", "document_id": "d1", "document_name": "T",
-        "data_version": "v1", "page": 42,
-    })
+    raw = _fake_d_item(
+        metadata={
+            "source_id": "s1",
+            "document_id": "d1",
+            "document_name": "T",
+            "data_version": "v1",
+            "page": 42,
+        }
+    )
     ev, missing = _map_to_evidence(raw)
     assert ev is not None
     assert ev.source_page == 42
@@ -922,12 +932,26 @@ def test_source_page_alias_mapping():
 # 35. _deduplicate_by_chunk_id keeps best
 # ====================================================================
 def test_deduplicate_keeps_best_rerank():
-    e1 = EvidenceItem(chunk_id="dup", document_id="d", source_id="s",
-                      document_name="T", text="...", data_version="v1",
-                      rerank_score=0.9, vector_distance=0.5)
-    e2 = EvidenceItem(chunk_id="dup", document_id="d", source_id="s",
-                      document_name="T", text="...", data_version="v1",
-                      rerank_score=0.3, vector_distance=0.1)
+    e1 = EvidenceItem(
+        chunk_id="dup",
+        document_id="d",
+        source_id="s",
+        document_name="T",
+        text="...",
+        data_version="v1",
+        rerank_score=0.9,
+        vector_distance=0.5,
+    )
+    e2 = EvidenceItem(
+        chunk_id="dup",
+        document_id="d",
+        source_id="s",
+        document_name="T",
+        text="...",
+        data_version="v1",
+        rerank_score=0.3,
+        vector_distance=0.1,
+    )
     result = _deduplicate_by_chunk_id([e1, e2])
     assert len(result) == 1
     assert result[0].rerank_score == 0.9  # best rerank kept
@@ -949,11 +973,7 @@ def test_match_ids_post_filter_sets_degraded():
     )
 
     async def _test():
-        return await gw.retrieve(
-            _make_request(
-                filters=RetrievalFilters(match_ids=["M-1"])
-            )
-        )
+        return await gw.retrieve(_make_request(filters=RetrievalFilters(match_ids=["M-1"])))
 
     result = _run(_test())
     assert result.status == RAGStatus.degraded
@@ -980,9 +1000,7 @@ def test_result_types_post_filter_sets_degraded():
 
     async def _test():
         return await gw.retrieve(
-            _make_request(
-                filters=RetrievalFilters(result_types=["penalties"])
-            )
+            _make_request(filters=RetrievalFilters(result_types=["penalties"]))
         )
 
     result = _run(_test())
@@ -1030,6 +1048,7 @@ def test_post_filter_non_matching_items_excluded():
 # _normalize_source_id — source_ids array compatibility tests
 # ====================================================================
 
+
 # --- 39. source_id scalar passed through ---------------------------------
 def test_normalize_source_id_scalar():
     """source_id as a plain string is returned verbatim."""
@@ -1040,53 +1059,65 @@ def test_normalize_source_id_scalar():
 # --- 40. source_id takes priority over source ----------------------------
 def test_normalize_source_id_priority_over_source():
     """source_id wins even when source is also present."""
-    result = _normalize_source_id({
-        "source_id": "primary",
-        "source": "fallback",
-    })
+    result = _normalize_source_id(
+        {
+            "source_id": "primary",
+            "source": "fallback",
+        }
+    )
     assert result == "primary"
 
 
 # --- 41. source takes priority over source_ids ---------------------------
 def test_normalize_source_priority_over_source_ids():
     """source (second priority) wins over source_ids array."""
-    result = _normalize_source_id({
-        "source": "from-source",
-        "source_ids": ["from-array-1", "from-array-2"],
-    })
+    result = _normalize_source_id(
+        {
+            "source": "from-source",
+            "source_ids": ["from-array-1", "from-array-2"],
+        }
+    )
     assert result == "from-source"
 
 
 # --- 42. source_ids single-element array ---------------------------------
 def test_normalize_source_ids_single_element():
-    result = _normalize_source_id({
-        "source_ids": ["only-one"],
-    })
+    result = _normalize_source_id(
+        {
+            "source_ids": ["only-one"],
+        }
+    )
     assert result == "only-one"
 
 
 # --- 43. source_ids multi-element array → first non-empty ----------------
 def test_normalize_source_ids_multi_element_first_wins():
-    result = _normalize_source_id({
-        "source_ids": ["first", "second", "third"],
-    })
+    result = _normalize_source_id(
+        {
+            "source_ids": ["first", "second", "third"],
+        }
+    )
     assert result == "first"
 
 
 # --- 44. source_ids array with None, empty string, numbers ---------------
 def test_normalize_source_ids_array_with_junk():
     """None, empty strings, and non-strings are skipped."""
-    result = _normalize_source_id({
-        "source_ids": [None, "", 123, "valid-one", "valid-two"],
-    })
+    result = _normalize_source_id(
+        {
+            "source_ids": [None, "", 123, "valid-one", "valid-two"],
+        }
+    )
     assert result == "valid-one"
 
 
 # --- 45. source_ids as plain string --------------------------------------
 def test_normalize_source_ids_plain_string():
-    result = _normalize_source_id({
-        "source_ids": "single-string-id",
-    })
+    result = _normalize_source_id(
+        {
+            "source_ids": "single-string-id",
+        }
+    )
     assert result == "single-string-id"
 
 
@@ -1098,10 +1129,12 @@ def test_normalize_source_ids_empty_array():
 
 # --- 47. All source fields missing → None --------------------------------
 def test_normalize_all_missing():
-    result = _normalize_source_id({
-        "document_id": "d1",
-        "document_name": "T",
-    })
+    result = _normalize_source_id(
+        {
+            "document_id": "d1",
+            "document_name": "T",
+        }
+    )
     assert result is None
 
 
@@ -1112,6 +1145,7 @@ def test_normalize_source_id_does_not_mutate_metadata():
         "document_id": "d1",
     }
     import copy
+
     before = copy.deepcopy(original)
     _normalize_source_id(original)
     assert original == before
@@ -1120,12 +1154,14 @@ def test_normalize_source_id_does_not_mutate_metadata():
 # --- 49. Real E2E sample -------------------------------------------------
 def test_normalize_source_ids_real_e2e_sample():
     """Exact metadata shape from Chroma E2E ingest."""
-    result = _normalize_source_id({
-        "source_ids": [
-            "src_csv_20260719_001",
-            "source-kaggle-001",
-        ],
-    })
+    result = _normalize_source_id(
+        {
+            "source_ids": [
+                "src_csv_20260719_001",
+                "source-kaggle-001",
+            ],
+        }
+    )
     assert result == "src_csv_20260719_001"
 
 
@@ -1245,7 +1281,9 @@ def test_all_source_keys_missing_drops_candidate():
 
 # --- 54. source_ids tuple works same as list -----------------------------
 def test_normalize_source_ids_tuple():
-    result = _normalize_source_id({
-        "source_ids": ("tuple-first", "tuple-second"),
-    })
+    result = _normalize_source_id(
+        {
+            "source_ids": ("tuple-first", "tuple-second"),
+        }
+    )
     assert result == "tuple-first"

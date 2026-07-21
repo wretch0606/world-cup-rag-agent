@@ -8,8 +8,6 @@ from __future__ import annotations
 
 import re
 
-from backend.schemas.common import StageEnum
-
 # Match year patterns like "2022", "2018年"
 _YEAR_RE = re.compile(r"(19\d{2}|20\d{2})\s*年?")
 # Stage keywords → StageEnum value

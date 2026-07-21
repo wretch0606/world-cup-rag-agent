@@ -4,6 +4,7 @@ RetrievalGateway protocol (rag-v1.1-draft).
 This module does NOT load Chroma, BGE, or Reranker at import time.
 D functions are imported lazily on first ``retrieve()`` call.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -141,9 +142,7 @@ class ChromaRetrievalGateway:
                 use_reranker=use_reranker,
                 use_rewrite=use_rewrite,
             )
-            all_raw, retrieval_ms = await asyncio.wait_for(
-                coro, timeout=opts.timeout_ms / 1000.0
-            )
+            all_raw, retrieval_ms = await asyncio.wait_for(coro, timeout=opts.timeout_ms / 1000.0)
         except TimeoutError:
             return _error_result(
                 request,
@@ -172,9 +171,7 @@ class ChromaRetrievalGateway:
         # D does not natively support result_types / match_ids in its
         # Chroma where filter.  Post-filtering is applied here but MUST
         # be flagged as degraded — never claim native filtering.
-        _has_post_filter = bool(
-            request.filters.result_types or request.filters.match_ids
-        )
+        _has_post_filter = bool(request.filters.result_types or request.filters.match_ids)
         post_filter_degraded = False
         all_raw, pf_dropped = _post_filter_raw(all_raw, request.filters)
         if _has_post_filter:
@@ -220,9 +217,7 @@ class ChromaRetrievalGateway:
 
         # --- 7. Deduplicate, sort, rank, truncate ------------------------
         evidence_items = _deduplicate_by_chunk_id(evidence_items)
-        rerank_applied = use_reranker and any(
-            e.rerank_score is not None for e in evidence_items
-        )
+        rerank_applied = use_reranker and any(e.rerank_score is not None for e in evidence_items)
         evidence_items = _sort_items(evidence_items, rerank_applied=rerank_applied)
         _assign_ranks(evidence_items, rerank_applied=rerank_applied)
         evidence_items = evidence_items[: opts.rerank_top_n]
@@ -532,9 +527,7 @@ def _post_filter(
     items: list[EvidenceItem], filters: RetrievalFilters
 ) -> tuple[list[EvidenceItem], int]:
     """Remove items not matching result_types or match_ids hard constraints."""
-    rt_filter = set(
-        rt.value if hasattr(rt, "value") else rt for rt in filters.result_types
-    )
+    rt_filter = set(rt.value if hasattr(rt, "value") else rt for rt in filters.result_types)
     mid_filter = set(filters.match_ids)
 
     if not rt_filter and not mid_filter:
@@ -556,13 +549,9 @@ def _post_filter(
     return kept, dropped
 
 
-def _post_filter_raw(
-    raw_items: list[dict], filters: RetrievalFilters
-) -> tuple[list[dict], int]:
+def _post_filter_raw(raw_items: list[dict], filters: RetrievalFilters) -> tuple[list[dict], int]:
     """Post-filter raw D items before EvidenceItem mapping."""
-    rt_filter = set(
-        rt.value if hasattr(rt, "value") else rt for rt in filters.result_types
-    )
+    rt_filter = set(rt.value if hasattr(rt, "value") else rt for rt in filters.result_types)
     mid_filter = set(filters.match_ids)
 
     if not rt_filter and not mid_filter:
@@ -617,9 +606,7 @@ def _deduplicate_by_chunk_id(items: list[EvidenceItem]) -> list[EvidenceItem]:
     return list(seen.values())
 
 
-def _sort_items(
-    items: list[EvidenceItem], *, rerank_applied: bool
-) -> list[EvidenceItem]:
+def _sort_items(items: list[EvidenceItem], *, rerank_applied: bool) -> list[EvidenceItem]:
     """Stable sort: rerank_score desc (if applied), else distance asc."""
     if rerank_applied:
 

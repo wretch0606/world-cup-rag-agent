@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PROMPT_DIR = REPO_ROOT / "backend" / "rag" / "prompts"
 MOCK_FILE = Path(__file__).resolve().parent / "fixtures" / "prompt_mock_cases.json"

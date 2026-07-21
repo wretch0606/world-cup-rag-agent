@@ -70,8 +70,7 @@ def _normalise(state: AgentState) -> AgentState:
     state.setdefault("warnings", [])
     state.setdefault(
         "timing",
-        {"routing_ms": 0, "sql_ms": 0, "retrieval_ms": 0,
-         "generation_ms": 0, "total_ms": 0},
+        {"routing_ms": 0, "sql_ms": 0, "retrieval_ms": 0, "generation_ms": 0, "total_ms": 0},
     )
     return state
 
@@ -99,15 +98,38 @@ def _classify(state: AgentState) -> AgentState:
     _score_kw = ["比分", "结果", "谁赢", "获胜", "战胜", "击败", "几比几"]
     ask_about_score = any(kw in question for kw in _score_kw)
     _match_kw = [
-        "哪些比赛", "什么比赛", "有哪些比赛", "比赛列表",
-        "交手", "交锋", "对", "交手过", "击败过", "战胜过",
+        "哪些比赛",
+        "什么比赛",
+        "有哪些比赛",
+        "比赛列表",
+        "交手",
+        "交锋",
+        "对",
+        "交手过",
+        "击败过",
+        "战胜过",
     ]
     ask_about_matches = any(kw in question for kw in _match_kw)
     # Semantic / hybrid intent keywords
     _semantic_kw = [
-        "介绍", "过程", "原因", "总结", "比较", "重要情节",
-        "为什么", "怎么", "怎样", "如何", "经典", "精彩",
-        "表现", "夺冠", "历程", "回顾", "评价", "分析",
+        "介绍",
+        "过程",
+        "原因",
+        "总结",
+        "比较",
+        "重要情节",
+        "为什么",
+        "怎么",
+        "怎样",
+        "如何",
+        "经典",
+        "精彩",
+        "表现",
+        "夺冠",
+        "历程",
+        "回顾",
+        "评价",
+        "分析",
     ]
     has_semantic = any(kw in question for kw in _semantic_kw)
     has_structured = has_teams or has_years or has_stages or has_match_ids
@@ -254,15 +276,19 @@ def _exact_query(state: AgentState) -> AgentState:
         state["status"] = "empty"
         state["answer"] = "未找到符合条件的比赛。"
         state["applied_filters"] = {
-            "years": years, "team_ids": team_ids,
-            "stages": stages, "has_penalties": has_penalties,
+            "years": years,
+            "team_ids": team_ids,
+            "stages": stages,
+            "has_penalties": has_penalties,
         }
-        state["warnings"].append({
-            "code": "NO_RESULT",
-            "message": "没有可靠事实或证据回答该问题。",
-            "component": "exact_query",
-            "retryable": False,
-        })
+        state["warnings"].append(
+            {
+                "code": "NO_RESULT",
+                "message": "没有可靠事实或证据回答该问题。",
+                "component": "exact_query",
+                "retryable": False,
+            }
+        )
         return state
 
     # If exactly one match and question asks for score → return detail
@@ -276,8 +302,10 @@ def _exact_query(state: AgentState) -> AgentState:
             state["graph"] = _build_answer_graph(match)
             state["answer"] = _build_answer_text(match)
             state["applied_filters"] = {
-                "years": years, "team_ids": team_ids,
-                "stages": stages, "has_penalties": has_penalties,
+                "years": years,
+                "team_ids": team_ids,
+                "stages": stages,
+                "has_penalties": has_penalties,
             }
             return state
 
@@ -290,19 +318,21 @@ def _exact_query(state: AgentState) -> AgentState:
         s = m.get("score", {}).get("display", "?")
         state["answer"] = f"{h} vs {a}，比分 {s}。"
     else:
-        teams_str = ", ".join(dict.fromkeys(
-            m.get("home_team", {}).get("name", "")
-            or m.get("away_team", {}).get("name", "")
-            for m in items
-        ))
+        teams_str = ", ".join(
+            dict.fromkeys(
+                m.get("home_team", {}).get("name", "") or m.get("away_team", {}).get("name", "")
+                for m in items
+            )
+        )
         state["answer"] = (
-            f"共找到 {len(items)} 场比赛"
-            f"{'（涉及 ' + teams_str + '）' if teams_str else ''}。"
+            f"共找到 {len(items)} 场比赛{'（涉及 ' + teams_str + '）' if teams_str else ''}。"
         )
     state["graph"] = _build_list_graph(items)
     state["applied_filters"] = {
-        "years": years, "team_ids": team_ids,
-        "stages": stages, "has_penalties": has_penalties,
+        "years": years,
+        "team_ids": team_ids,
+        "stages": stages,
+        "has_penalties": has_penalties,
     }
 
     return state
@@ -325,12 +355,14 @@ def _run_relation_query(
         state["answer"] = "未找到该球队的交手记录。"
         return state
 
-    state["facts"] = [{
-        "fact_type": "relation",
-        "fact_id": f"rel-{team_ids[0]}",
-        "text": f"{team_ids[0]} 历史交手统计",
-        "source_ids": [],
-    }]
+    state["facts"] = [
+        {
+            "fact_type": "relation",
+            "fact_id": f"rel-{team_ids[0]}",
+            "text": f"{team_ids[0]} 历史交手统计",
+            "source_ids": [],
+        }
+    ]
     state["sources"] = []
     state["graph"] = rel.get("graph", {"scope": "answer_facts", "nodes": [], "edges": []})
     stats = rel.get("stats", {})
@@ -383,20 +415,19 @@ def _handle_rag_unavailable(
     if route == "hybrid_query" and structured_facts:
         # We have trusted SQLite facts → return degraded limited answer
         state["status"] = "degraded"
-        state["facts"] = [
-            _build_agent_fact_from_structured(sf)
-            for sf in structured_facts
-        ]
+        state["facts"] = [_build_agent_fact_from_structured(sf) for sf in structured_facts]
         state["sources"] = source_catalog
         state["graph"] = _build_hybrid_degraded_graph(structured_facts)
         state["answer"] = _build_hybrid_degraded_answer(structured_facts)
         state["confidence"] = None
-        state["warnings"].append({
-            "code": "GENERATION_DEGRADED",
-            "message": "语义生成服务暂不可用，已返回结构化事实结果。",
-            "component": "generation",
-            "retryable": True,
-        })
+        state["warnings"].append(
+            {
+                "code": "GENERATION_DEGRADED",
+                "message": "语义生成服务暂不可用，已返回结构化事实结果。",
+                "component": "generation",
+                "retryable": True,
+            }
+        )
         return state
 
     # Pure semantic — no facts to fall back on
@@ -438,11 +469,14 @@ def _build_agent_fact_from_structured(sf: dict) -> dict:
         },
         "result_type": sf.get("result_type"),
         "winner_team": (
-            {"team_id": sf.get("winner_team_id", ""),
-             "name": sf.get("home_team_name", "")
-             if sf.get("winner_team_id") == sf.get("home_team_id")
-             else sf.get("away_team_name", "")}
-            if sf.get("winner_team_id") else None
+            {
+                "team_id": sf.get("winner_team_id", ""),
+                "name": sf.get("home_team_name", "")
+                if sf.get("winner_team_id") == sf.get("home_team_id")
+                else sf.get("away_team_name", ""),
+            }
+            if sf.get("winner_team_id")
+            else None
         ),
         "text": _build_structured_answer_text(sf),
         "source_ids": sf.get("source_ids", []),
@@ -481,18 +515,20 @@ def _build_hybrid_degraded_graph(structured_facts: list[dict]) -> dict:
             nodes[hid] = {"id": hid, "name": hname, "type": "team"}
         if aid:
             nodes[aid] = {"id": aid, "name": aname, "type": "team"}
-        edges.append({
-            "id": f"edge-{mid}",
-            "source": wid if wid else hid,
-            "target": aid if (wid and wid == hid) else (hid if wid and wid != aid else aid),
-            "type": "match_result",
-            "match_id": mid,
-            "tournament_year": sf.get("tournament_year"),
-            "stage": sf.get("stage", ""),
-            "stage_name": sf.get("stage_name", ""),
-            "result_type": sf.get("result_type", ""),
-            "winner_team_id": wid,
-        })
+        edges.append(
+            {
+                "id": f"edge-{mid}",
+                "source": wid if wid else hid,
+                "target": aid if (wid and wid == hid) else (hid if wid and wid != aid else aid),
+                "type": "match_result",
+                "match_id": mid,
+                "tournament_year": sf.get("tournament_year"),
+                "stage": sf.get("stage", ""),
+                "stage_name": sf.get("stage_name", ""),
+                "result_type": sf.get("result_type", ""),
+                "winner_team_id": wid,
+            }
+        )
     return {"scope": "answer_facts", "nodes": list(nodes.values()), "edges": edges}
 
 
@@ -502,9 +538,7 @@ def _build_hybrid_degraded_answer(structured_facts: list[dict]) -> str:
         return "当前无法提供完整答案，请稍后重试。"
     if len(structured_facts) == 1:
         return _build_structured_answer_text(structured_facts[0])
-    teams = list(dict.fromkeys(
-        sf.get("home_team_name", "") for sf in structured_facts
-    ))
+    teams = list(dict.fromkeys(sf.get("home_team_name", "") for sf in structured_facts))
     return (
         f"共找到 {len(structured_facts)} 场比赛"
         f"{'（涉及 ' + '、'.join(teams) + '）' if teams else ''}，"
@@ -572,14 +606,16 @@ def _rag_query(state: AgentState) -> AgentState:
                     structured_facts.append(_build_structured_fact(match))
                     for s in match.get("sources", []):
                         if s.get("source_id") not in {sc.get("source_id") for sc in source_catalog}:
-                            source_catalog.append({
-                                "source_id": s.get("source_id", ""),
-                                "title": s.get("title", ""),
-                                "url": s.get("url"),
-                                "page": s.get("page"),
-                                "document_id": s.get("document_id"),
-                                "data_version": s.get("data_version"),
-                            })
+                            source_catalog.append(
+                                {
+                                    "source_id": s.get("source_id", ""),
+                                    "title": s.get("title", ""),
+                                    "url": s.get("url"),
+                                    "page": s.get("page"),
+                                    "document_id": s.get("document_id"),
+                                    "data_version": s.get("data_version"),
+                                }
+                            )
         except Exception:
             pass
 
@@ -623,6 +659,7 @@ def _rag_query(state: AgentState) -> AgentState:
             # a thread-pool executor to avoid "cannot call asyncio.run
             # from a running event loop".
             import concurrent.futures
+
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
                 fut = ex.submit(asyncio.run, rag_svc.generate(rag_request))
                 rag_result = fut.result(timeout=35)
@@ -747,15 +784,17 @@ def _apply_rag_result(state: AgentState, rag_result: object) -> None:
     rag_sources = getattr(rag_result, "sources", []) or []
     state["sources"] = []
     for s in rag_sources:
-        state["sources"].append({
-            "source_id": getattr(s, "source_id", ""),
-            "title": getattr(s, "title", ""),
-            "url": getattr(s, "url"),
-            "page": getattr(s, "page"),
-            "document_id": getattr(s, "document_id"),
-            "data_version": getattr(s, "data_version"),
-            "used_for_fact_ids": getattr(s, "used_for_fact_ids", []),
-        })
+        state["sources"].append(
+            {
+                "source_id": getattr(s, "source_id", ""),
+                "title": getattr(s, "title", ""),
+                "url": getattr(s, "url"),
+                "page": getattr(s, "page"),
+                "document_id": getattr(s, "document_id"),
+                "data_version": getattr(s, "data_version"),
+                "used_for_fact_ids": getattr(s, "used_for_fact_ids", []),
+            }
+        )
 
     # Evidence never goes to frontend
     # Map applied_filters
@@ -773,12 +812,14 @@ def _apply_rag_result(state: AgentState, rag_result: object) -> None:
     # Map warnings
     rag_warnings = getattr(rag_result, "warnings", []) or []
     for w in rag_warnings:
-        state["warnings"].append({
-            "code": getattr(w, "code", ""),
-            "message": getattr(w, "message", ""),
-            "component": getattr(w, "component", ""),
-            "retryable": getattr(w, "retryable", False),
-        })
+        state["warnings"].append(
+            {
+                "code": getattr(w, "code", ""),
+                "message": getattr(w, "message", ""),
+                "component": getattr(w, "component", ""),
+                "retryable": getattr(w, "retryable", False),
+            }
+        )
 
     # Map timing
     rag_timing = getattr(rag_result, "timing", None)
@@ -798,9 +839,7 @@ def _apply_rag_result(state: AgentState, rag_result: object) -> None:
     state["graph"] = _build_rag_graph(rag_facts, rag_sources)
 
 
-def _build_rag_graph(
-    facts: list[object], sources: list[object]
-) -> dict:
+def _build_rag_graph(facts: list[object], sources: list[object]) -> dict:
     """Build a minimal graph from RAG facts (no fabricated edges)."""
     nodes: dict[str, dict] = {}
     edges: list[dict] = []
@@ -827,27 +866,29 @@ def _build_rag_graph(
         target_id = aid if (wid and wid == hid) else (hid if (wid and wid != hid) else aid)
 
         stage_name = getattr(f, "stage_name", "") or ""
-        edges.append({
-            "id": f"edge-{mid}",
-            "source": source_id,
-            "target": target_id,
-            "type": "match_result",
-            "match_id": mid,
-            "tournament_year": getattr(f, "tournament_year", None),
-            "stage": (
-                getattr(f, "stage", "").value
-                if hasattr(getattr(f, "stage", ""), "value")
-                else getattr(f, "stage", "")
-            ),
-            "stage_name": stage_name,
-            "result_type": (
-                getattr(f, "result_type", "").value
-                if hasattr(getattr(f, "result_type", ""), "value")
-                else getattr(f, "result_type", "")
-            ),
-            "winner_team_id": wid,
-            "label": stage_name,
-        })
+        edges.append(
+            {
+                "id": f"edge-{mid}",
+                "source": source_id,
+                "target": target_id,
+                "type": "match_result",
+                "match_id": mid,
+                "tournament_year": getattr(f, "tournament_year", None),
+                "stage": (
+                    getattr(f, "stage", "").value
+                    if hasattr(getattr(f, "stage", ""), "value")
+                    else getattr(f, "stage", "")
+                ),
+                "stage_name": stage_name,
+                "result_type": (
+                    getattr(f, "result_type", "").value
+                    if hasattr(getattr(f, "result_type", ""), "value")
+                    else getattr(f, "result_type", "")
+                ),
+                "winner_team_id": wid,
+                "label": stage_name,
+            }
+        )
 
     return {"scope": "answer_facts", "nodes": list(nodes.values()), "edges": edges}
 
@@ -931,30 +972,29 @@ def _build_answer_graph(match: dict) -> dict:
             {"id": h.get("team_id", ""), "name": h.get("name", ""), "type": "team"},
             {"id": a.get("team_id", ""), "name": a.get("name", ""), "type": "team"},
         ],
-        "edges": [{
-            "id": f"edge-{match['match_id']}",
-            "source": (
-                w["team_id"] if (w and w.get("team_id"))
-                else h.get("team_id", "")
-            ),
-            "target": (
-                a.get("team_id", "")
-                if (w and w.get("team_id", "") == h.get("team_id", ""))
-                else h.get("team_id", "")
-            ),
-            "type": "match_result",
-            "match_id": match["match_id"],
-            "tournament_year": match.get("tournament_year"),
-            "stage": match.get("stage", ""),
-            "stage_name": match.get("stage_name", ""),
-            "result_type": match.get("result_type", ""),
-            "winner_team_id": w["team_id"] if w else None,
-            "label": (
-                f"{match.get('tournament_year','')} "
-                f"{match.get('stage_name','')} "
-                f"{match.get('score',{}).get('display','')}"
-            ),
-        }],
+        "edges": [
+            {
+                "id": f"edge-{match['match_id']}",
+                "source": (w["team_id"] if (w and w.get("team_id")) else h.get("team_id", "")),
+                "target": (
+                    a.get("team_id", "")
+                    if (w and w.get("team_id", "") == h.get("team_id", ""))
+                    else h.get("team_id", "")
+                ),
+                "type": "match_result",
+                "match_id": match["match_id"],
+                "tournament_year": match.get("tournament_year"),
+                "stage": match.get("stage", ""),
+                "stage_name": match.get("stage_name", ""),
+                "result_type": match.get("result_type", ""),
+                "winner_team_id": w["team_id"] if w else None,
+                "label": (
+                    f"{match.get('tournament_year', '')} "
+                    f"{match.get('stage_name', '')} "
+                    f"{match.get('score', {}).get('display', '')}"
+                ),
+            }
+        ],
     }
 
 
@@ -968,29 +1008,29 @@ def _build_list_graph(items: list[dict]) -> dict:
         w = m.get("winner_team")
         hid = m.get("home_team", {}).get("team_id", "")
         aid = m.get("away_team", {}).get("team_id", "")
-        edges.append({
-            "id": f"edge-{m['match_id']}",
-            "source": (
-                w["team_id"] if (w and w.get("team_id")) else hid
-            ),
-            "target": (
-                aid if (w and w.get("team_id") and w["team_id"] == hid)
-                else (hid if (w and w.get("team_id") and w["team_id"] != hid)
-                      else aid)
-            ),
-            "type": "match_result",
-            "match_id": m["match_id"],
-            "tournament_year": m.get("tournament_year"),
-            "stage": m.get("stage", ""),
-            "stage_name": m.get("stage_name", ""),
-            "result_type": m.get("result_type", ""),
-            "winner_team_id": w["team_id"] if w else None,
-            "label": (
-                f"{m.get('tournament_year','')} "
-                f"{m.get('stage_name','')} "
-                f"{m.get('score',{}).get('display','')}"
-            ),
-        })
+        edges.append(
+            {
+                "id": f"edge-{m['match_id']}",
+                "source": (w["team_id"] if (w and w.get("team_id")) else hid),
+                "target": (
+                    aid
+                    if (w and w.get("team_id") and w["team_id"] == hid)
+                    else (hid if (w and w.get("team_id") and w["team_id"] != hid) else aid)
+                ),
+                "type": "match_result",
+                "match_id": m["match_id"],
+                "tournament_year": m.get("tournament_year"),
+                "stage": m.get("stage", ""),
+                "stage_name": m.get("stage_name", ""),
+                "result_type": m.get("result_type", ""),
+                "winner_team_id": w["team_id"] if w else None,
+                "label": (
+                    f"{m.get('tournament_year', '')} "
+                    f"{m.get('stage_name', '')} "
+                    f"{m.get('score', {}).get('display', '')}"
+                ),
+            }
+        )
     return {"scope": "answer_facts", "nodes": list(nodes.values()), "edges": edges}
 
 
@@ -1065,7 +1105,12 @@ class LangGraphAgentService:
             "warnings": result.get("warnings", []),
             "timing": result.get(
                 "timing",
-                {"routing_ms": 0, "sql_ms": 0, "retrieval_ms": 0,
-                 "generation_ms": 0, "total_ms": 0},
+                {
+                    "routing_ms": 0,
+                    "sql_ms": 0,
+                    "retrieval_ms": 0,
+                    "generation_ms": 0,
+                    "total_ms": 0,
+                },
             ),
         }

@@ -68,19 +68,21 @@ async def get_graph(
         else:
             source = hid
             target = aid
-        edges.append({
-            "id": f"edge-{m['match_id']}",
-            "source": source,
-            "target": target,
-            "type": "match_result",
-            "match_id": m["match_id"],
-            "tournament_year": m["tournament_year"],
-            "stage": m["stage"],
-            "stage_name": m["stage_name"],
-            "result_type": m["result_type"],
-            "winner_team_id": w["team_id"] if w else None,
-            "label": f"{m['tournament_year']} {m['stage_name']} {score_display}",
-        })
+        edges.append(
+            {
+                "id": f"edge-{m['match_id']}",
+                "source": source,
+                "target": target,
+                "type": "match_result",
+                "match_id": m["match_id"],
+                "tournament_year": m["tournament_year"],
+                "stage": m["stage"],
+                "stage_name": m["stage_name"],
+                "result_type": m["result_type"],
+                "winner_team_id": w["team_id"] if w else None,
+                "label": f"{m['tournament_year']} {m['stage_name']} {score_display}",
+            }
+        )
 
     af: dict = {
         "years": filters.years,
@@ -92,13 +94,16 @@ async def get_graph(
 
     # data_status from config
     from backend.config import settings as app_settings
+
     ds = "live" if app_settings.frontend_data_mode == "sqlite" else "mock"
 
-    return ok(data={
-        "data_status": ds,
-        "scope": "filtered_matches",
-        "nodes": list(nodes.values()),
-        "edges": edges,
-        "stats": {"node_count": len(nodes), "edge_count": len(edges), "truncated": truncated},
-        "applied_filters": af,
-    })
+    return ok(
+        data={
+            "data_status": ds,
+            "scope": "filtered_matches",
+            "nodes": list(nodes.values()),
+            "edges": edges,
+            "stats": {"node_count": len(nodes), "edge_count": len(edges), "truncated": truncated},
+            "applied_filters": af,
+        }
+    )

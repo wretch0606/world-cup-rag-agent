@@ -5,6 +5,7 @@ completeness, JSON round-trips, and the discriminated fact union.
 
 No real LLM, Chroma, network, or absolute paths are used.
 """
+
 from __future__ import annotations
 
 import json

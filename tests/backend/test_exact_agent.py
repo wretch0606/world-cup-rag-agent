@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import os
-
 import pytest
 from fastapi.testclient import TestClient
 
@@ -110,10 +108,12 @@ def test_future_year_empty():
 # 6.8 Explicit filters
 # ------------------------------------------------------------------
 def test_explicit_filters_not_overridden():
-    body = _post({
-        "question": "2022年世界杯决赛比分",
-        "filters": {"years": [2022], "team_ids": ["team_ARG"]},
-    })
+    body = _post(
+        {
+            "question": "2022年世界杯决赛比分",
+            "filters": {"years": [2022], "team_ids": ["team_ARG"]},
+        }
+    )
     data = body["data"]
     af = data.get("applied_filters", {})
     assert af.get("years") == [2022]
@@ -147,7 +147,9 @@ def test_no_chroma_import():
 
     # After importing our agent modules, chroma_service should NOT be in sys.modules
     # unless it was imported by something else before
-    assert "backend.services.chroma_service" not in sys.modules or True  # may have been loaded by conftest
+    assert (
+        "backend.services.chroma_service" not in sys.modules or True
+    )  # may have been loaded by conftest
 
 
 # ------------------------------------------------------------------
@@ -157,7 +159,9 @@ def test_openapi_still_8_paths():
     schema = client.get("/openapi.json").json()
     paths = schema["paths"]
     business_paths = [p for p in paths if p.startswith("/api/")]
-    assert len(business_paths) == 8, f"Expected 8, got {len(business_paths)}: {sorted(business_paths)}"
+    assert len(business_paths) == 8, (
+        f"Expected 8, got {len(business_paths)}: {sorted(business_paths)}"
+    )
 
 
 def _post(body: dict) -> dict:

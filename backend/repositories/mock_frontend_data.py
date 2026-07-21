@@ -7,10 +7,10 @@ matches (2022 final, 2022 semi, 2018 final, 2014 final).
 from __future__ import annotations
 
 from backend.schemas.common import (
+    DocumentFilters,
     MatchFilters,
     PaginatedMatches,
     RelationFilters,
-    DocumentFilters,
 )
 
 # ---------------------------------------------------------------------------
@@ -194,9 +194,7 @@ class MockFrontendDataProvider:
             "years": filters.years,
             "team_ids": filters.team_ids,
             "stages": [s.value if hasattr(s, "value") else s for s in filters.stages],
-            "result_types": [
-                r.value if hasattr(r, "value") else r for r in filters.result_types
-            ],
+            "result_types": [r.value if hasattr(r, "value") else r for r in filters.result_types],
             "has_penalties": filters.has_penalties,
         }
 
@@ -212,8 +210,27 @@ class MockFrontendDataProvider:
         result["data_status"] = "mock"
         result["venue"] = "Mock Stadium"
         result["city"] = "Mock City"
-        result["timeline"] = {"regular_time": [], "extra_time": [], "shootout": {"available": False, "home_score": 0, "away_score": 0, "events": [], "message": "Mock — no detailed event data"}}
-        result["sources"] = [{"source_id": "src-mock-001", "title": "Frontend integration mock source", "url": None, "source_type": "mock", "data_version": "mock-v1", "used_for_fact_ids": []}]
+        result["timeline"] = {
+            "regular_time": [],
+            "extra_time": [],
+            "shootout": {
+                "available": False,
+                "home_score": 0,
+                "away_score": 0,
+                "events": [],
+                "message": "Mock — no detailed event data",
+            },
+        }
+        result["sources"] = [
+            {
+                "source_id": "src-mock-001",
+                "title": "Frontend integration mock source",
+                "url": None,
+                "source_type": "mock",
+                "data_version": "mock-v1",
+                "used_for_fact_ids": [],
+            }
+        ]
         return result
 
     def get_team_relations(
@@ -221,16 +238,35 @@ class MockFrontendDataProvider:
     ) -> dict:
         team = self._teams.get(team_id)
         if team is None:
-            return {"team": None, "stats": {}, "matches": [], "graph": {"scope": "team_relations", "nodes": [], "edges": []}, "total": 0, "page": page, "page_size": page_size, "applied_filters": {}, "data_status": "mock"}
+            return {
+                "team": None,
+                "stats": {},
+                "matches": [],
+                "graph": {"scope": "team_relations", "nodes": [], "edges": []},
+                "total": 0,
+                "page": page,
+                "page_size": page_size,
+                "applied_filters": {},
+                "data_status": "mock",
+            }
         # Find matches involving this team
-        related = [m for m in _MOCK_MATCHES if m["home_team"]["team_id"] == team_id or m["away_team"]["team_id"] == team_id]
+        related = [
+            m
+            for m in _MOCK_MATCHES
+            if m["home_team"]["team_id"] == team_id or m["away_team"]["team_id"] == team_id
+        ]
         # Apply filters
         if filters.year_from:
             related = [m for m in related if m["tournament_year"] >= filters.year_from]
         if filters.year_to:
             related = [m for m in related if m["tournament_year"] <= filters.year_to]
         if filters.opponent_id:
-            related = [m for m in related if m["home_team"]["team_id"] == filters.opponent_id or m["away_team"]["team_id"] == filters.opponent_id]
+            related = [
+                m
+                for m in related
+                if m["home_team"]["team_id"] == filters.opponent_id
+                or m["away_team"]["team_id"] == filters.opponent_id
+            ]
         if filters.has_penalties is True:
             related = [m for m in related if m["result_type"] == "penalties"]
         # Build graph
@@ -242,23 +278,29 @@ class MockFrontendDataProvider:
             winner = m.get("winner_team")
             if winner and winner.get("team_id"):
                 source = winner["team_id"]
-                target = m["away_team"]["team_id"] if winner["team_id"] == m["home_team"]["team_id"] else m["home_team"]["team_id"]
+                target = (
+                    m["away_team"]["team_id"]
+                    if winner["team_id"] == m["home_team"]["team_id"]
+                    else m["home_team"]["team_id"]
+                )
             else:
                 source = m["home_team"]["team_id"]
                 target = m["away_team"]["team_id"]
-            edges.append({
-                "id": f"edge-{m['match_id']}",
-                "source": source,
-                "target": target,
-                "type": "match_result",
-                "match_id": m["match_id"],
-                "tournament_year": m["tournament_year"],
-                "stage": m["stage"],
-                "stage_name": m["stage_name"],
-                "result_type": m["result_type"],
-                "winner_team_id": winner["team_id"] if winner else None,
-                "label": f"{m['tournament_year']} {m['stage_name']} {m['score']['display']}",
-            })
+            edges.append(
+                {
+                    "id": f"edge-{m['match_id']}",
+                    "source": source,
+                    "target": target,
+                    "type": "match_result",
+                    "match_id": m["match_id"],
+                    "tournament_year": m["tournament_year"],
+                    "stage": m["stage"],
+                    "stage_name": m["stage_name"],
+                    "result_type": m["result_type"],
+                    "winner_team_id": winner["team_id"] if winner else None,
+                    "label": f"{m['tournament_year']} {m['stage_name']} {m['score']['display']}",
+                }
+            )
         stats = {
             "matches": len(related),
             "regulation_or_extra_time_wins": 0,
@@ -289,9 +331,7 @@ class MockFrontendDataProvider:
             "applied_filters": {},
         }
 
-    def list_documents(
-        self, filters: DocumentFilters, page: int = 1, page_size: int = 20
-    ) -> dict:
+    def list_documents(self, filters: DocumentFilters, page: int = 1, page_size: int = 20) -> dict:
         return {
             "data_status": "mock",
             "items": [],

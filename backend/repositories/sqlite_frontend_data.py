@@ -73,9 +73,7 @@ class SQLiteFrontendDataProvider:
                 ).fetchall()
             ]
             # Stages (static contract order)
-            stages = [
-                {"value": s.value, "label": s.label, "order": s.order} for s in StageEnum
-            ]
+            stages = [{"value": s.value, "label": s.label, "order": s.order} for s in StageEnum]
             # Result types
             result_types = [
                 {"value": "regulation", "label": "常规时间决胜"},
@@ -116,9 +114,7 @@ class SQLiteFrontendDataProvider:
                 where.append(f"m.stage IN ({','.join('?' * len(stage_values))})")
                 params.extend(stage_values)
             if filters.result_types:
-                rt_values = [
-                    r.value if hasattr(r, "value") else r for r in filters.result_types
-                ]
+                rt_values = [r.value if hasattr(r, "value") else r for r in filters.result_types]
                 where.append(f"m.result_type IN ({','.join('?' * len(rt_values))})")
                 params.extend(rt_values)
             if filters.has_penalties is True:
@@ -152,9 +148,7 @@ class SQLiteFrontendDataProvider:
             af: dict = {
                 "years": filters.years,
                 "team_ids": filters.team_ids,
-                "stages": [
-                    s.value if hasattr(s, "value") else s for s in filters.stages
-                ],
+                "stages": [s.value if hasattr(s, "value") else s for s in filters.stages],
                 "result_types": [
                     r.value if hasattr(r, "value") else r for r in filters.result_types
                 ],
@@ -197,10 +191,16 @@ class SQLiteFrontendDataProvider:
                 "extra_time": [],
                 "shootout": {
                     "available": False,
-                    "home_score": data["score"].get("penalties", {}).get("home", 0) if data["score"].get("penalties") else 0,
-                    "away_score": data["score"].get("penalties", {}).get("away", 0) if data["score"].get("penalties") else 0,
+                    "home_score": data["score"].get("penalties", {}).get("home", 0)
+                    if data["score"].get("penalties")
+                    else 0,
+                    "away_score": data["score"].get("penalties", {}).get("away", 0)
+                    if data["score"].get("penalties")
+                    else 0,
                     "events": [],
-                    "message": "逐轮点球数据暂不可用" if data["score"].get("penalties") else "本场比赛未进行点球大战",
+                    "message": "逐轮点球数据暂不可用"
+                    if data["score"].get("penalties")
+                    else "本场比赛未进行点球大战",
                 },
             }
 
@@ -319,28 +319,34 @@ class SQLiteFrontendDataProvider:
                 nodes_set[aid] = {"id": aid, "name": m["away_team"]["name"], "type": "team"}
                 w = m.get("winner_team")
                 score_display = m.get("score", {}).get("display", "")
-                edges.append({
-                    "id": f"edge-{m['match_id']}",
-                    "source": w["team_id"] if (w and w.get("team_id")) else hid,
-                    "target": aid if (w and w.get("team_id") and w["team_id"] == hid) else (
-                        hid if (w and w.get("team_id") and w["team_id"] != hid) else aid
-                    ),
-                    "type": "match_result",
-                    "match_id": m["match_id"],
-                    "tournament_year": m["tournament_year"],
-                    "stage": m["stage"],
-                    "stage_name": m["stage_name"],
-                    "result_type": m["result_type"],
-                    "winner_team_id": w["team_id"] if w else None,
-                    "label": f"{m['tournament_year']} {m['stage_name']} {score_display}",
-                })
+                edges.append(
+                    {
+                        "id": f"edge-{m['match_id']}",
+                        "source": w["team_id"] if (w and w.get("team_id")) else hid,
+                        "target": aid
+                        if (w and w.get("team_id") and w["team_id"] == hid)
+                        else (hid if (w and w.get("team_id") and w["team_id"] != hid) else aid),
+                        "type": "match_result",
+                        "match_id": m["match_id"],
+                        "tournament_year": m["tournament_year"],
+                        "stage": m["stage"],
+                        "stage_name": m["stage_name"],
+                        "result_type": m["result_type"],
+                        "winner_team_id": w["team_id"] if w else None,
+                        "label": f"{m['tournament_year']} {m['stage_name']} {score_display}",
+                    }
+                )
 
             return {
                 "data_status": "live",
                 "team": {"team_id": team_row["team_id"], "name": team_row["canonical_name"]},
                 "stats": stats,
                 "matches": matches,
-                "graph": {"scope": "team_relations", "nodes": list(nodes_set.values()), "edges": edges},
+                "graph": {
+                    "scope": "team_relations",
+                    "nodes": list(nodes_set.values()),
+                    "edges": edges,
+                },
                 "total": len(all_rows),
                 "page": page,
                 "page_size": page_size,
@@ -349,9 +355,7 @@ class SQLiteFrontendDataProvider:
         finally:
             conn.close()
 
-    def list_documents(
-        self, filters: DocumentFilters, page: int = 1, page_size: int = 20
-    ) -> dict:
+    def list_documents(self, filters: DocumentFilters, page: int = 1, page_size: int = 20) -> dict:
         conn = self._connect()
         try:
             where: list[str] = ["1=1"]

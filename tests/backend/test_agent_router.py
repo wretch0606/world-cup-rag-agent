@@ -92,10 +92,12 @@ def test_agent_confidence_null() -> None:
 
 
 def test_agent_filter_echo() -> None:
-    body = _post({
-        "question": "2022决赛",
-        "filters": {"years": [2022], "team_ids": ["team_ARG"]},
-    })
+    body = _post(
+        {
+            "question": "2022决赛",
+            "filters": {"years": [2022], "team_ids": ["team_ARG"]},
+        }
+    )
     af = body["data"]["applied_filters"]
     assert af["years"] == [2022]
     assert "team_ARG" in af["team_ids"]
