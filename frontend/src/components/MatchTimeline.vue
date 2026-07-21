@@ -157,6 +157,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import type { QueryFilters, MatchItem } from '@/api'
 import { fetchMatchDetail, fetchMatches } from '@/api'
+import PaginationBar from './PaginationBar.vue'
 
 // ============================================================
 // Props
@@ -578,43 +579,6 @@ const expandedMatchDetail = computed<TMatch | null>(() => {
   padding: 1px 8px;
   border-radius: 4px;
   font-weight: 600;
-}
-
-/* ============================================================
-   翻页控件
-   ============================================================ */
-.pagination-bar {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 18px;
-  padding: 6px 0;
-}
-
-.pagination-bar button {
-  padding: 6px 16px;
-  border: 1px solid #d0d5dd;
-  border-radius: 6px;
-  background: #fff;
-  color: #555;
-  font-size: 13px;
-  cursor: pointer;
-  transition: border-color 0.12s, color 0.12s;
-}
-.pagination-bar button:hover:not(:disabled) {
-  border-color: #4a90d9;
-  color: #4a90d9;
-}
-.pagination-bar button:disabled {
-  color: #ccc;
-  cursor: not-allowed;
-  border-color: #eee;
-}
-
-.page-info {
-  font-size: 13px;
-  color: #888;
-  font-weight: 500;
 }
 
 /* ============================================================
