@@ -1,356 +1,230 @@
 <template>
-  <!-- ================================================================ -->
-  <!-- 根容器：Flexbox 左右分栏 —— 杜绝布局重叠                        -->
-  <!-- ================================================================ -->
   <div class="app-layout">
+    <!-- ====== 左侧筛选栏 ====== -->
+    <FilterSidebar
+      v-model:filters="filtersState"
+      :filter-options="filterOptions"
+      :loading="pageLoading"
+      @reset="handleFilterReset"
+    />
 
-    <!-- ====== 左侧筛选栏：固定 300px，独立滚动 ====== -->
-    <aside class="sidebar">
-      <h3 class="sidebar-title">{{ filterLabels.title }}</h3>
-
-      <!-- 届次 -->
-      <div class="filter-block">
-        <div class="filter-block-header" @click="toggleFilterGroup('tournament')">
-          <span>{{ filterLabels.tournament }}</span>
-          <span class="filter-arrow">{{ filterGroupOpen.tournament ? '▾' : '▸' }}</span>
-        </div>
-        <div v-show="filterGroupOpen.tournament" class="filter-checks">
-          <label v-for="y in filterOptions.tournaments" :key="y" class="filter-check">
-            <input type="checkbox" :value="y" v-model="selectedFilters.tournamentYears" />
-            <span>{{ y }}</span>
-          </label>
-          <div class="filter-actions">
-            <button @click="selectAllTournaments">{{ filterLabels.selectAll }}</button>
-            <button @click="clearAllTournaments">{{ filterLabels.clearAll }}</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- 球队 -->
-      <div class="filter-block">
-        <div class="filter-block-header" @click="toggleFilterGroup('team')">
-          <span>{{ filterLabels.team }}</span>
-          <span class="filter-arrow">{{ filterGroupOpen.team ? '▾' : '▸' }}</span>
-        </div>
-        <div v-show="filterGroupOpen.team" class="filter-checks filter-checks-scroll">
-          <label v-for="t in filterOptions.teams" :key="t.id" class="filter-check">
-            <input type="checkbox" :value="t.id" v-model="selectedFilters.teamIds" />
-            <span>{{ t.name }}</span>
-          </label>
-          <div class="filter-actions">
-            <button @click="selectAllTeams">{{ filterLabels.selectAll }}</button>
-            <button @click="clearAllTeams">{{ filterLabels.clearAll }}</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- 阶段 -->
-      <div class="filter-block">
-        <div class="filter-block-header" @click="toggleFilterGroup('stage')">
-          <span>{{ filterLabels.stage }}</span>
-          <span class="filter-arrow">{{ filterGroupOpen.stage ? '▾' : '▸' }}</span>
-        </div>
-        <div v-show="filterGroupOpen.stage" class="filter-checks">
-          <label v-for="s in filterOptions.stages" :key="s.value" class="filter-check">
-            <input type="checkbox" :value="s.value" v-model="selectedFilters.stages" />
-            <span>{{ s.label }}</span>
-          </label>
-          <div class="filter-actions">
-            <button @click="selectAllStages">{{ filterLabels.selectAll }}</button>
-            <button @click="clearAllStages">{{ filterLabels.clearAll }}</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- 比赛结果 -->
-      <div class="filter-block">
-        <div class="filter-block-header" @click="toggleFilterGroup('resultType')">
-          <span>{{ filterLabels.resultType }}</span>
-          <span class="filter-arrow">{{ filterGroupOpen.resultType ? '▾' : '▸' }}</span>
-        </div>
-        <div v-show="filterGroupOpen.resultType" class="filter-checks">
-          <label v-for="r in filterOptions.resultTypes" :key="r.value" class="filter-check">
-            <input type="checkbox" :value="r.value" v-model="selectedFilters.resultTypes" />
-            <span>{{ r.label }}</span>
-          </label>
-        </div>
-      </div>
-
-      <!-- 点球 -->
-      <div class="filter-block">
-        <div class="filter-block-header">
-          <span>{{ filterLabels.penaltyOnly }}</span>
-        </div>
-        <label class="filter-check" style="padding-left:4px">
-          <input type="checkbox" v-model="selectedFilters.hasPenalties" />
-          <span>{{ filterLabels.penaltyHint }}</span>
-        </label>
-      </div>
-
-      <button class="sidebar-reset" @click="resetFilters">{{ filterLabels.reset }}</button>
-    </aside>
-
-    <!-- ====== 右侧主内容区：占据剩余宽度 ====== -->
+    <!-- ====== 右侧主内容区 ====== -->
     <main class="main-area">
-
       <!-- ============================================================== -->
-      <!-- 上半部分：问答区 + D3 图                                       -->
+      <!-- 上半部分：问答区 + D3 图谱                                     -->
       <!-- ============================================================== -->
       <div class="top-row">
-
         <!-- ---- 问答区 ---- -->
         <section class="qa-section">
-          <!-- 可滚动内容区：用户提问 + Badge + 事实表 + 来源 -->
           <div class="qa-scroll">
-            <!-- 用户提问展示条 -->
-            <div class="user-question-bar">
-              <span class="question-icon">💬</span>
-              <span class="question-label">{{ qaLabels.questionPrefix }}</span>
-              <span class="question-text">{{ currentUserQuestion }}</span>
+            <!-- ====== 页面初始加载态 ====== -->
+            <div v-if="pageLoading" class="qa-state-box">
+              <span class="qa-spinner"></span>
+              <p>{{ stateLabels.loadingPage }}</p>
             </div>
 
-            <!-- 意图标签 Badge 行 —— 仅在有问答结果时显示 -->
-            <div v-if="queryResult" class="intent-badges">
-              <span class="badge-label">{{ intentLabels.title }}</span>
-              <span
-                v-for="badge in intentBadges"
-                :key="badge.key"
-                :class="['badge', badge.css]"
+            <!-- ====== 筛选选项加载失败 ====== -->
+            <div v-else-if="filterOptionsError" class="qa-state-box qa-state-error">
+              <span class="qa-state-icon">⚠️</span>
+              <p>{{ stateLabels.filterLoadError }}</p>
+              <button class="qa-retry-btn" @click="initPage">重新加载</button>
+            </div>
+
+            <!-- ====== 正常内容 ====== -->
+            <template v-else>
+              <!-- 用户提问展示条 -->
+              <div class="user-question-bar">
+                <span class="question-icon">💬</span>
+                <span class="question-label">{{ qaLabels.questionPrefix }}</span>
+                <span class="question-text">{{ currentUserQuestion }}</span>
+              </div>
+
+              <!-- ====== QA 加载态 ====== -->
+              <div v-if="queryLoading" class="qa-state-box qa-thinking">
+                <span class="qa-thinking-dot"></span>
+                <span class="qa-thinking-dot"></span>
+                <span class="qa-thinking-dot"></span>
+                <p>{{ stateLabels.thinking }}</p>
+              </div>
+
+              <!-- ====== QA HTTP 错误 ====== -->
+              <div v-else-if="queryError" class="qa-state-box qa-state-error">
+                <span class="qa-state-icon">⚠️</span>
+                <p>{{ stateLabels.queryError }}</p>
+                <button class="qa-retry-btn" @click="handleSendQuestion">重新发送</button>
+              </div>
+
+              <!-- ====== 无结果（empty） ====== -->
+              <div
+                v-else-if="queryResult && queryResult.status === 'empty'"
+                class="qa-state-box"
               >
-                <span class="badge-key">{{ badge.key }}</span>
-                <span class="badge-sep">:</span>
-                <span class="badge-val">{{ badge.val }}</span>
-              </span>
-            </div>
-
-            <!-- 核心事实表：6 行纵向结构 —— 仅在有事实数据时显示 -->
-            <div v-if="queryResult && queryResult.facts.length" class="fact-panel">
-              <h4 class="panel-title">{{ factLabels.title }}</h4>
-              <table class="fact-table">
-                <tbody>
-                  <tr v-for="row in factRows" :key="row.label">
-                    <td class="fact-label">{{ row.label }}</td>
-                    <td class="fact-value">
-                      <span v-if="row.label === factRows[5].label" class="champion-crown">🏆</span>
-                      {{ row.value }}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            <!-- 引用来源卡片 —— 仅在有来源数据时显示 -->
-            <div v-if="queryResult && queryResult.sources.length" class="sources-panel">
-              <h4 class="panel-title">{{ sourceLabels.title }}</h4>
-              <div class="sources-cards">
-                <div v-for="src in sourceCatalog" :key="src.source_id" class="source-card">
-                  <div class="source-card-header">
-                    <span class="source-card-id">{{ src.source_id }}</span>
-                  </div>
-                  <p class="source-card-title">{{ src.title }}</p>
-                  <div class="source-card-meta">
-                    <a v-if="src.url" :href="src.url" target="_blank" rel="noopener" class="source-card-url">🔗 查看原文</a>
-                  </div>
+                <span class="qa-state-icon">🔍</span>
+                <p>{{ stateLabels.empty }}</p>
+                <div
+                  v-if="queryResult.warnings && queryResult.warnings.length"
+                  class="qa-warnings"
+                >
+                  <p
+                    v-for="w in queryResult.warnings"
+                    :key="w.code"
+                    class="qa-warning-item"
+                  >
+                    ⚠ {{ w.message }}
+                  </p>
                 </div>
               </div>
-            </div>
-          </div><!-- /.qa-scroll -->
 
-          <!-- 底部提问输入框：固定在问答区底部，不随滚动 -->
+              <!-- ====== 需要澄清 ====== -->
+              <div v-else-if="needsClarification" class="qa-state-box qa-state-clarify">
+                <span class="qa-state-icon">💡</span>
+                <p>{{ clarificationMessage }}</p>
+              </div>
+
+              <!-- ====== 正常 / 降级结果 ====== -->
+              <template v-else-if="queryResult">
+                <!-- 降级告警横幅 -->
+                <div
+                  v-if="queryResult.status === 'degraded' && queryResult.warnings && queryResult.warnings.length"
+                  class="qa-warning-banner"
+                >
+                  <span class="qa-warning-banner-icon">⚠️</span>
+                  <div class="qa-warning-banner-list">
+                    <p v-for="w in queryResult.warnings" :key="w.code">
+                      <strong>[{{ w.code }}]</strong> {{ w.message }}
+                    </p>
+                  </div>
+                </div>
+
+                <!-- 意图 Badge -->
+                <div class="intent-badges">
+                  <span class="badge-label">{{ intentLabels.title }}</span>
+                  <span
+                    v-for="badge in intentBadges"
+                    :key="badge.key"
+                    :class="['badge', badge.css]"
+                  >
+                    <span class="badge-key">{{ badge.key }}</span>
+                    <span class="badge-sep">:</span>
+                    <span class="badge-val">{{ badge.val }}</span>
+                  </span>
+                </div>
+
+                <!-- 核心事实表 -->
+                <div v-if="queryResult.facts.length" class="fact-panel">
+                  <h4 class="panel-title">{{ factLabels.title }}</h4>
+                  <table class="fact-table">
+                    <tbody>
+                      <tr v-for="row in factRows" :key="row.label">
+                        <td class="fact-label">{{ row.label }}</td>
+                        <td class="fact-value">
+                          <span v-if="row.label === factRows[factRows.length - 1].label" class="champion-crown">🏆</span>
+                          {{ row.value }}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <!-- 引用来源 -->
+                <div v-if="queryResult.sources.length" class="sources-panel">
+                  <h4 class="panel-title">{{ sourceLabels.title }}</h4>
+                  <div class="sources-cards">
+                    <div v-for="src in sourceCatalog" :key="src.source_id" class="source-card">
+                      <div class="source-card-header">
+                        <span class="source-card-id">{{ src.source_id }}</span>
+                      </div>
+                      <p class="source-card-title">{{ src.title }}</p>
+                      <div class="source-card-meta">
+                        <a
+                          v-if="src.url"
+                          :href="src.url"
+                          target="_blank"
+                          rel="noopener"
+                          class="source-card-url"
+                        >🔗 查看原文</a>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </template>
+            </template>
+          </div>
+
+          <!-- 底部提问输入框 -->
           <div class="qa-input-bar">
             <input
               v-model="userInputText"
               type="text"
               class="qa-input"
               :placeholder="qaLabels.inputPlaceholder"
+              :disabled="queryLoading"
               @keyup.enter="handleSendQuestion"
             />
-            <button class="qa-send-btn" @click="handleSendQuestion">
-              {{ qaLabels.sendBtn }}
+            <button
+              class="qa-send-btn"
+              :disabled="queryLoading"
+              @click="handleSendQuestion"
+            >
+              {{ queryLoading ? qaLabels.sendingBtn : qaLabels.sendBtn }}
             </button>
           </div>
         </section>
 
-        <!-- ---- D3 图 ---- -->
-        <aside class="graph-section">
-          <h4 class="panel-title">{{ graphLabels.title }}</h4>
-          <div id="d3-graph-container" class="d3-box"></div>
-          <div class="graph-legend">
-            <h5>{{ graphLabels.legendTitle }}</h5>
-            <div class="legend-row"><span class="leg-dot"></span><span>{{ graphLabels.nodeDesc }}</span></div>
-            <div class="legend-row"><span class="leg-line"></span><span>{{ graphLabels.edgeDesc }}</span></div>
-            <div class="legend-row"><span class="leg-arrow">→</span><span>{{ graphLabels.arrowDesc }}</span></div>
-            <div class="legend-fmt">
-              <p>{{ graphLabels.edgeFormatDesc }}</p>
-              <code>{{ graphLabels.edgeFormatExample }}</code>
-            </div>
-          </div>
-        </aside>
+        <!-- ---- D3 图谱 ---- -->
+        <TeamRelationGraph :graph-data="graphResult" :loading="graphLoading" />
       </div>
 
       <!-- ============================================================== -->
-      <!-- 下半部分：横向时间线 + 展开比分明细卡片                         -->
+      <!-- 下半部分：比赛时间线（自带分页）                                 -->
       <!-- ============================================================== -->
-      <section class="timeline-section">
-        <h3 class="panel-title">{{ timelineLabels.title }}</h3>
-
-        <!-- 横向滚动跟踪 -->
-        <div class="tl-scroll">
-          <div class="tl-track">
-            <div class="tl-spine"></div>
-
-            <template v-for="stage in timelineStages" :key="stage.stage">
-              <div class="tl-group">
-                <!-- 阶段标记：蓝色小圆圈 + 阶段名 -->
-                <div class="tl-stage">
-                  <span class="tl-dot"></span>
-                  <span class="tl-stage-name">{{ stage.stage_name }}</span>
-                </div>
-
-                <!-- 连接线：从圆圈向下延伸 -->
-                <span class="tl-stage-conn"></span>
-
-                <!-- 比赛卡片：在该阶段圆圈正下方垂直罗列 -->
-                <div class="tl-cards">
-                  <div
-                    v-for="m in stage.matches"
-                    :key="m.match_id"
-                    :class="['tl-match', { 'tl-active': expandedMatchId === m.match_id }]"
-                    @click="toggleMatchDetail(m.match_id)"
-                  >
-                    <div class="tl-card">
-                      <span class="tl-teams">{{ m.home_team_name }} vs {{ m.away_team_name }}</span>
-                      <span class="tl-score">
-                        {{ m.score.display }}
-                        <span v-if="m.score.penalty_display" class="tl-pk">({{ m.score.penalty_display }})</span>
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </template>
-          </div>
-        </div>
-
-        <!-- 展开的比分明细面板 -->
-        <div v-if="expandedMatchDetail" class="tl-detail">
-          <div class="tl-detail-head">
-            <h4>
-              {{ expandedMatchDetail.home_team_name }}
-              <span class="tl-vs">vs</span>
-              {{ expandedMatchDetail.away_team_name }}
-              <span class="tl-tag">{{ expandedMatchDetail.stage_name }}</span>
-              <span class="tl-tag tl-tag-year">{{ expandedMatchDetail.tournament_year }}</span>
-            </h4>
-            <button @click="closeMatchDetail">✕ {{ timelineLabels.close }}</button>
-          </div>
-
-          <div class="tl-detail-body">
-            <!-- 90 分钟 -->
-            <div class="tl-score-card">
-              <h5>{{ timelineLabels.regularTime }}</h5>
-              <div class="tl-score-row">
-                <span class="tl-team-name">{{ expandedMatchDetail.home_team_name }}</span>
-                <span class="tl-big-score">{{ expandedMatchDetail.score.regular_time.home }}</span>
-                <span class="tl-colon">:</span>
-                <span class="tl-big-score">{{ expandedMatchDetail.score.regular_time.away }}</span>
-                <span class="tl-team-name">{{ expandedMatchDetail.away_team_name }}</span>
-              </div>
-            </div>
-
-            <!-- 加时赛 -->
-            <div class="tl-score-card">
-              <h5>{{ timelineLabels.extraTime }}</h5>
-              <div class="tl-score-row">
-                <span class="tl-team-name">{{ expandedMatchDetail.home_team_name }}</span>
-                <span class="tl-big-score">{{ expandedMatchDetail.score.after_extra_time?.home ?? '—' }}</span>
-                <span class="tl-colon">:</span>
-                <span class="tl-big-score">{{ expandedMatchDetail.score.after_extra_time?.away ?? '—' }}</span>
-                <span class="tl-team-name">{{ expandedMatchDetail.away_team_name }}</span>
-              </div>
-              <p v-if="!expandedMatchDetail.score.after_extra_time" class="tl-na">{{ timelineLabels.notApplicable }}</p>
-              <p v-else class="tl-summary">{{ timelineLabels.formalScore }}{{ expandedMatchDetail.score.display }}</p>
-            </div>
-
-            <!-- 点球大战 -->
-            <div class="tl-score-card">
-              <h5>{{ timelineLabels.penaltyShootout }}</h5>
-              <div class="tl-score-row">
-                <span class="tl-team-name">{{ expandedMatchDetail.home_team_name }}</span>
-                <span class="tl-big-score">{{ expandedMatchDetail.score.penalties?.home ?? '—' }}</span>
-                <span class="tl-colon">:</span>
-                <span class="tl-big-score">{{ expandedMatchDetail.score.penalties?.away ?? '—' }}</span>
-                <span class="tl-team-name">{{ expandedMatchDetail.away_team_name }}</span>
-              </div>
-              <p v-if="!expandedMatchDetail.score.penalties" class="tl-na">{{ timelineLabels.notApplicable }}</p>
-              <p v-else class="tl-summary">{{ timelineLabels.penaltyScoreLabel }}{{ expandedMatchDetail.score.penalty_display }}</p>
-            </div>
-
-            <!-- 来源 -->
-            <div class="tl-score-card tl-src-card">
-              <h5>{{ timelineLabels.sourceDetails }}</h5>
-              <ul v-if="expandedMatchDetail.sources.length" class="tl-src-list">
-                <li v-for="s in expandedMatchDetail.sources" :key="s.source_id" class="tl-src-item">
-                  <span class="tl-src-id">[{{ s.source_id }}]</span>
-                  <span>{{ s.title }}</span>
-                  <a v-if="s.url" :href="s.url" target="_blank" rel="noopener">🔗</a>
-                </li>
-              </ul>
-              <p v-else class="tl-na">{{ timelineLabels.noSource }}</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
+      <MatchTimeline :filters="currentFilters" />
     </main>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch, onMounted, nextTick } from 'vue'
-import * as d3 from 'd3'
+import { ref, computed, watch, onMounted } from 'vue'
 import {
+  type FiltersState,
   type QueryFilters,
   type FilterOptionsResponse,
-  type MatchItem,
-  type MatchSourceItem,
   type GraphResponse,
-  type GraphNode,
-  type GraphEdge,
   type QueryResponse,
   type ApiSourceItem,
   fetchFilterOptions,
-  fetchMatches,
   fetchGraph,
   postQuery,
 } from '@/api'
+import FilterSidebar from './FilterSidebar.vue'
+import MatchTimeline from './MatchTimeline.vue'
+import TeamRelationGraph from './TeamRelationGraph.vue'
 
 // ============================================================
-// 1. 筛选栏
+// 页面级状态
 // ============================================================
-const filterLabels = {
-  title: '筛选条件',
-  tournament: '世界杯届次',
-  team: '球队',
-  stage: '比赛阶段',
-  resultType: '比赛结果',
-  penaltyOnly: '仅看点球',
-  penaltyHint: '只显示包含点球大战的比赛',
-  reset: '重置筛选',
-  selectAll: '全选',
-  clearAll: '清空',
+const pageLoading = ref(true)
+const filterOptionsError = ref(false)
+
+const stateLabels = {
+  loadingPage: '正在加载数据...',
+  thinking: 'AI 正在分析您的问题...',
+  queryError: '请求失败，请稍后重试',
+  filterLoadError: '筛选选项加载失败',
+  empty: '未找到相关信息，请尝试调整问题或筛选条件',
 }
 
-const filterGroupOpen = reactive({
-  tournament: true,
-  team: false,
-  stage: true,
-  resultType: false,
+// ============================================================
+// 筛选状态（与 FilterSidebar v-model 双向绑定）
+// ============================================================
+const filtersState = ref<FiltersState>({
+  years: [],
+  teamIds: [],
+  stages: [],
+  resultTypes: [],
+  hasPenalties: false,
 })
 
-function toggleFilterGroup(k: keyof typeof filterGroupOpen) { filterGroupOpen[k] = !filterGroupOpen[k] }
-
-/** 筛选选项 —— 由 GET /api/filter-options 填充 */
 const filterOptions = ref<FilterOptionsResponse>({
   tournaments: [],
   teams: [],
@@ -358,61 +232,91 @@ const filterOptions = ref<FilterOptionsResponse>({
   resultTypes: [],
 })
 
-const selectedFilters = reactive({
-  tournamentYears: [] as number[],
-  teamIds: [] as string[],
-  stages: [] as string[],
-  resultTypes: [] as string[],
-  hasPenalties: false,
-})
+/** 将 UI 筛选状态转换为 API 查询参数 */
+const currentFilters = computed<QueryFilters>(() => ({
+  years: filtersState.value.years.length ? [...filtersState.value.years] : undefined,
+  teamIds: filtersState.value.teamIds.length ? [...filtersState.value.teamIds] : undefined,
+  stages: filtersState.value.stages.length ? [...filtersState.value.stages] : undefined,
+  resultTypes: filtersState.value.resultTypes.length ? [...filtersState.value.resultTypes] : undefined,
+  hasPenalties: filtersState.value.hasPenalties || undefined,
+}))
 
-function selectAllTournaments() { selectedFilters.tournamentYears = [...filterOptions.value.tournaments] }
-function clearAllTournaments() { selectedFilters.tournamentYears = [] }
-function selectAllTeams() { selectedFilters.teamIds = filterOptions.value.teams.map(t => t.id) }
-function clearAllTeams() { selectedFilters.teamIds = [] }
-function selectAllStages() { selectedFilters.stages = filterOptions.value.stages.map(s => s.value) }
-function clearAllStages() { selectedFilters.stages = [] }
-function resetFilters() {
-  selectedFilters.tournamentYears = []
-  selectedFilters.teamIds = []
-  selectedFilters.stages = []
-  selectedFilters.resultTypes = []
-  selectedFilters.hasPenalties = false
+function handleFilterReset() {
+  filtersState.value = {
+    years: [],
+    teamIds: [],
+    stages: [],
+    resultTypes: [],
+    hasPenalties: false,
+  }
 }
 
 // ============================================================
-// 2. 问答区
+// 图谱状态（父组件负责获取，传递给子组件）
+// ============================================================
+const graphResult = ref<GraphResponse>({ nodes: [], edges: [] })
+const graphLoading = ref(false)
+
+async function loadGraph() {
+  graphLoading.value = true
+  const res = await fetchGraph(currentFilters.value)
+  if (res) {
+    graphResult.value = res
+  } else {
+    graphResult.value = { nodes: [], edges: [] }
+  }
+  graphLoading.value = false
+}
+
+// 筛选变化 → 刷新图谱
+watch(currentFilters, () => loadGraph())
+
+// ============================================================
+// 问答状态（内联）
 // ============================================================
 const qaLabels = {
   questionPrefix: '问：',
   inputPlaceholder: '请输入您的问题...',
   sendBtn: '发送',
+  sendingBtn: '分析中...',
 }
 
 const userInputText = ref('')
 const currentUserQuestion = ref('2022年世界杯决赛阿根廷对法国的比分是多少？')
-
-/** POST /api/query 的响应 */
+const queryLoading = ref(false)
+const queryError = ref(false)
 const queryResult = ref<QueryResponse | null>(null)
 
 async function handleSendQuestion() {
   const trimmed = userInputText.value.trim()
-  if (!trimmed) return
+  if (!trimmed || queryLoading.value) return
   currentUserQuestion.value = trimmed
   userInputText.value = ''
+  queryLoading.value = true
+  queryError.value = false
 
-  const filters = currentFilters()
-  const res = await postQuery(trimmed, filters)
+  const res = await postQuery(trimmed, currentFilters.value)
   if (res) {
     queryResult.value = res
-    // 问答结果可能携带新的 graph 数据，同步到图谱
+    // QA 可能返回新图谱数据
     if (res.graph) {
       graphResult.value = res.graph
     }
+  } else {
+    queryError.value = true
   }
+  queryLoading.value = false
 }
 
-// ---- 意图 Badge（置信度 null 时不显示该 badge） ----
+// ---- 澄清检测 ----
+const needsClarification = computed(() =>
+  queryResult.value?.warnings?.some(w => w.code === 'NEED_CLARIFICATION') ?? false,
+)
+const clarificationMessage = computed(() =>
+  queryResult.value?.warnings?.find(w => w.code === 'NEED_CLARIFICATION')?.message ?? '请提供更多信息',
+)
+
+// ---- 意图 Badge（confidence 为 null 时隐藏置信度） ----
 const intentLabels = { title: '分析结果' }
 
 const intentBadges = computed(() => {
@@ -429,7 +333,11 @@ const intentBadges = computed(() => {
 
   // MVP 阶段 confidence 为 null → 不展示置信度 badge
   if (d.confidence != null) {
-    badges.push({ key: '置信度', val: `${Math.round(d.confidence * 100)}%`, css: 'badge-purple' })
+    badges.push({
+      key: '置信度',
+      val: `${Math.round(d.confidence * 100)}%`,
+      css: 'badge-purple',
+    })
   }
 
   return badges
@@ -438,329 +346,72 @@ const intentBadges = computed(() => {
 // ---- 核心事实表 ----
 const factLabels = { title: '核心事实' }
 
-interface FactRow { label: string; value: string }
+interface FactRow {
+  label: string
+  value: string
+}
 
 const factRows = computed<FactRow[]>(() => {
   const f = queryResult.value?.facts[0]
   if (!f) return []
   const s = f.score
   return [
-    { label: '赛事',     value: `${f.stage_name}` },
-    { label: '对阵',     value: `${f.home_team.name} vs ${f.away_team.name}` },
-    { label: '常规时间', value: `${f.home_team.name} ${s.regular_time.home} : ${s.regular_time.away} ${f.away_team.name}` },
-    { label: '加时赛',   value: s.after_extra_time ? `${f.home_team.name} ${s.after_extra_time.home} : ${s.after_extra_time.away} ${f.away_team.name}` : '（无加时）' },
-    { label: '点球',     value: s.penalty_display ? `${f.home_team.name} ${s.penalty_display} ${f.away_team.name}` : '（无点球大战）' },
-    { label: '冠军',     value: f.winner_team ? f.winner_team.name : '—' },
+    { label: '赛事', value: `${f.stage_name}` },
+    {
+      label: '对阵',
+      value: `${f.home_team.name} vs ${f.away_team.name}`,
+    },
+    {
+      label: '常规时间',
+      value: `${f.home_team.name} ${s.regular_time.home} : ${s.regular_time.away} ${f.away_team.name}`,
+    },
+    {
+      label: '加时赛',
+      value: s.after_extra_time
+        ? `${f.home_team.name} ${s.after_extra_time.home} : ${s.after_extra_time.away} ${f.away_team.name}`
+        : '（无加时）',
+    },
+    {
+      label: '点球',
+      value: s.penalty_display
+        ? `${f.home_team.name} ${s.penalty_display} ${f.away_team.name}`
+        : '（无点球大战）',
+    },
+    {
+      label: '冠军',
+      value: f.winner_team ? f.winner_team.name : '—',
+    },
   ]
 })
 
-// ---- 来源卡片 ----
+// ---- 来源卡片（source.url 为 null 时不渲染链接） ----
 const sourceLabels = { title: '引用来源' }
 const sourceCatalog = computed<ApiSourceItem[]>(() => queryResult.value?.sources ?? [])
 
 // ============================================================
-// 3. 比赛时间线
+// 初始化
 // ============================================================
-const timelineLabels = {
-  title: '比赛时间线', close: '关闭',
-  regularTime: '🕐 90 分钟常规时间', extraTime: '🕑 加时赛', penaltyShootout: '⚽ 点球大战',
-  sourceDetails: '📖 来源详情', notApplicable: '本场比赛无此阶段',
-  formalScore: '正式比分：', penaltyScoreLabel: '点球比分：', noSource: '暂无来源信息',
-}
-
-interface TSource { source_id: string; title: string; url: string | null }
-interface TMatch {
-  match_id: string; match_date: string | null; tournament_year: number
-  stage: string; stage_name: string
-  home_team_name: string; away_team_name: string
-  score: {
-    regular_time: { home: number; away: number }
-    after_extra_time: { home: number; away: number } | null
-    penalties: { home: number; away: number } | null
-    display: string
-    penalty_display: string | null
-  }
-  sources: TSource[]
-}
-interface TStage { stage: string; stage_name: string; matches: TMatch[] }
-
-/** 将 API 返回的 MatchItem 平铺字段映射为嵌套 MatchScore 结构 */
-function toMatchScore(m: MatchItem): TMatch['score'] {
-  return {
-    regular_time: { home: m.home_score_90, away: m.away_score_90 },
-    after_extra_time:
-      m.home_score_et !== null && m.away_score_et !== null
-        ? { home: m.home_score_et, away: m.away_score_et }
-        : null,
-    penalties:
-      m.home_penalties !== null && m.away_penalties !== null
-        ? { home: m.home_penalties, away: m.away_penalties }
-        : null,
-    display: m.score_display,
-    penalty_display: m.penalty_score,
-  }
-}
-
-function toTMatch(m: MatchItem): TMatch {
-  return {
-    match_id: m.match_id,
-    match_date: m.match_date,
-    tournament_year: m.tournament_year,
-    stage: m.stage,
-    stage_name: m.stage_name,
-    home_team_name: m.home_team_name,
-    away_team_name: m.away_team_name,
-    score: toMatchScore(m),
-    sources: (m.sources as MatchSourceItem[]).map(s => ({
-      source_id: s.source_id,
-      title: s.title,
-      url: s.url,
-    })),
-  }
-}
-
-/** GET /api/matches 返回的原始数据 */
-const allMatches = ref<MatchItem[]>([])
-
-/** 阶段排序（映射 stage enum 到展示顺序） */
-const STAGE_ORDER: Record<string, number> = {
-  group: 0, second_group: 1, round_of_16: 2, quarter_final: 3,
-  semi_final: 4, third_place: 5, final: 6, final_round: 7,
-}
-
-const timelineStages = computed<TStage[]>(() => {
-  const groups = new Map<string, TMatch[]>()
-  for (const m of allMatches.value) {
-    const tm = toTMatch(m)
-    const key = m.stage
-    if (!groups.has(key)) groups.set(key, [])
-    groups.get(key)!.push(tm)
-  }
-
-  // 按比赛阶段排序
-  return Array.from(groups.entries())
-    .sort((a, b) => (STAGE_ORDER[a[0]] ?? 99) - (STAGE_ORDER[b[0]] ?? 99))
-    .map(([stage, matches]) => ({
-      stage,
-      stage_name: matches[0].stage_name,
-      matches,
-    }))
-})
-
-const expandedMatchId = ref<string | null>(null)
-
-function findTMatch(id: string): TMatch | null {
-  for (const s of timelineStages.value) {
-    const f = s.matches.find(m => m.match_id === id)
-    if (f) return f
-  }
-  return null
-}
-
-const expandedMatchDetail = computed<TMatch | null>(() =>
-  expandedMatchId.value ? findTMatch(expandedMatchId.value) : null,
-)
-function toggleMatchDetail(id: string) { expandedMatchId.value = expandedMatchId.value === id ? null : id }
-function closeMatchDetail() { expandedMatchId.value = null }
-
-// ============================================================
-// 4. D3 知识图谱
-// ============================================================
-const graphLabels = {
-  title: '球队关系图谱', legendTitle: '图例说明',
-  nodeDesc: '节点 = 球队实体', edgeDesc: '连线 = 比赛（有向边）', arrowDesc: '方向 = 胜方 → 败方',
-  edgeFormatDesc: '连线标签格式：', edgeFormatExample: '2022·决赛·3:3（点球4:2）',
-}
-
-/** GET /api/graph 返回的图谱数据 */
-const graphResult = ref<GraphResponse>({ nodes: [], edges: [] })
-
-function initD3Graph() {
-  const el = document.getElementById('d3-graph-container')
-  if (!el) return
-
-  const nodes = graphResult.value.nodes
-  const edges = graphResult.value.edges
-  if (!nodes.length) return
-
-  const width = 400, height = 280
-  const colors = ['#4A90D9', '#E07B39', '#5D9C6E', '#C0504D', '#8064A2', '#F2A640']
-
-  // 深拷贝 + 注入 D3 力仿真所需字段
-  const simNodes: any[] = nodes.map(n => ({ ...n }))
-  const simEdges: any[] = edges.map(e => ({ ...e }))
-
-  // 清空容器
-  el.innerHTML = ''
-
-  const svg = d3.select(el)
-    .append('svg')
-    .attr('viewBox', `0 0 ${width} ${height}`)
-    .attr('class', 'd3-svg')
-    .attr('width', '100%')
-    .attr('height', '100%')
-
-  // 箭头标记
-  svg.append('defs')
-    .append('marker')
-    .attr('id', 'ah')
-    .attr('viewBox', '0 0 10 7')
-    .attr('refX', 10)
-    .attr('refY', 3.5)
-    .attr('markerWidth', 6)
-    .attr('markerHeight', 4)
-    .attr('orient', 'auto')
-    .append('polygon')
-    .attr('points', '0 0,10 3.5,0 7')
-    .attr('fill', '#999')
-
-  // 连线
-  const link = svg.append('g')
-    .selectAll('line')
-    .data(simEdges)
-    .join('line')
-    .attr('stroke', '#999')
-    .attr('stroke-width', 1.6)
-    .attr('marker-end', 'url(#ah)')
-
-  // 节点圆
-  const node = svg.append('g')
-    .selectAll('circle')
-    .data(simNodes)
-    .join('circle')
-    .attr('r', 26)
-    .attr('fill', (_d: any, i: number) => colors[i % 6])
-    .attr('opacity', 0.88)
-    .attr('stroke', '#fff')
-    .attr('stroke-width', 2)
-
-  // 节点标签
-  const label = svg.append('g')
-    .selectAll('text')
-    .data(simNodes)
-    .join('text')
-    .text((d: any) => d.name)
-    .attr('text-anchor', 'middle')
-    .attr('fill', '#fff')
-    .attr('font-size', 13)
-    .attr('font-weight', 600)
-    .attr('dy', 5)
-
-  // 连线标签（强描边背景，彻底解决交叉文字重叠）
-  const edgeLabel = svg.append('g')
-    .selectAll('text')
-    .data(simEdges)
-    .join('text')
-    .text((d: any) => d.label)
-    .attr('text-anchor', 'middle')
-    .attr('fill', '#333')
-    .attr('font-size', 9)
-    .attr('font-weight', 600)
-    .attr('paint-order', 'stroke')
-    .attr('stroke', 'rgba(255,255,255,0.92)')
-    .attr('stroke-width', 4)
-    .attr('stroke-linecap', 'round')
-    .attr('stroke-linejoin', 'round')
-
-  // 力仿真
-  d3.forceSimulation(simNodes)
-    .force('link', d3.forceLink(simEdges).id((d: any) => d.id).distance(200))
-    .force('charge', d3.forceManyBody().strength(-500))
-    .force('collide', d3.forceCollide().radius(40))
-    .force('center', d3.forceCenter(width / 2, height / 2))
-    .on('tick', () => {
-      // 节点边界约束：防止溢出画布
-      const R = 26
-      node
-        .attr('cx', (d: any) => {
-          d.x = Math.max(R, Math.min(width - R, d.x))
-          return d.x
-        })
-        .attr('cy', (d: any) => {
-          d.y = Math.max(R, Math.min(height - R, d.y))
-          return d.y
-        })
-
-      link
-        .attr('x1', (d: any) => d.source.x)
-        .attr('y1', (d: any) => d.source.y)
-        .attr('x2', (d: any) => d.target.x)
-        .attr('y2', (d: any) => d.target.y)
-
-      label
-        .attr('x', (d: any) => d.x)
-        .attr('y', (d: any) => d.y)
-
-      edgeLabel
-        .attr('x', (d: any) => (d.source.x + d.target.x) / 2)
-        .attr('y', (d: any) => (d.source.y + d.target.y) / 2 - 8)
-    })
-}
-
-// 图谱数据变化时自动重绘
-watch(graphResult, () => {
-  nextTick(() => initD3Graph())
-})
-
-// ============================================================
-// 5. 筛选联动 & API 调用
-// ============================================================
-
-/** 从 selectedFilters 构造 QueryFilters（空数组转为 undefined 表示不过滤） */
-function currentFilters(): QueryFilters {
-  return {
-    years: selectedFilters.tournamentYears.length ? selectedFilters.tournamentYears : undefined,
-    teamIds: selectedFilters.teamIds.length ? selectedFilters.teamIds : undefined,
-    stages: selectedFilters.stages.length ? selectedFilters.stages : undefined,
-    resultTypes: selectedFilters.resultTypes.length ? selectedFilters.resultTypes : undefined,
-    hasPenalties: selectedFilters.hasPenalties || undefined,
-  }
-}
-
-/** 并行请求 matches + graph */
-async function loadMatchesAndGraph() {
-  const f = currentFilters()
-  const [mRes, gRes] = await Promise.all([
-    fetchMatches(f),
-    fetchGraph(f),
-  ])
-  if (mRes) {
-    allMatches.value = mRes.matches
+async function initPage() {
+  pageLoading.value = true
+  filterOptionsError.value = false
+  const [fo, gRes] = await Promise.all([fetchFilterOptions(), fetchGraph()])
+  if (fo) {
+    filterOptions.value = fo
+  } else {
+    filterOptionsError.value = true
   }
   if (gRes) {
     graphResult.value = gRes
   }
+  pageLoading.value = false
 }
 
-// 筛选条件变化 → 重新加载时间线和图谱
-watch(
-  () => [
-    selectedFilters.tournamentYears.length,
-    selectedFilters.teamIds.join(','),
-    selectedFilters.stages.join(','),
-    selectedFilters.resultTypes.join(','),
-    selectedFilters.hasPenalties,
-  ],
-  () => loadMatchesAndGraph(),
-)
-
-// ============================================================
-// 6. 页面初始化
-// ============================================================
-onMounted(async () => {
-  const [fo] = await Promise.all([
-    fetchFilterOptions(),
-    loadMatchesAndGraph(),
-  ])
-  if (fo) {
-    filterOptions.value = fo
-  }
-})
+onMounted(() => initPage())
 </script>
 
 <style scoped>
 /* ============================================================
-   根布局：Flexbox 行 —— 左侧固定 + 右侧自适应，彻底消除重叠
+   根布局
    ============================================================ */
 .app-layout {
   display: flex;
@@ -770,105 +421,7 @@ onMounted(async () => {
   overflow: hidden;
 }
 
-/* ---- 左侧筛选栏：300px 固定，独立滚动 ---- */
-.sidebar {
-  width: 300px;
-  flex-shrink: 0;
-  overflow-y: auto;
-  background: #fff;
-  border-right: 1px solid #e0e0e0;
-  padding: 20px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  z-index: 2;
-}
-
-.sidebar-title {
-  margin: 0 0 8px 0;
-  font-size: 16px;
-  font-weight: 700;
-  color: #1a1a1a;
-  border-bottom: 2px solid #4a90d9;
-  padding-bottom: 8px;
-}
-
-.filter-block {
-  border-bottom: 1px solid #f0f0f0;
-  padding-bottom: 4px;
-}
-
-.filter-block-header {
-  display: flex;
-  justify-content: space-between;
-  padding: 6px 4px;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 600;
-  color: #555;
-  border-radius: 4px;
-  user-select: none;
-}
-.filter-block-header:hover { background: #f5f7fa; }
-
-.filter-arrow { font-size: 11px; color: #999; }
-
-.filter-checks {
-  display: flex;
-  flex-direction: column;
-  padding: 2px 4px;
-}
-
-.filter-checks-scroll {
-  max-height: 200px;
-  overflow-y: auto;
-}
-
-.filter-check {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 6px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 13px;
-  color: #444;
-}
-.filter-check:hover { background: #f5f7fa; }
-.filter-check input { width: 15px; height: 15px; accent-color: #4a90d9; flex-shrink: 0; cursor: pointer; }
-
-.filter-actions {
-  display: flex;
-  gap: 6px;
-  padding: 4px 6px;
-}
-.filter-actions button {
-  flex: 1;
-  padding: 3px 0;
-  font-size: 11px;
-  border: 1px solid #d0d0d0;
-  border-radius: 4px;
-  background: #fafafa;
-  color: #666;
-  cursor: pointer;
-}
-.filter-actions button:hover { background: #eef; color: #4a90d9; border-color: #4a90d9; }
-
-.sidebar-reset {
-  margin-top: 8px;
-  padding: 10px 0;
-  border: 1px solid #d0d0d0;
-  border-radius: 6px;
-  background: #f5f5f5;
-  color: #555;
-  font-size: 14px;
-  cursor: pointer;
-  position: sticky;
-  bottom: 0;
-}
-.sidebar-reset:hover { background: #e8e8e8; }
-
-/* ---- 右侧主内容区：flex:1 纵向 flex，禁止外层滚动 ---- */
+/* ---- 右侧主内容区 ---- */
 .main-area {
   flex: 1;
   min-width: 0;
@@ -880,7 +433,7 @@ onMounted(async () => {
 }
 
 /* ============================================================
-   上半部分：问答 + D3 图 —— 占据剩余高度
+   上半部分：问答 + D3 图
    ============================================================ */
 .top-row {
   flex: 1;
@@ -889,7 +442,7 @@ onMounted(async () => {
   gap: 16px;
 }
 
-/* ---- 问答区：flex 列，输入框强制触底 ---- */
+/* ---- 问答区 ---- */
 .qa-section {
   flex: 1;
   min-width: 0;
@@ -900,7 +453,6 @@ onMounted(async () => {
   overflow: hidden;
 }
 
-/* 可滚动内容：提问条 + Badge + 表格 + 来源 */
 .qa-scroll {
   flex: 1;
   min-height: 0;
@@ -910,7 +462,129 @@ onMounted(async () => {
   gap: 14px;
 }
 
-/* 用户提问展示条 */
+/* ============================================================
+   状态占位盒（loading / error / empty / clarify）
+   ============================================================ */
+.qa-state-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 40px 20px;
+  background: #fff;
+  border: 1px solid #e0e5ec;
+  border-radius: 10px;
+  color: #888;
+  font-size: 14px;
+  text-align: center;
+}
+
+.qa-state-icon { font-size: 36px; opacity: 0.5; }
+
+.qa-state-error {
+  border-color: #f5c6cb;
+  color: #c0504d;
+}
+
+.qa-state-clarify {
+  border-color: #b8daff;
+  background: #f0f7ff;
+  color: #1a56c4;
+}
+
+.qa-retry-btn {
+  padding: 8px 20px;
+  border: 1px solid #c0504d;
+  border-radius: 6px;
+  background: #fff;
+  color: #c0504d;
+  cursor: pointer;
+  font-size: 13px;
+}
+.qa-retry-btn:hover { background: #fef2f2; }
+
+/* ---- spinner ---- */
+.qa-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #e0e0e0;
+  border-top: 3px solid #4a90d9;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ---- thinking dots ---- */
+.qa-thinking {
+  flex-direction: row;
+  gap: 6px;
+}
+
+.qa-thinking-dot {
+  width: 8px;
+  height: 8px;
+  background: #4a90d9;
+  border-radius: 50%;
+  animation: dotPulse 1.2s ease-in-out infinite;
+}
+
+.qa-thinking-dot:nth-child(1) { animation-delay: 0s; }
+.qa-thinking-dot:nth-child(2) { animation-delay: 0.2s; }
+.qa-thinking-dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes dotPulse {
+  0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1.2); }
+}
+
+/* ---- 告警 ---- */
+.qa-warnings {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
+.qa-warning-item {
+  margin: 0;
+  font-size: 12px;
+  color: #b85c10;
+  background: #fef9e7;
+  padding: 6px 10px;
+  border-radius: 4px;
+  text-align: left;
+}
+
+/* ---- 降级告警横幅 ---- */
+.qa-warning-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 16px;
+  background: #fef9e7;
+  border: 1px solid #f5d78e;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.qa-warning-banner-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+
+.qa-warning-banner-list { display: flex; flex-direction: column; gap: 4px; }
+
+.qa-warning-banner-list p {
+  margin: 0;
+  color: #8a6d3b;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* ============================================================
+   用户提问展示条
+   ============================================================ */
 .user-question-bar {
   display: flex;
   align-items: center;
@@ -922,23 +596,13 @@ onMounted(async () => {
   font-size: 14px;
 }
 
-.question-icon {
-  font-size: 16px;
-  flex-shrink: 0;
-}
+.question-icon { font-size: 16px; flex-shrink: 0; }
+.question-label { font-weight: 700; color: #888; flex-shrink: 0; }
+.question-text { color: #1a1a1a; font-weight: 500; }
 
-.question-label {
-  font-weight: 700;
-  color: #888;
-  flex-shrink: 0;
-}
-
-.question-text {
-  color: #1a1a1a;
-  font-weight: 500;
-}
-
-/* 意图 Badge 行 */
+/* ============================================================
+   意图 Badge
+   ============================================================ */
 .intent-badges {
   display: flex;
   align-items: center;
@@ -950,12 +614,7 @@ onMounted(async () => {
   flex-wrap: wrap;
 }
 
-.badge-label {
-  font-size: 13px;
-  font-weight: 700;
-  color: #888;
-  margin-right: 4px;
-}
+.badge-label { font-size: 13px; font-weight: 700; color: #888; margin-right: 4px; }
 
 .badge {
   display: inline-flex;
@@ -969,14 +628,15 @@ onMounted(async () => {
 
 .badge-key { opacity: 0.75; font-weight: 500; }
 .badge-sep { opacity: 0.5; margin: 0 1px; }
-.badge-val { }
 
 .badge-blue  { background: #e8f0fe; color: #1a56c4; }
 .badge-green { background: #e6f7e6; color: #1a7a2e; }
 .badge-orange{ background: #fef3e5; color: #b85c10; }
 .badge-purple{ background: #f3e8ff; color: #6b21a8; }
 
-/* 事实面板 */
+/* ============================================================
+   事实面板
+   ============================================================ */
 .fact-panel {
   background: #fff;
   border: 1px solid #e0e0e0;
@@ -993,10 +653,7 @@ onMounted(async () => {
   padding-left: 10px;
 }
 
-.fact-table {
-  width: 100%;
-  border-collapse: collapse;
-}
+.fact-table { width: 100%; border-collapse: collapse; }
 
 .fact-table td {
   padding: 8px 12px;
@@ -1012,14 +669,13 @@ onMounted(async () => {
   vertical-align: top;
 }
 
-.fact-value {
-  color: #1a1a1a;
-  font-weight: 500;
-}
+.fact-value { color: #1a1a1a; font-weight: 500; }
 
 .champion-crown { margin-right: 4px; }
 
-/* 来源面板 */
+/* ============================================================
+   来源面板
+   ============================================================ */
 .sources-panel {
   background: #fff;
   border: 1px solid #e0e0e0;
@@ -1070,13 +726,12 @@ onMounted(async () => {
   font-size: 12px;
 }
 
-.source-card-url {
-  color: #4a90d9;
-  text-decoration: none;
-}
+.source-card-url { color: #4a90d9; text-decoration: none; }
 .source-card-url:hover { text-decoration: underline; }
 
-/* 输入栏：始终贴合问答区底部 */
+/* ============================================================
+   输入栏
+   ============================================================ */
 .qa-input-bar {
   flex-shrink: 0;
   display: flex;
@@ -1097,8 +752,8 @@ onMounted(async () => {
   outline: none;
   transition: border-color 0.15s;
 }
-
 .qa-input:focus { border-color: #4a90d9; }
+.qa-input:disabled { background: #f5f5f5; color: #999; }
 
 .qa-send-btn {
   padding: 10px 24px;
@@ -1112,387 +767,10 @@ onMounted(async () => {
   white-space: nowrap;
   transition: background 0.15s;
 }
-.qa-send-btn:hover { background: #357abd; }
+.qa-send-btn:hover:not(:disabled) { background: #357abd; }
+.qa-send-btn:disabled { background: #a0c4e8; cursor: not-allowed; }
 
-/* ---- 图谱 ---- */
-.graph-section {
-  width: 280px;
-  min-width: 280px;
-  background: #fff;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-}
-
-.d3-box {
-  width: 100%;
-  height: 280px;
-  background: #fafbfc;
-  border: 1px solid #eee;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-}
-
-.d3-svg { width: 100%; height: 280px; }
-.d3-svg text { text-shadow: 1px 1px 2px #fff, -1px -1px 2px #fff; }
-
-.graph-legend {
-  margin-top: 12px;
-  padding: 12px;
-  background: #f9fafb;
-  border-radius: 6px;
-  font-size: 12px;
-}
-
-.graph-legend h5 {
-  margin: 0 0 8px 0;
-  font-size: 13px;
-  font-weight: 700;
-  color: #555;
-}
-
-.legend-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 4px;
-  color: #666;
-}
-
-.leg-dot {
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  background: #4a90d9;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.leg-line {
-  display: inline-block;
-  width: 20px;
-  height: 2px;
-  background: #999;
-  flex-shrink: 0;
-}
-
-.leg-arrow {
-  flex-shrink: 0;
-  color: #999;
-}
-
-.legend-fmt {
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid #eee;
-}
-
-.legend-fmt p {
-  margin: 0 0 4px 0;
-  color: #888;
-}
-
-.legend-fmt code {
-  display: block;
-  font-size: 11px;
-  color: #4a90d9;
-  background: #e8f0fe;
-  padding: 3px 6px;
-  border-radius: 4px;
-  word-break: break-all;
-}
-
-/* ============================================================
-   下半部分：横向时间线
-   ============================================================ */
-.timeline-section {
-  flex-shrink: 0;
-  min-height: 300px;
-  display: flex;
-  flex-direction: column;
-  background: #fff;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  padding: 20px;
-  overflow-y: auto;
-}
-
-.tl-scroll {
-  overflow-x: auto;
-  overflow-y: visible;
-  padding-bottom: 4px;
-}
-
-.tl-track {
-  display: flex;
-  align-items: flex-start;
-  gap: 0;
-  position: relative;
-  padding: 26px 20px 12px 20px;
-  min-width: min-content;
-}
-
-.tl-spine {
-  position: absolute;
-  top: 26px;
-  left: 20px;
-  right: 20px;
-  height: 2px;
-  background: #c8cdd4;
-  border-radius: 1px;
-  z-index: 0;
-}
-
-.tl-group {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0;
-  z-index: 1;
-  flex-shrink: 0;
-}
-
-.tl-stage {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
-  padding-top: 19px;
-}
-
-.tl-dot {
-  width: 14px;
-  height: 14px;
-  background: #4a90d9;
-  border: 2px solid #fff;
-  border-radius: 50%;
-  flex-shrink: 0;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
-  position: relative;
-  z-index: 2;
-}
-
-.tl-stage-name {
-  font-size: 11px;
-  font-weight: 600;
-  color: #4a90d9;
-  white-space: nowrap;
-  margin-top: 2px;
-}
-
-.tl-stage-conn {
-  width: 2px;
-  height: 14px;
-  background: #ccc;
-  border-radius: 1px;
-  flex-shrink: 0;
-}
-
-.tl-cards {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-}
-
-.tl-match {
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: transform 0.15s;
-  min-width: 150px;
-}
-
-.tl-match:hover { transform: translateY(-1px); }
-
-.tl-active .tl-card {
-  border-color: #4a90d9;
-  box-shadow: 0 0 0 2px rgba(74,144,217,0.2);
-}
-
-.tl-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 8px 14px;
-  background: #fff;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  white-space: nowrap;
-  transition: border-color 0.12s, box-shadow 0.12s;
-}
-
-.tl-teams {
-  font-size: 12px;
-  font-weight: 600;
-  color: #333;
-}
-
-.tl-score {
-  font-size: 11px;
-  color: #888;
-  font-weight: 500;
-}
-
-.tl-pk {
-  font-size: 10px;
-  color: #b85c10;
-}
-
-/* ==== 展开详情面板 ==== */
-.tl-detail {
-  margin-top: 20px;
-  margin-bottom: 24px;
-  background: #f5f9ff;
-  border: 1px solid #d0ddf0;
-  border-radius: 8px;
-  padding: 20px;
-}
-
-.tl-detail-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 18px;
-}
-
-.tl-detail-head h4 {
-  margin: 0;
-  font-size: 16px;
-  color: #1a1a1a;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.tl-vs {
-  font-weight: 400;
-  color: #999;
-  font-size: 13px;
-}
-
-.tl-tag {
-  font-size: 11px;
-  font-weight: 600;
-  color: #4a90d9;
-  background: #e8f0fe;
-  padding: 2px 8px;
-  border-radius: 4px;
-}
-
-.tl-tag-year {
-  background: #fef3e5;
-  color: #b85c10;
-}
-
-.tl-detail-head button {
-  padding: 6px 14px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  background: #fff;
-  cursor: pointer;
-  font-size: 13px;
-  flex-shrink: 0;
-}
-.tl-detail-head button:hover { background: #f5f5f5; }
-
-.tl-detail-body {
-  display: flex;
-  gap: 14px;
-  flex-wrap: wrap;
-}
-
-.tl-score-card {
-  flex: 1;
-  min-width: 190px;
-  background: #fff;
-  border: 1px solid #e8e8e8;
-  border-radius: 8px;
-  padding: 14px;
-}
-
-.tl-score-card h5 {
-  margin: 0 0 10px 0;
-  font-size: 14px;
-  color: #333;
-  border-bottom: 1px solid #f0f0f0;
-  padding-bottom: 8px;
-}
-
-.tl-score-row {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-}
-
-.tl-team-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: #555;
-}
-
-.tl-big-score {
-  font-size: 28px;
-  font-weight: 800;
-  color: #1a1a1a;
-}
-
-.tl-colon {
-  font-size: 22px;
-  font-weight: 300;
-  color: #bbb;
-}
-
-.tl-na {
-  margin: 8px 0 0 0;
-  font-size: 12px;
-  color: #aaa;
-  text-align: center;
-}
-
-.tl-summary {
-  margin: 8px 0 0 0;
-  font-size: 12px;
-  color: #888;
-  text-align: center;
-  font-weight: 500;
-}
-
-.tl-src-card {
-  min-width: 240px;
-}
-
-.tl-src-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.tl-src-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: #555;
-  margin-bottom: 4px;
-}
-
-.tl-src-id {
-  font-weight: 700;
-  color: #4a90d9;
-  flex-shrink: 0;
-}
-
-/* ============================================================
-   全局滚动条美化
-   ============================================================ */
+/* ---- 滚动条 ---- */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; border-radius: 3px; }
 ::-webkit-scrollbar-thumb { background: #c8cdd4; border-radius: 3px; }
